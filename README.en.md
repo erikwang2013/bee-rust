@@ -1,15 +1,15 @@
 <!-- Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz -->
-# bee-rust
+# Beerust
 
 [中文](README.md)
 
-bee-rust is a production-grade web framework for Rust, inspired by Go's [Beego](https://github.com/beego/beego) framework and reimagined with Rust-idiomatic traits, macros, and type system.
+Beerust is a production-grade web framework for Rust, inspired by Go's [Beego](https://github.com/beego/beego) framework and reimagined with Rust-idiomatic traits, macros, and type system.
 
 ## Design Goals
 
 | Goal | Target |
 |------|--------|
-| **Developer Experience** | `bee-rust new` to first request < 30 seconds |
+| **Developer Experience** | `Beerust new` to first request < 30 seconds |
 | **Performance** | Controller overhead < 5% (vs bare axum), P99 routing < 100µs |
 | **Compile Speed** | Full workspace < 60s (release), incremental < 5s |
 | **Binary Size** | Minimal app (router only) < 5MB (strip + LTO) |

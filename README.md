@@ -1,9 +1,9 @@
 <!-- Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz -->
-# bee-rust
+# Beerust
 
 [English](README.en.md)
 
-bee-rust 是一个 Rust 语言的生产级 Web 框架，设计哲学源自 Go 的 [Beego](https://github.com/beego/beego) 框架，用 Rust 惯用的 trait、macro、类型系统重新表达。
+Beerust是一个 Rust 语言的生产级 Web 框架，设计哲学源自 Go 的 Beego框架，用 Rust 惯用的 trait、macro、类型系统重新表达。
 
 ## 设计目标
 
