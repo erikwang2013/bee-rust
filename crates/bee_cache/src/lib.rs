@@ -59,16 +59,18 @@ impl Default for MemoryCache {
 impl Cache for MemoryCache {
     async fn get(&self, key: &str) -> Option<Vec<u8>> {
         let store = self.store.read().await;
-        let entry = store.get(key)?;
-
-        // Check TTL expiry
-        if let Some(expires_at) = entry.expires_at {
-            if Instant::now() >= expires_at {
-                return None;
+        if let Some(entry) = store.get(key) {
+            if let Some(expires_at) = entry.expires_at {
+                if Instant::now() >= expires_at {
+                    drop(store);
+                    let mut write = self.store.write().await;
+                    write.remove(key);
+                    return None;
+                }
             }
+            return Some(entry.value.clone());
         }
-
-        Some(entry.value.clone())
+        None
     }
 
     async fn set(&self, key: &str, value: Vec<u8>, ttl: Option<u64>) -> Result<(), CacheError> {

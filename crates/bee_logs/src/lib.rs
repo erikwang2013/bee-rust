@@ -13,6 +13,10 @@ pub struct Logger {
     async_mode: bool,
 }
 
+pub struct LogHandle {
+    _guard: Option<tracing_appender::non_blocking::WorkerGuard>,
+}
+
 impl Logger {
     pub fn new() -> Self {
         Self {
@@ -37,9 +41,11 @@ impl Logger {
         self
     }
 
-    pub fn init(self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn init(self) -> Result<LogHandle, Box<dyn std::error::Error>> {
         let filter = EnvFilter::try_from_default_env()
             .unwrap_or_else(|_| EnvFilter::new(self.level_str()));
+
+        let mut guard: Option<tracing_appender::non_blocking::WorkerGuard> = None;
 
         match &self.output {
             Output::Stdout => {
@@ -51,7 +57,8 @@ impl Logger {
             Output::File(path) => {
                 let file =
                     std::fs::OpenOptions::new().create(true).append(true).open(path)?;
-                let (writer, _guard) = tracing_appender::non_blocking(file);
+                let (writer, g) = tracing_appender::non_blocking(file);
+                guard = Some(g);
                 tracing_subscriber::registry()
                     .with(filter)
                     .with(fmt::layer().with_writer(writer))
@@ -59,14 +66,16 @@ impl Logger {
             }
             Output::MultiFile(dir) => {
                 let appender = tracing_appender::rolling::daily(dir, "app.log");
-                let (writer, _guard) = tracing_appender::non_blocking(appender);
+                let (writer, g) = tracing_appender::non_blocking(appender);
+                guard = Some(g);
                 tracing_subscriber::registry()
                     .with(filter)
                     .with(fmt::layer().with_writer(writer).json())
                     .try_init()?;
             }
         }
-        Ok(())
+
+        Ok(LogHandle { _guard: guard })
     }
 
     fn level_str(&self) -> String {
@@ -93,8 +102,7 @@ mod tests {
 
     #[test]
     fn test_logger_stdout() {
-        // Ignore result — subscriber may already be set from another test
-        let _ = Logger::new()
+        let _handle = Logger::new()
             .level(Level::DEBUG)
             .output(Output::Stdout)
             .init();
@@ -102,6 +110,6 @@ mod tests {
 
     #[test]
     fn test_logger_default() {
-        let _ = Logger::default().init();
+        let _handle = Logger::default().init();
     }
 }
