@@ -1,9 +1,9 @@
 // Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
 use axum::Router as AxumRouter;
+use axum::routing::MethodRouter;
 
 pub struct Router {
-    // Stub — full axum integration in a follow-up task
-    routes: Vec<String>,
+    routes: Vec<(String, MethodRouter)>,
 }
 
 impl Router {
@@ -19,15 +19,16 @@ impl Router {
     {
         let group = RouteGroup::new(prefix.to_string());
         let group = f(group);
-        for route in group.routes {
-            self.routes
-                .push(format!("{} {}", route.method, route.path));
-        }
+        self.routes.extend(group.routes);
         self
     }
 
     pub fn build(self) -> AxumRouter {
-        AxumRouter::new()
+        let mut router = AxumRouter::new();
+        for (path, method_router) in self.routes {
+            router = router.route(&path, method_router);
+        }
+        router
     }
 }
 
@@ -39,12 +40,7 @@ impl Default for Router {
 
 pub struct RouteGroup {
     prefix: String,
-    routes: Vec<RouteDef>,
-}
-
-struct RouteDef {
-    method: String,
-    path: String,
+    routes: Vec<(String, MethodRouter)>,
 }
 
 impl RouteGroup {
@@ -55,43 +51,43 @@ impl RouteGroup {
         }
     }
 
-    pub fn get(mut self, path: &str) -> Self {
-        self.routes.push(RouteDef {
-            method: "GET".into(),
-            path: format!("{}{}", self.prefix, path),
-        });
-        self
-    }
-
-    pub fn post(mut self, path: &str) -> Self {
-        self.routes.push(RouteDef {
-            method: "POST".into(),
-            path: format!("{}{}", self.prefix, path),
-        });
-        self
-    }
-
-    pub fn put(mut self, path: &str) -> Self {
-        self.routes.push(RouteDef {
-            method: "PUT".into(),
-            path: format!("{}{}", self.prefix, path),
-        });
-        self
-    }
-
-    pub fn delete(mut self, path: &str) -> Self {
-        self.routes.push(RouteDef {
-            method: "DELETE".into(),
-            path: format!("{}{}", self.prefix, path),
-        });
-        self
-    }
-
-    #[allow(dead_code)]
-    pub fn group<F>(self, _path: &str, _f: F) -> Self
+    pub fn get<H, T>(mut self, path: &str, handler: H) -> Self
     where
-        F: FnOnce(RouteGroup) -> RouteGroup,
+        H: axum::handler::Handler<T, ()>,
+        T: 'static,
     {
-        self // stub — nested groups in follow-up
+        let full = format!("{}{}", self.prefix, path);
+        self.routes.push((full, axum::routing::get(handler)));
+        self
+    }
+
+    pub fn post<H, T>(mut self, path: &str, handler: H) -> Self
+    where
+        H: axum::handler::Handler<T, ()>,
+        T: 'static,
+    {
+        let full = format!("{}{}", self.prefix, path);
+        self.routes.push((full, axum::routing::post(handler)));
+        self
+    }
+
+    pub fn put<H, T>(mut self, path: &str, handler: H) -> Self
+    where
+        H: axum::handler::Handler<T, ()>,
+        T: 'static,
+    {
+        let full = format!("{}{}", self.prefix, path);
+        self.routes.push((full, axum::routing::put(handler)));
+        self
+    }
+
+    pub fn delete<H, T>(mut self, path: &str, handler: H) -> Self
+    where
+        H: axum::handler::Handler<T, ()>,
+        T: 'static,
+    {
+        let full = format!("{}{}", self.prefix, path);
+        self.routes.push((full, axum::routing::delete(handler)));
+        self
     }
 }

@@ -27,30 +27,30 @@ pub enum KvError {
 #[async_trait]
 pub trait KvStore: Send + Sync {
     /// Get the value for `key`.  Returns `None` when the key does not exist.
-    async fn get(&mut self, key: &str) -> Result<Option<String>, KvError>;
+    async fn get(&self, key: &str) -> Result<Option<String>, KvError>;
 
     /// Set `key` to `value`, overwriting any existing value.
-    async fn set(&mut self, key: &str, value: &str) -> Result<(), KvError>;
+    async fn set(&self, key: &str, value: &str) -> Result<(), KvError>;
 
     /// Delete `key`.
-    async fn del(&mut self, key: &str) -> Result<(), KvError>;
+    async fn del(&self, key: &str) -> Result<(), KvError>;
 
     /// Returns `true` when `key` exists.
-    async fn exists(&mut self, key: &str) -> Result<bool, KvError>;
+    async fn exists(&self, key: &str) -> Result<bool, KvError>;
 
     /// Atomically increment the integer stored at `key` by `amount`.
     /// Returns the new value.
-    async fn incr(&mut self, key: &str, amount: i64) -> Result<i64, KvError>;
+    async fn incr(&self, key: &str, amount: i64) -> Result<i64, KvError>;
 
     /// Set a TTL (time-to-live) in seconds on `key`.
-    async fn expire(&mut self, key: &str, seconds: i64) -> Result<(), KvError>;
+    async fn expire(&self, key: &str, seconds: i64) -> Result<(), KvError>;
 
     /// Batch get — returns values in the same order as the requested keys.
     /// Missing keys are represented as `None`.
-    async fn mget(&mut self, keys: &[&str]) -> Result<Vec<Option<String>>, KvError>;
+    async fn mget(&self, keys: &[&str]) -> Result<Vec<Option<String>>, KvError>;
 
     /// Batch set — each tuple is `(key, value)`.
-    async fn mset(&mut self, pairs: &[(&str, &str)]) -> Result<(), KvError>;
+    async fn mset(&self, pairs: &[(&str, &str)]) -> Result<(), KvError>;
 }
 
 #[cfg(test)]
@@ -73,29 +73,29 @@ mod tests {
 
     #[async_trait]
     impl KvStore for StubKvStore {
-        async fn get(&mut self, key: &str) -> Result<Option<String>, KvError> {
+        async fn get(&self, key: &str) -> Result<Option<String>, KvError> {
             let map = self.data.lock().unwrap();
             Ok(map.get(key).cloned())
         }
 
-        async fn set(&mut self, key: &str, value: &str) -> Result<(), KvError> {
+        async fn set(&self, key: &str, value: &str) -> Result<(), KvError> {
             let mut map = self.data.lock().unwrap();
             map.insert(key.to_string(), value.to_string());
             Ok(())
         }
 
-        async fn del(&mut self, key: &str) -> Result<(), KvError> {
+        async fn del(&self, key: &str) -> Result<(), KvError> {
             let mut map = self.data.lock().unwrap();
             map.remove(key);
             Ok(())
         }
 
-        async fn exists(&mut self, key: &str) -> Result<bool, KvError> {
+        async fn exists(&self, key: &str) -> Result<bool, KvError> {
             let map = self.data.lock().unwrap();
             Ok(map.contains_key(key))
         }
 
-        async fn incr(&mut self, key: &str, amount: i64) -> Result<i64, KvError> {
+        async fn incr(&self, key: &str, amount: i64) -> Result<i64, KvError> {
             let mut map = self.data.lock().unwrap();
             let entry = map.entry(key.to_string()).or_insert_with(|| "0".to_string());
             let current: i64 = entry
@@ -106,16 +106,16 @@ mod tests {
             Ok(new_val)
         }
 
-        async fn expire(&mut self, _key: &str, _seconds: i64) -> Result<(), KvError> {
+        async fn expire(&self, _key: &str, _seconds: i64) -> Result<(), KvError> {
             Ok(())
         }
 
-        async fn mget(&mut self, keys: &[&str]) -> Result<Vec<Option<String>>, KvError> {
+        async fn mget(&self, keys: &[&str]) -> Result<Vec<Option<String>>, KvError> {
             let map = self.data.lock().unwrap();
             Ok(keys.iter().map(|k| map.get(*k).cloned()).collect())
         }
 
-        async fn mset(&mut self, pairs: &[(&str, &str)]) -> Result<(), KvError> {
+        async fn mset(&self, pairs: &[(&str, &str)]) -> Result<(), KvError> {
             let mut map = self.data.lock().unwrap();
             for (k, v) in pairs {
                 map.insert(k.to_string(), v.to_string());

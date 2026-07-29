@@ -18,8 +18,9 @@ pub enum CacheError {
 
 #[async_trait]
 pub trait Cache: Send + Sync {
-    /// Retrieve a value by key. Returns `None` if not found or expired.
-    async fn get(&self, key: &str) -> Option<Vec<u8>>;
+    /// Retrieve a value by key. Returns `Ok(None)` if not found or expired.
+    /// Returns `Err(...)` on connection or deserialization errors.
+    async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, CacheError>;
 
     /// Set a key-value pair with an optional TTL in seconds.
     async fn set(&self, key: &str, value: Vec<u8>, ttl: Option<u64>) -> Result<(), CacheError>;
@@ -58,7 +59,7 @@ impl Default for MemoryCache {
 
 #[async_trait]
 impl Cache for MemoryCache {
-    async fn get(&self, key: &str) -> Option<Vec<u8>> {
+    async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, CacheError> {
         let store = self.store.read().await;
         if let Some(entry) = store.get(key) {
             if let Some(expires_at) = entry.expires_at {
@@ -66,12 +67,12 @@ impl Cache for MemoryCache {
                     drop(store);
                     let mut write = self.store.write().await;
                     write.remove(key);
-                    return None;
+                    return Ok(None);
                 }
             }
-            return Some(entry.value.clone());
+            return Ok(Some(entry.value.clone()));
         }
-        None
+        Ok(None)
     }
 
     async fn set(&self, key: &str, value: Vec<u8>, ttl: Option<u64>) -> Result<(), CacheError> {
@@ -93,44 +94,35 @@ impl Cache for MemoryCache {
     async fn incr(&self, key: &str) -> Result<i64, CacheError> {
         let mut store = self.store.write().await;
 
-        if let Some(entry) = store.get(key) {
-            // Check TTL expiry
-            if let Some(expires_at) = entry.expires_at {
-                if Instant::now() >= expires_at {
-                    // Expired — reset to 1
-                    let entry = MemoryEntry {
-                        value: b"1".to_vec(),
-                        expires_at: None,
-                    };
-                    store.insert(key.to_string(), entry);
-                    return Ok(1);
+        let entry = store.entry(key.to_string());
+        match entry {
+            std::collections::hash_map::Entry::Occupied(mut occ) => {
+                if let Some(expires_at) = occ.get().expires_at {
+                    if Instant::now() >= expires_at {
+                        occ.insert(MemoryEntry {
+                            value: b"1".to_vec(),
+                            expires_at: None,
+                        });
+                        return Ok(1);
+                    }
                 }
+                let current: i64 = String::from_utf8_lossy(&occ.get().value)
+                    .trim()
+                    .parse()
+                    .map_err(|_| CacheError::SerializeError(format!(
+                        "value for key '{key}' is not an integer"
+                    )))?;
+                let new_value = current + 1;
+                occ.get_mut().value = new_value.to_string().into_bytes();
+                Ok(new_value)
             }
-
-            // Parse existing value as i64
-            let current: i64 = String::from_utf8_lossy(&entry.value)
-                .trim()
-                .parse()
-                .map_err(|_| CacheError::SerializeError(format!(
-                    "value for key '{}' is not an integer",
-                    key
-                )))?;
-
-            let new_value = current + 1;
-            let entry = MemoryEntry {
-                value: new_value.to_string().into_bytes(),
-                expires_at: entry.expires_at,
-            };
-            store.insert(key.to_string(), entry);
-            Ok(new_value)
-        } else {
-            // Key does not exist — initialize to 1
-            let entry = MemoryEntry {
-                value: b"1".to_vec(),
-                expires_at: None,
-            };
-            store.insert(key.to_string(), entry);
-            Ok(1)
+            std::collections::hash_map::Entry::Vacant(vac) => {
+                vac.insert(MemoryEntry {
+                    value: b"1".to_vec(),
+                    expires_at: None,
+                });
+                Ok(1)
+            }
         }
     }
 }
@@ -143,7 +135,7 @@ mod tests {
     async fn test_set_get() {
         let cache = MemoryCache::new();
         cache.set("hello", b"world".to_vec(), None).await.unwrap();
-        assert_eq!(cache.get("hello").await, Some(b"world".to_vec()));
+        assert_eq!(cache.get("hello").await.unwrap(), Some(b"world".to_vec()));
     }
 
     #[tokio::test]
@@ -151,7 +143,7 @@ mod tests {
         let cache = MemoryCache::new();
         cache.set("temp", b"data".to_vec(), None).await.unwrap();
         assert!(cache.delete("temp").await.is_ok());
-        assert!(cache.get("temp").await.is_none());
+        assert!(cache.get("temp").await.unwrap().is_none());
         // Deleting a non-existent key should error
         assert!(cache.delete("temp").await.is_err());
     }
@@ -171,9 +163,8 @@ mod tests {
     async fn test_ttl_expiry() {
         let cache = MemoryCache::new();
         cache.set("ephemeral", b"data".to_vec(), Some(1)).await.unwrap();
-        assert_eq!(cache.get("ephemeral").await, Some(b"data".to_vec()));
-        // Wait for the key to expire
+        assert_eq!(cache.get("ephemeral").await.unwrap(), Some(b"data".to_vec()));
         tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-        assert_eq!(cache.get("ephemeral").await, None);
+        assert_eq!(cache.get("ephemeral").await.unwrap(), None);
     }
 }

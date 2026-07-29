@@ -12,7 +12,27 @@
 #[cfg(feature = "router")]   pub use bee_router;
 
 pub mod prelude {
-    #[cfg(feature = "router")] pub use bee_router::{Controller, Router, Context};
-    #[cfg(feature = "orm")]    pub use bee_orm::Model;
-    #[cfg(feature = "config")] pub use bee_config::Config;
+    #[cfg(feature = "router")]
+    pub use bee_router::{Controller, Router, Context, Filter};
+    #[cfg(feature = "orm")]
+    pub use bee_orm::Model;
+    #[cfg(feature = "config")]
+    pub use bee_config::Config;
+    #[cfg(feature = "cache")]
+    pub use bee_cache::Cache;
+    #[cfg(feature = "session")]
+    pub use bee_session::Session;
+    #[cfg(feature = "logs")]
+    pub use bee_logs::{Logger, Output};
+    #[cfg(feature = "template")]
+    pub use bee_template::context;
+}
+
+pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+/// One-click startup: initializes the logger and returns a handle.
+///
+/// Keep the returned `LogHandle` alive for the program lifetime.
+pub fn init() -> Result<bee_logs::LogHandle> {
+    Ok(bee_logs::Logger::new().init()?)
 }

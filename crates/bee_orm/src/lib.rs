@@ -61,24 +61,31 @@ impl<T> QuerySet<T> {
 
     /// Build the SQL string for this query.
     pub fn to_sql(&self) -> String {
-        let mut sql = format!("SELECT * FROM {}", self.table);
+        let capacity = 16 + self.table.len()
+            + self.filters.iter().map(|f| f.len() + 5).sum::<usize>()
+            + self.order_clauses.iter().map(|o| o.len() + 2).sum::<usize>()
+            + 20;
+        let mut sql = String::with_capacity(capacity);
+
+        sql.push_str("SELECT * FROM ");
+        sql.push_str(&self.table);
 
         if !self.filters.is_empty() {
-            let conditions = self.filters.join(" AND ");
-            sql.push_str(&format!(" WHERE {}", conditions));
+            sql.push_str(" WHERE ");
+            sql.push_str(&self.filters.join(" AND "));
         }
 
         if !self.order_clauses.is_empty() {
-            let order = self.order_clauses.join(", ");
-            sql.push_str(&format!(" ORDER BY {}", order));
+            sql.push_str(" ORDER BY ");
+            sql.push_str(&self.order_clauses.join(", "));
         }
 
         if let Some(limit) = self.limit_val {
-            sql.push_str(&format!(" LIMIT {}", limit));
+            sql.push_str(&format!(" LIMIT {limit}"));
         }
 
         if let Some(offset) = self.offset_val {
-            sql.push_str(&format!(" OFFSET {}", offset));
+            sql.push_str(&format!(" OFFSET {offset}"));
         }
 
         sql

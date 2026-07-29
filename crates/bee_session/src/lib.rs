@@ -42,7 +42,7 @@ impl Session {
     ) -> Result<Self, SessionError> {
         let bytes = cache
             .get(id)
-            .await
+            .await?
             .ok_or(CacheError::NotFound)?;
 
         let data: HashMap<String, String> = serde_json::from_slice(&bytes)
@@ -103,7 +103,7 @@ impl Session {
         let bytes = self
             .cache
             .get(&self.id)
-            .await
+            .await?
             .ok_or(CacheError::NotFound)?;
 
         self.data = serde_json::from_slice(&bytes)

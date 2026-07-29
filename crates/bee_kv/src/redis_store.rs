@@ -28,77 +28,77 @@ impl RedisStore {
 #[cfg(feature = "redis")]
 #[async_trait]
 impl KvStore for RedisStore {
-    async fn get(&mut self, key: &str) -> Result<Option<String>, KvError> {
+    async fn get(&self, key: &str) -> Result<Option<String>, KvError> {
         redis::cmd("GET")
             .arg(key)
-            .query_async(&mut self.conn)
+            .query_async(&self.conn.clone())
             .await
             .map_err(|e| KvError::OperationFailed(e.to_string()))
     }
 
-    async fn set(&mut self, key: &str, value: &str) -> Result<(), KvError> {
+    async fn set(&self, key: &str, value: &str) -> Result<(), KvError> {
         redis::cmd("SET")
             .arg(key)
             .arg(value)
-            .query_async(&mut self.conn)
+            .query_async(&self.conn.clone())
             .await
             .map_err(|e| KvError::OperationFailed(e.to_string()))
     }
 
-    async fn del(&mut self, key: &str) -> Result<(), KvError> {
+    async fn del(&self, key: &str) -> Result<(), KvError> {
         redis::cmd("DEL")
             .arg(key)
-            .query_async(&mut self.conn)
+            .query_async(&self.conn.clone())
             .await
             .map_err(|e| KvError::OperationFailed(e.to_string()))
     }
 
-    async fn exists(&mut self, key: &str) -> Result<bool, KvError> {
+    async fn exists(&self, key: &str) -> Result<bool, KvError> {
         redis::cmd("EXISTS")
             .arg(key)
-            .query_async(&mut self.conn)
+            .query_async(&self.conn.clone())
             .await
             .map_err(|e| KvError::OperationFailed(e.to_string()))
     }
 
-    async fn incr(&mut self, key: &str, amount: i64) -> Result<i64, KvError> {
+    async fn incr(&self, key: &str, amount: i64) -> Result<i64, KvError> {
         if amount == 1 {
             redis::cmd("INCR")
                 .arg(key)
-                .query_async(&mut self.conn)
+                .query_async(&self.conn.clone())
                 .await
                 .map_err(|e| KvError::OperationFailed(e.to_string()))
         } else {
             redis::cmd("INCRBY")
                 .arg(key)
                 .arg(amount)
-                .query_async(&mut self.conn)
+                .query_async(&self.conn.clone())
                 .await
                 .map_err(|e| KvError::OperationFailed(e.to_string()))
         }
     }
 
-    async fn expire(&mut self, key: &str, seconds: i64) -> Result<(), KvError> {
+    async fn expire(&self, key: &str, seconds: i64) -> Result<(), KvError> {
         redis::cmd("EXPIRE")
             .arg(key)
             .arg(seconds)
-            .query_async(&mut self.conn)
+            .query_async(&self.conn.clone())
             .await
             .map_err(|e| KvError::OperationFailed(e.to_string()))
     }
 
-    async fn mget(&mut self, keys: &[&str]) -> Result<Vec<Option<String>>, KvError> {
+    async fn mget(&self, keys: &[&str]) -> Result<Vec<Option<String>>, KvError> {
         if keys.is_empty() {
             return Ok(Vec::new());
         }
         redis::cmd("MGET")
             .arg(keys)
-            .query_async(&mut self.conn)
+            .query_async(&self.conn.clone())
             .await
             .map_err(|e| KvError::OperationFailed(e.to_string()))
     }
 
-    async fn mset(&mut self, pairs: &[(&str, &str)]) -> Result<(), KvError> {
+    async fn mset(&self, pairs: &[(&str, &str)]) -> Result<(), KvError> {
         if pairs.is_empty() {
             return Ok(());
         }
@@ -106,7 +106,7 @@ impl KvStore for RedisStore {
         for (k, v) in pairs {
             cmd.arg(k).arg(v);
         }
-        cmd.query_async(&mut self.conn)
+        cmd.query_async(&self.conn.clone())
             .await
             .map_err(|e| KvError::OperationFailed(e.to_string()))
     }
