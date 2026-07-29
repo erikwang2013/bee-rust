@@ -62,13 +62,13 @@ impl Cache for MemoryCache {
     async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, CacheError> {
         let store = self.store.read().await;
         if let Some(entry) = store.get(key) {
-            if let Some(expires_at) = entry.expires_at {
-                if Instant::now() >= expires_at {
-                    drop(store);
-                    let mut write = self.store.write().await;
-                    write.remove(key);
-                    return Ok(None);
-                }
+            if let Some(expires_at) = entry.expires_at
+                && Instant::now() >= expires_at
+            {
+                drop(store);
+                let mut write = self.store.write().await;
+                write.remove(key);
+                return Ok(None);
             }
             return Ok(Some(entry.value.clone()));
         }
@@ -98,14 +98,14 @@ impl Cache for MemoryCache {
         let entry = store.entry(key.to_string());
         match entry {
             std::collections::hash_map::Entry::Occupied(mut occ) => {
-                if let Some(expires_at) = occ.get().expires_at {
-                    if Instant::now() >= expires_at {
-                        occ.insert(MemoryEntry {
-                            value: b"1".to_vec(),
-                            expires_at: None,
-                        });
-                        return Ok(1);
-                    }
+                if let Some(expires_at) = occ.get().expires_at
+                    && Instant::now() >= expires_at
+                {
+                    occ.insert(MemoryEntry {
+                        value: b"1".to_vec(),
+                        expires_at: None,
+                    });
+                    return Ok(1);
                 }
                 let current: i64 = String::from_utf8_lossy(&occ.get().value)
                     .trim()

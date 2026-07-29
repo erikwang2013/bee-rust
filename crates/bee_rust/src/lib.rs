@@ -33,6 +33,8 @@ pub mod prelude {
     pub use bee_orm::Model;
     #[cfg(feature = "router")]
     pub use bee_router::{Context, Controller, Filter, Router};
+    #[cfg(feature = "security")]
+    pub use bee_router::SecurityFilter;
     #[cfg(feature = "session")]
     pub use bee_session::Session;
     #[cfg(feature = "template")]

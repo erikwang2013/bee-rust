@@ -20,6 +20,10 @@ bee_logs = { path = "../bee_logs" }
 bee_template = { path = "../bee_template" }
 bee_session = { path = "../bee_session" }
 bee_cache = { path = "../bee_cache" }
+security-rust = { workspace = true, optional = true }
+
+[features]
+security = ["security-rust"]
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt", "macros", "net"] }

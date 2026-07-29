@@ -126,8 +126,8 @@ bee_rust   → 全部上述 crate (re-export)
 ### 请求过滤器链
 
 ```
-请求 → [Session 恢复] → [参数验证] → [prepare 钩子] → [handle 处理] → [finish 钩子] → 响应
-                ↓ 任何环节可中断（类似 Beego 的 Abort）
+请求 → [SecurityFilter 攻击检测] → [Session 恢复] → [参数验证] → [prepare 钩子] → [handle 处理] → [finish 钩子] → 响应
+                  ↓ 任何环节可中断（类似 Beego 的 Abort）
 ```
 
 ## 功能介绍
@@ -161,6 +161,21 @@ let router = Router::new()
 - `ctx.abort()` — 中断请求
 - `ctx.session` — 会话访问
 - `ctx.params` — 路径参数
+
+### 安全检测（`security` feature）
+
+基于 [security-rust](https://crates.io/crates/security-rust) 的攻击检测过滤器，覆盖 XSS、SQL 注入、命令注入、SSRF 等 27 种攻击类型：
+
+```rust
+use bee_rust::prelude::*;
+
+let security = SecurityFilter::new();  // 27 个检测器全开
+```
+
+在 `Cargo.toml` 中启用：
+```toml
+bee_rust = { features = ["security"] }
+```
 
 ### ORM（bee_orm）
 
@@ -358,7 +373,7 @@ bee_rust = { git = "https://github.com/erikwang2013/bee-rust", features = ["full
 
 ### 测试覆盖
 
-全仓 57 个测试通过：
+全仓 63 个测试通过：
 
 | Crate | 测试数 |
 |-------|--------|
@@ -372,7 +387,7 @@ bee_rust = { git = "https://github.com/erikwang2013/bee-rust", features = ["full
 | bee_tsdb | 5 |
 | bee_orm | 7 |
 | bee_session | 2 |
-| bee_router | 3 |
+| bee_router | 9 |
 | bee_cli | 9 |
 
 ### 许可证

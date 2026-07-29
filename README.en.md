@@ -121,8 +121,8 @@ bee_rust   → all above (re-export)
 ### Request Filter Chain
 
 ```
-Request → [Session Restore] → [Validation] → [prepare hook] → [handle] → [finish hook] → Response
-               ↓ Interruptible at any stage (Beego-style Abort)
+Request → [SecurityFilter Attack Detection] → [Session Restore] → [Validation] → [prepare hook] → [handle] → [finish hook] → Response
+                  ↓ Interruptible at any stage (Beego-style Abort)
 ```
 
 ## Features
@@ -154,6 +154,21 @@ let router = Router::new()
 - `ctx.abort()` — request interruption
 - `ctx.session` — session access
 - `ctx.params` — path parameters
+
+### Security Detection (`security` feature)
+
+Attack detection powered by [security-rust](https://crates.io/crates/security-rust), covering XSS, SQL injection, command injection, SSRF, and 23 other attack types via 27 detectors:
+
+```rust
+use bee_rust::prelude::*;
+
+let security = SecurityFilter::new();  // all 27 detectors enabled
+```
+
+Enable in `Cargo.toml`:
+```toml
+bee_rust = { features = ["security"] }
+```
 
 ### ORM (bee_orm)
 
@@ -306,7 +321,7 @@ bee_rust = { git = "https://github.com/erikwang2013/bee-rust", features = ["full
 
 ## Test Coverage
 
-57 tests passing across all crates:
+63 tests passing across all crates:
 
 | Crate | Tests |
 |-------|-------|
@@ -320,7 +335,7 @@ bee_rust = { git = "https://github.com/erikwang2013/bee-rust", features = ["full
 | bee_tsdb | 5 |
 | bee_orm | 7 |
 | bee_session | 2 |
-| bee_router | 3 |
+| bee_router | 9 |
 | bee_cli | 9 |
 
 ## License

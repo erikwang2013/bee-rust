@@ -3,6 +3,11 @@ pub mod context;
 pub mod filter;
 pub mod router;
 
+#[cfg(feature = "security")]
+pub mod security;
+#[cfg(feature = "security")]
+pub use security::SecurityFilter;
+
 use async_trait::async_trait;
 use context::RouterError;
 
