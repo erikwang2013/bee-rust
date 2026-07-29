@@ -76,7 +76,8 @@ impl Cache for MemoryCache {
     }
 
     async fn set(&self, key: &str, value: Vec<u8>, ttl: Option<u64>) -> Result<(), CacheError> {
-        let expires_at = ttl.map(|seconds| Instant::now() + std::time::Duration::from_secs(seconds));
+        let expires_at =
+            ttl.map(|seconds| Instant::now() + std::time::Duration::from_secs(seconds));
         let entry = MemoryEntry { value, expires_at };
         self.store.write().await.insert(key.to_string(), entry);
         Ok(())
@@ -109,9 +110,11 @@ impl Cache for MemoryCache {
                 let current: i64 = String::from_utf8_lossy(&occ.get().value)
                     .trim()
                     .parse()
-                    .map_err(|_| CacheError::SerializeError(format!(
-                        "value for key '{key}' is not an integer"
-                    )))?;
+                    .map_err(|_| {
+                        CacheError::SerializeError(format!(
+                            "value for key '{key}' is not an integer"
+                        ))
+                    })?;
                 let new_value = current + 1;
                 occ.get_mut().value = new_value.to_string().into_bytes();
                 Ok(new_value)
@@ -162,8 +165,14 @@ mod tests {
     #[tokio::test]
     async fn test_ttl_expiry() {
         let cache = MemoryCache::new();
-        cache.set("ephemeral", b"data".to_vec(), Some(1)).await.unwrap();
-        assert_eq!(cache.get("ephemeral").await.unwrap(), Some(b"data".to_vec()));
+        cache
+            .set("ephemeral", b"data".to_vec(), Some(1))
+            .await
+            .unwrap();
+        assert_eq!(
+            cache.get("ephemeral").await.unwrap(),
+            Some(b"data".to_vec())
+        );
         tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
         assert_eq!(cache.get("ephemeral").await.unwrap(), None);
     }

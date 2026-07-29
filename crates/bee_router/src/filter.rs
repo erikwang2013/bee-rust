@@ -13,7 +13,14 @@ pub trait Filter: Send + Sync {
     }
 }
 
-/// Session filter — loads session from request before controller
+/// Session filter placeholder.
+///
+/// Intended to extract a session ID from the request (cookie / header),
+/// load the corresponding [`Session`] from cache, and replace the
+/// ephemeral session in [`Context`].  Currently a no-op — new sessions
+/// are created per-request by [`Context::new`].
+///
+/// [`Session`]: bee_session::Session
 pub struct SessionFilter;
 
 impl Filter for SessionFilter {}

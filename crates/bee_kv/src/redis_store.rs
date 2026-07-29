@@ -31,7 +31,7 @@ impl KvStore for RedisStore {
     async fn get(&self, key: &str) -> Result<Option<String>, KvError> {
         redis::cmd("GET")
             .arg(key)
-            .query_async(&self.conn.clone())
+            .query_async(&mut self.conn.clone())
             .await
             .map_err(|e| KvError::OperationFailed(e.to_string()))
     }
@@ -40,7 +40,7 @@ impl KvStore for RedisStore {
         redis::cmd("SET")
             .arg(key)
             .arg(value)
-            .query_async(&self.conn.clone())
+            .query_async(&mut self.conn.clone())
             .await
             .map_err(|e| KvError::OperationFailed(e.to_string()))
     }
@@ -48,7 +48,7 @@ impl KvStore for RedisStore {
     async fn del(&self, key: &str) -> Result<(), KvError> {
         redis::cmd("DEL")
             .arg(key)
-            .query_async(&self.conn.clone())
+            .query_async(&mut self.conn.clone())
             .await
             .map_err(|e| KvError::OperationFailed(e.to_string()))
     }
@@ -56,7 +56,7 @@ impl KvStore for RedisStore {
     async fn exists(&self, key: &str) -> Result<bool, KvError> {
         redis::cmd("EXISTS")
             .arg(key)
-            .query_async(&self.conn.clone())
+            .query_async(&mut self.conn.clone())
             .await
             .map_err(|e| KvError::OperationFailed(e.to_string()))
     }
@@ -65,14 +65,14 @@ impl KvStore for RedisStore {
         if amount == 1 {
             redis::cmd("INCR")
                 .arg(key)
-                .query_async(&self.conn.clone())
+                .query_async(&mut self.conn.clone())
                 .await
                 .map_err(|e| KvError::OperationFailed(e.to_string()))
         } else {
             redis::cmd("INCRBY")
                 .arg(key)
                 .arg(amount)
-                .query_async(&self.conn.clone())
+                .query_async(&mut self.conn.clone())
                 .await
                 .map_err(|e| KvError::OperationFailed(e.to_string()))
         }
@@ -82,7 +82,7 @@ impl KvStore for RedisStore {
         redis::cmd("EXPIRE")
             .arg(key)
             .arg(seconds)
-            .query_async(&self.conn.clone())
+            .query_async(&mut self.conn.clone())
             .await
             .map_err(|e| KvError::OperationFailed(e.to_string()))
     }
@@ -93,7 +93,7 @@ impl KvStore for RedisStore {
         }
         redis::cmd("MGET")
             .arg(keys)
-            .query_async(&self.conn.clone())
+            .query_async(&mut self.conn.clone())
             .await
             .map_err(|e| KvError::OperationFailed(e.to_string()))
     }
@@ -106,7 +106,7 @@ impl KvStore for RedisStore {
         for (k, v) in pairs {
             cmd.arg(k).arg(v);
         }
-        cmd.query_async(&self.conn.clone())
+        cmd.query_async(&mut self.conn.clone())
             .await
             .map_err(|e| KvError::OperationFailed(e.to_string()))
     }

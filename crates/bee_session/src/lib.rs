@@ -40,10 +40,7 @@ impl Session {
         id: &str,
         ttl: Duration,
     ) -> Result<Self, SessionError> {
-        let bytes = cache
-            .get(id)
-            .await?
-            .ok_or(CacheError::NotFound)?;
+        let bytes = cache.get(id).await?.ok_or(CacheError::NotFound)?;
 
         let data: HashMap<String, String> = serde_json::from_slice(&bytes)
             .map_err(|e| SessionError::DeserializeError(e.to_string()))?;

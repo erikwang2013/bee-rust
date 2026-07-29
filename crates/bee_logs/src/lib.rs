@@ -43,8 +43,8 @@ impl Logger {
     }
 
     pub fn init(self) -> Result<LogHandle, Box<dyn std::error::Error>> {
-        let filter = EnvFilter::try_from_default_env()
-            .unwrap_or_else(|_| EnvFilter::new(self.level_str()));
+        let filter =
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(self.level_str()));
 
         let mut guard: Option<tracing_appender::non_blocking::WorkerGuard> = None;
 
@@ -56,8 +56,10 @@ impl Logger {
                     .try_init()?;
             }
             Output::File(path) => {
-                let file =
-                    std::fs::OpenOptions::new().create(true).append(true).open(path)?;
+                let file = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(path)?;
                 let (writer, g) = tracing_appender::non_blocking(file);
                 guard = Some(g);
                 tracing_subscriber::registry()

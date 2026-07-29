@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use serde::Serialize;
-use tera::{Tera, Context};
+use tera::{Context, Tera};
 
 #[derive(Debug, thiserror::Error)]
 pub enum TemplateError {
@@ -50,9 +50,9 @@ impl TemplateEngine {
             context.insert(key, value);
         }
 
-        self.tera
-            .render(template, &context)
-            .map_err(|e| TemplateError::RenderError(format!("failed to render '{}': {}", template, e)))
+        self.tera.render(template, &context).map_err(|e| {
+            TemplateError::RenderError(format!("failed to render '{}': {}", template, e))
+        })
     }
 }
 
@@ -89,7 +89,7 @@ macro_rules! context {
 /// Helper to convert any serializable reference into `serde_json::Value`.
 #[doc(hidden)]
 pub fn _to_json_value<T: Serialize>(val: &T) -> serde_json::Value {
-    serde_json::to_value(val).unwrap_or(serde_json::Value::Null)
+    serde_json::to_value(val).expect("context! macro values must be serializable")
 }
 
 #[cfg(test)]

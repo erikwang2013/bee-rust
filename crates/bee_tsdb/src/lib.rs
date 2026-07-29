@@ -185,9 +185,7 @@ mod tests {
             let mut results: Vec<Point> = pts
                 .iter()
                 .filter(|p| {
-                    p.measurement == measurement
-                        && p.timestamp >= start
-                        && p.timestamp <= end
+                    p.measurement == measurement && p.timestamp >= start && p.timestamp <= end
                 })
                 .cloned()
                 .collect();
@@ -197,10 +195,9 @@ mod tests {
                     filters.iter().all(|f| match &f.op {
                         FilterOp::Eq => p.tags.get(&f.key) == Some(&f.value),
                         FilterOp::Neq => p.tags.get(&f.key) != Some(&f.value),
-                        FilterOp::Regex => p
-                            .tags
-                            .get(&f.key)
-                            .is_some_and(|v| regex_match(&f.value, v)),
+                        FilterOp::Regex => {
+                            p.tags.get(&f.key).is_some_and(|v| regex_match(&f.value, v))
+                        }
                     })
                 });
             }
@@ -290,7 +287,11 @@ mod tests {
     #[tokio::test]
     async fn test_write_batch() {
         let db = StubTsdb::new();
-        let batch = vec![make_point("disk", 1), make_point("disk", 2), make_point("disk", 3)];
+        let batch = vec![
+            make_point("disk", 1),
+            make_point("disk", 2),
+            make_point("disk", 3),
+        ];
         db.write_batch(batch).await.unwrap();
         let results = db
             .query_range("disk", ts(2026, 1, 1), ts(2026, 1, 3), None)

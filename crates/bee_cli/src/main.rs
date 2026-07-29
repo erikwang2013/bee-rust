@@ -36,8 +36,14 @@ enum Commands {
 
 #[derive(Subcommand)]
 enum GenerateKind {
-    Controller { name: String },
-    Model { name: String, #[arg(long)] fields: Option<String> },
+    Controller {
+        name: String,
+    },
+    Model {
+        name: String,
+        #[arg(long)]
+        fields: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -81,8 +87,7 @@ mod tests {
 
     #[test]
     fn test_generate_controller() {
-        let cli =
-            Cli::try_parse_from(["bee-rust", "generate", "controller", "users"]).unwrap();
+        let cli = Cli::try_parse_from(["bee-rust", "generate", "controller", "users"]).unwrap();
         match cli.command {
             Commands::Generate { kind } => match kind {
                 GenerateKind::Controller { name } => assert_eq!(name, "users"),
@@ -168,8 +173,7 @@ mod tests {
 
     #[test]
     fn test_pack_custom_target() {
-        let cli =
-            Cli::try_parse_from(["bee-rust", "pack", "--target", "linux/aarch64"]).unwrap();
+        let cli = Cli::try_parse_from(["bee-rust", "pack", "--target", "linux/aarch64"]).unwrap();
         match cli.command {
             Commands::Pack { target } => assert_eq!(target, "linux/aarch64"),
             _ => panic!("expected Pack command"),

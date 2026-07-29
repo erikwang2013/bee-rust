@@ -124,11 +124,7 @@ pub trait SearchEngine: Send + Sync {
     async fn scroll(&self, handle: ScrollHandle) -> Result<SearchResult, SearchError>;
 
     /// Run aggregation queries against `index`.
-    async fn aggregate(
-        &self,
-        index: &str,
-        aggs: Aggregations,
-    ) -> Result<AggResult, SearchError>;
+    async fn aggregate(&self, index: &str, aggs: Aggregations) -> Result<AggResult, SearchError>;
 }
 
 // ---------------------------------------------------------------------------
@@ -180,9 +176,7 @@ mod tests {
             doc: Document,
         ) -> Result<(), SearchError> {
             let mut map = self.data.lock().unwrap();
-            let store = map
-                .entry(index.to_string())
-                .or_default();
+            let store = map.entry(index.to_string()).or_default();
             store.insert(id, doc);
             Ok(())
         }
@@ -193,9 +187,7 @@ mod tests {
             docs: &[(DocumentId, Document)],
         ) -> Result<BulkResult, SearchError> {
             let mut map = self.data.lock().unwrap();
-            let store = map
-                .entry(index.to_string())
-                .or_default();
+            let store = map.entry(index.to_string()).or_default();
             let count = docs.len() as u64;
             for (id, doc) in docs {
                 store.insert(id.clone(), doc.clone());
@@ -206,16 +198,9 @@ mod tests {
             })
         }
 
-        async fn get(
-            &self,
-            index: &str,
-            id: &DocumentId,
-        ) -> Result<Option<Document>, SearchError> {
+        async fn get(&self, index: &str, id: &DocumentId) -> Result<Option<Document>, SearchError> {
             let map = self.data.lock().unwrap();
-            let doc = map
-                .get(index)
-                .and_then(|store| store.get(id))
-                .cloned();
+            let doc = map.get(index).and_then(|store| store.get(id)).cloned();
             Ok(doc)
         }
 
@@ -312,7 +297,10 @@ mod tests {
         let engine = StubEngine::new();
         engine.create_index("aggs", None).await.unwrap();
         let res = engine
-            .aggregate("aggs", serde_json::json!({"avg_score": {"avg": {"field": "score"}}}))
+            .aggregate(
+                "aggs",
+                serde_json::json!({"avg_score": {"avg": {"field": "score"}}}),
+            )
             .await
             .unwrap();
         assert!(res.is_object());

@@ -135,11 +135,7 @@ pub trait GraphDB: Send + Sync {
     async fn traverse(&self, traversal: Traversal) -> Result<Vec<PathResult>, GraphError>;
 
     /// Execute an arbitrary backend-specific query with optional parameters.
-    async fn query(
-        &self,
-        query: &str,
-        params: Option<Params>,
-    ) -> Result<QueryResult, GraphError>;
+    async fn query(&self, query: &str, params: Option<Params>) -> Result<QueryResult, GraphError>;
 }
 
 // ---------------------------------------------------------------------------
@@ -225,10 +221,7 @@ mod tests {
             Ok(edge)
         }
 
-        async fn traverse(
-            &self,
-            traversal: Traversal,
-        ) -> Result<Vec<PathResult>, GraphError> {
+        async fn traverse(&self, traversal: Traversal) -> Result<Vec<PathResult>, GraphError> {
             let vmap = self.vertices.lock().unwrap();
             if !vmap.contains_key(&traversal.start) {
                 return Err(GraphError::VertexNotFound(traversal.start.clone()));
@@ -249,8 +242,7 @@ mod tests {
                 if !follows {
                     continue;
                 }
-                if !traversal.edge_labels.is_empty()
-                    && !traversal.edge_labels.contains(&edge.label)
+                if !traversal.edge_labels.is_empty() && !traversal.edge_labels.contains(&edge.label)
                 {
                     continue;
                 }
@@ -316,8 +308,14 @@ mod tests {
         let mut props = Properties::new();
         props.insert("age".into(), serde_json::json!(30));
         let updated = db.update_vertex(&"v1".into(), props).await.unwrap();
-        assert_eq!(updated.properties.get("name").unwrap(), &serde_json::json!("Alice"));
-        assert_eq!(updated.properties.get("age").unwrap(), &serde_json::json!(30));
+        assert_eq!(
+            updated.properties.get("name").unwrap(),
+            &serde_json::json!("Alice")
+        );
+        assert_eq!(
+            updated.properties.get("age").unwrap(),
+            &serde_json::json!(30)
+        );
     }
 
     #[tokio::test]

@@ -32,10 +32,7 @@ fn test_query_with_multiple_filters() {
         .filter("age > 18")
         .filter("name LIKE 'A%'")
         .to_sql();
-    assert_eq!(
-        sql,
-        "SELECT * FROM users WHERE age > 18 AND name LIKE 'A%'"
-    );
+    assert_eq!(sql, "SELECT * FROM users WHERE age > 18 AND name LIKE 'A%'");
 }
 
 #[test]

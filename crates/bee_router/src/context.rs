@@ -1,8 +1,8 @@
 // Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
-use bee_template::TemplateEngine;
 use bee_session::Session;
+use bee_template::TemplateEngine;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -55,8 +55,8 @@ impl Context {
         }
         self.response_headers
             .insert("Content-Type".into(), "application/json".into());
-        self.response_body = serde_json::to_vec(data)
-            .map_err(|e| RouterError::SerializeError(e.to_string()))?;
+        self.response_body =
+            serde_json::to_vec(data).map_err(|e| RouterError::SerializeError(e.to_string()))?;
         Ok(())
     }
 
@@ -139,8 +139,7 @@ mod tests {
 
     #[test]
     fn test_text_response() {
-        let engine =
-            TemplateEngine::new(Path::new("tests/fixtures/templates")).unwrap();
+        let engine = TemplateEngine::new(Path::new("tests/fixtures/templates")).unwrap();
         let mut ctx = make_context(Arc::new(engine));
         ctx.text("hello").unwrap();
         assert!(!ctx.is_aborted());
@@ -148,8 +147,7 @@ mod tests {
 
     #[test]
     fn test_json_response() {
-        let engine =
-            TemplateEngine::new(Path::new("tests/fixtures/templates")).unwrap();
+        let engine = TemplateEngine::new(Path::new("tests/fixtures/templates")).unwrap();
         let mut ctx = make_context(Arc::new(engine));
         ctx.json(&serde_json::json!({"key": "value"})).unwrap();
         assert!(!ctx.is_aborted());
@@ -157,8 +155,7 @@ mod tests {
 
     #[test]
     fn test_abort() {
-        let engine =
-            TemplateEngine::new(Path::new("tests/fixtures/templates")).unwrap();
+        let engine = TemplateEngine::new(Path::new("tests/fixtures/templates")).unwrap();
         let mut ctx = make_context(Arc::new(engine));
         ctx.abort(StatusCode::NOT_FOUND, "not found");
         assert!(ctx.is_aborted());

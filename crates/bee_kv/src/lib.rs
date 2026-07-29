@@ -97,7 +97,9 @@ mod tests {
 
         async fn incr(&self, key: &str, amount: i64) -> Result<i64, KvError> {
             let mut map = self.data.lock().unwrap();
-            let entry = map.entry(key.to_string()).or_insert_with(|| "0".to_string());
+            let entry = map
+                .entry(key.to_string())
+                .or_insert_with(|| "0".to_string());
             let current: i64 = entry
                 .parse()
                 .map_err(|_| KvError::OperationFailed("value is not an integer".into()))?;

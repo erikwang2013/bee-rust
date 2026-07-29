@@ -66,9 +66,14 @@ impl<T> QuerySet<T> {
     /// only. Backend drivers MUST use parameterised queries rather than
     /// calling this method for production execution.
     pub fn to_sql(&self) -> String {
-        let capacity = 16 + self.table.len()
+        let capacity = 16
+            + self.table.len()
             + self.filters.iter().map(|f| f.len() + 5).sum::<usize>()
-            + self.order_clauses.iter().map(|o| o.len() + 2).sum::<usize>()
+            + self
+                .order_clauses
+                .iter()
+                .map(|o| o.len() + 2)
+                .sum::<usize>()
             + 20;
         let mut sql = String::with_capacity(capacity);
 

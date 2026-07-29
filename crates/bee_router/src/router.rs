@@ -1,6 +1,6 @@
 // Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
-use axum::Router as AxumRouter;
 use axum::routing::MethodRouter;
+use axum::Router as AxumRouter;
 
 /// A declarative router that collects named routes and builds an
 /// [`axum::Router`]. Routes are organised into [`RouteGroup`]s via
@@ -11,9 +11,7 @@ pub struct Router {
 
 impl Router {
     pub fn new() -> Self {
-        Self {
-            routes: Vec::new(),
-        }
+        Self { routes: Vec::new() }
     }
 
     pub fn ns<F>(mut self, prefix: &str, f: F) -> Self
