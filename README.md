@@ -47,41 +47,41 @@ bee_cli/            # CLI — 脚手架/代码生成/热重载/迁移
 ### 架构图
 
 ```
-                    ┌─────────────────────────────┐
-                    │       bee_rust (元 crate)     │
-                    │   re-export + feature flags   │
-                    └──────────┬──────────────────┘
-                               │
-        ┌──────────────────────┼──────────────────────┐
-        │                      │                      │
-   ┌────▼─────┐          ┌────▼─────┐          ┌─────▼────┐
-   │ Web 层    │          │ 数据层    │          │ 工具层    │
-   └──────────┘          └──────────┘          └──────────┘
-        │                      │                      │
-┌───────┴────────┐    ┌────────┴────────┐    ┌───────┴────────┐
-│ bee_router     │    │ bee_orm         │    │ bee_cli        │
-│  - 路由注册     │    │  - Model/Query   │    │  - 项目脚手架   │
-│  - 控制器 trait │    │  - Migration    │    │  - 热重载       │
-│  - 过滤器链     │    │  - Connection   │    │  - 代码生成     │
-│  - 参数提取     │    │                  │    │                │
-├────────────────┤    ├─────────────────┤    ├────────────────┤
-│ bee_template   │    │ bee_config      │    │ bee_logs        │
-│  - 模板渲染     │    │  - INI/YAML/ENV │    │  - 多级日志     │
-│  - HTML/JSON    │    │  - 热更新        │    │  - tracing 集成 │
-├────────────────┤    ├─────────────────┤    └────────────────┘
-│ bee_session    │    │ bee_cache       │
-│  - Session 管理 │    │  - 缓存抽象      │
-│  - 多后端存储   │    │  - Memory/Redis │
-└────────────────┘    └─────────────────┘
+                          ┌───────────────────────┐
+                          │  bee_rust  (meta)      │
+                          │  re-export + features  │
+                          └───────────┬───────────┘
+                                      │
+              ┌───────────────────────┼───────────────────────┐
+              │                       │                       │
+     ┌────────▼────────┐    ┌────────▼────────┐    ┌────────▼────────┐
+     │    Web Layer     │    │   Data Layer    │    │   Tool Layer    │
+     └────────┬────────┘    └────────┬────────┘    └────────┬────────┘
+              │                       │                       │
+  ┌───────────┼───────────┐  ┌───────┼───────┐  ┌───────────┼───────────┐
+  │ bee_router            │  │ bee_orm        │  │ bee_cli               │
+  │  - route register     │  │  - Model/Query  │  │  - scaffolding        │
+  │  - controller trait   │  │  - Migration   │  │  - hot reload          │
+  │  - filter chain       │  │  - Connection   │  │  - code generation    │
+  │  - param extract      │  │                 │  │                       │
+  ├────────────────────────┤  ├────────────────┤  ├───────────────────────┤
+  │ bee_template           │  │ bee_config     │  │ bee_logs              │
+  │  - template render     │  │  - INI/YAML/ENV│  │  - multi-level log    │
+  │  - HTML/JSON           │  │  - hot reload   │  │  - tracing integrate  │
+  ├────────────────────────┤  ├────────────────┤  └───────────────────────┘
+  │ bee_session            │  │ bee_cache      │
+  │  - session management  │  │  - cache trait  │
+  │  - multi-backend       │  │  - Mem/Redis    │
+  └────────────────────────┘  └────────────────┘
 
-        ┌──────────────────────────────────────┐
-        │            存储引擎层                  │
-        ├──────────────────────────────────────┤
-        │ bee_kv     │ Redis + Memcached       │
-        │ bee_search │ ES + OpenSearch + ClickHouse │
-        │ bee_graph  │ Neo4j + NebulaGraph + ArangoDB │
-        │ bee_tsdb   │ InfluxDB + IoTDB + QuestDB │
-        └──────────────────────────────────────┘
+  ┌─────────────────────────────────────────────────────────┐
+  │                   Storage Engine Layer                   │
+  ├──────────────────┬──────────────────────────────────────┤
+  │ bee_kv           │  Redis + Memcached                   │
+  │ bee_search       │  Elasticsearch + OpenSearch + ClickHouse │
+  │ bee_graph        │  Neo4j + NebulaGraph + ArangoDB      │
+  │ bee_tsdb         │  InfluxDB + Apache IoTDB + QuestDB   │
+  └──────────────────┴──────────────────────────────────────┘
 ```
 
 ### Crate 依赖关系

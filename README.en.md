@@ -47,36 +47,36 @@ bee_cli/            # CLI — scaffolding/codegen/hot-reload/migrations
 ### Architecture Diagram
 
 ```
-                    ┌─────────────────────────────┐
-                    │     bee_rust (meta crate)     │
-                    │   re-export + feature flags   │
-                    └──────────┬──────────────────┘
-                               │
-        ┌──────────────────────┼──────────────────────┐
-        │                      │                      │
-   ┌────▼─────┐          ┌────▼─────┐          ┌─────▼────┐
-   │ Web Tier  │          │ Data Tier  │          │ Tool Tier │
-   └──────────┘          └──────────┘          └──────────┘
-        │                      │                      │
-┌───────┴────────┐    ┌────────┴────────┐    ┌───────┴────────┐
-│ bee_router     │    │ bee_orm         │    │ bee_cli        │
-│  - Routes       │    │  - Model/Query  │    │  - Scaffolding  │
-│  - Controller   │    │  - Migration   │    │  - Hot reload   │
-│  - Filter chain │    │  - Connection   │    │  - Codegen      │
-├────────────────┤    ├─────────────────┤    ├────────────────┤
-│ bee_template   │    │ bee_config      │    │ bee_logs        │
-├────────────────┤    ├─────────────────┤    └────────────────┘
-│ bee_session    │    │ bee_cache       │
-└────────────────┘    └─────────────────┘
+                          ┌───────────────────────┐
+                          │  bee_rust  (meta)      │
+                          │  re-export + features  │
+                          └───────────┬───────────┘
+                                      │
+              ┌───────────────────────┼───────────────────────┐
+              │                       │                       │
+     ┌────────▼────────┐    ┌────────▼────────┐    ┌────────▼────────┐
+     │    Web Tier      │    │   Data Tier     │    │   Tool Tier     │
+     └────────┬────────┘    └────────┬────────┘    └────────┬────────┘
+              │                       │                       │
+  ┌───────────┼───────────┐  ┌───────┼───────┐  ┌───────────┼───────────┐
+  │ bee_router            │  │ bee_orm        │  │ bee_cli               │
+  │  - routes             │  │  - Model/Query  │  │  - scaffolding        │
+  │  - controller trait   │  │  - Migration   │  │  - hot reload          │
+  │  - filter chain       │  │  - Connection   │  │  - codegen            │
+  ├────────────────────────┤  ├────────────────┤  ├───────────────────────┤
+  │ bee_template           │  │ bee_config     │  │ bee_logs              │
+  ├────────────────────────┤  ├────────────────┤  └───────────────────────┘
+  │ bee_session            │  │ bee_cache      │
+  └────────────────────────┘  └────────────────┘
 
-        ┌──────────────────────────────────────┐
-        │         Storage Engine Layer          │
-        ├──────────────────────────────────────┤
-        │ bee_kv     │ Redis + Memcached       │
-        │ bee_search │ ES + OpenSearch + ClickHouse │
-        │ bee_graph  │ Neo4j + NebulaGraph + ArangoDB │
-        │ bee_tsdb   │ InfluxDB + IoTDB + QuestDB │
-        └──────────────────────────────────────┘
+  ┌─────────────────────────────────────────────────────────┐
+  │                   Storage Engine Layer                   │
+  ├──────────────────┬──────────────────────────────────────┤
+  │ bee_kv           │  Redis + Memcached                   │
+  │ bee_search       │  Elasticsearch + OpenSearch + ClickHouse │
+  │ bee_graph        │  Neo4j + NebulaGraph + ArangoDB      │
+  │ bee_tsdb         │  InfluxDB + Apache IoTDB + QuestDB   │
+  └──────────────────┴──────────────────────────────────────┘
 ```
 
 ### Dependency Graph
