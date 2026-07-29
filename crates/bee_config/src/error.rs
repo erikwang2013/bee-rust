@@ -17,4 +17,10 @@ pub enum ConfigError {
         expected: String,
         actual: String,
     },
+
+    #[error("io error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("deserialization error: {0}")]
+    Deserialize(String),
 }

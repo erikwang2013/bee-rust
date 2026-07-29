@@ -1,6 +1,11 @@
 pub mod error;
-pub use error::ConfigError;
+pub mod ini;
+
 use std::path::Path;
+
+pub use error::ConfigError;
+
+pub use bee_config_macro::Config;
 
 pub trait ConfigSource: Sized {
     fn load<P: AsRef<Path>>(path: P) -> Result<Self, ConfigError>;

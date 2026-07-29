@@ -1,26 +1,24 @@
-use bee_config::ConfigSource;
+use bee_config::{Config, ConfigSource};
 use serde::Deserialize;
 
-#[derive(Deserialize, Debug, PartialEq)]
-struct TestConfig {
+#[derive(Deserialize, Debug, PartialEq, Config)]
+struct AppConfig {
     app_name: String,
     http_port: u16,
     run_mode: String,
 }
 
-impl ConfigSource for TestConfig {
-    fn load<P: AsRef<std::path::Path>>(path: P) -> Result<Self, bee_config::ConfigError> {
-        todo!()
-    }
-    fn reload(&mut self) -> Result<(), bee_config::ConfigError> {
-        todo!()
-    }
-    fn watch(&self) -> Result<(), bee_config::ConfigError> {
-        todo!()
-    }
+#[test]
+fn test_load_ini_config() {
+    let cfg = AppConfig::load("tests/fixtures/test.conf").unwrap();
+    assert_eq!(cfg.app_name, "test-app");
+    assert_eq!(cfg.http_port, 8080);
+    assert_eq!(cfg.run_mode, "dev");
 }
 
 #[test]
-fn test_trait_exists() {
-    // Confirms the trait compiles and can be implemented
+fn test_reload_and_watch() {
+    let mut cfg = AppConfig::load("tests/fixtures/test.conf").unwrap();
+    assert!(cfg.reload().is_ok());
+    assert!(cfg.watch().is_ok());
 }
