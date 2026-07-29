@@ -3,7 +3,7 @@ pub mod filter;
 pub mod router;
 
 use async_trait::async_trait;
-use context::{Context, RouterError};
+use context::RouterError;
 
 #[async_trait]
 pub trait Controller: Send + Sync + 'static {
@@ -16,5 +16,6 @@ pub trait Controller: Send + Sync + 'static {
     }
 }
 
+pub use context::Context;
 pub use filter::Filter;
 pub use router::Router;

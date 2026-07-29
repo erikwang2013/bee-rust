@@ -1,0 +1,11 @@
+[package]
+name = "bee_cli"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "bee-rust"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
