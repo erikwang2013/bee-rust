@@ -126,14 +126,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_stub_get_set() {
-        let mut store = StubKvStore::new();
+        let store = StubKvStore::new();
         store.set("hello", "world").await.unwrap();
         assert_eq!(store.get("hello").await.unwrap(), Some("world".into()));
     }
 
     #[tokio::test]
     async fn test_stub_incr() {
-        let mut store = StubKvStore::new();
+        let store = StubKvStore::new();
         let val = store.incr("counter", 1).await.unwrap();
         assert_eq!(val, 1);
         let val = store.incr("counter", 4).await.unwrap();
@@ -142,7 +142,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_stub_mget_mset() {
-        let mut store = StubKvStore::new();
+        let store = StubKvStore::new();
         store
             .mset(&[("a", "1"), ("b", "2"), ("c", "3")])
             .await
@@ -155,7 +155,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_stub_exists_del() {
-        let mut store = StubKvStore::new();
+        let store = StubKvStore::new();
         assert!(!store.exists("x").await.unwrap());
         store.set("x", "y").await.unwrap();
         assert!(store.exists("x").await.unwrap());

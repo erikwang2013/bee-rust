@@ -34,5 +34,5 @@ pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 ///
 /// Keep the returned `LogHandle` alive for the program lifetime.
 pub fn init() -> Result<bee_logs::LogHandle> {
-    Ok(bee_logs::Logger::new().init()?)
+    bee_logs::Logger::new().init()
 }

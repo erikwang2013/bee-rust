@@ -20,10 +20,15 @@ pub fn derive_config(input: TokenStream) -> TokenStream {
 
                 // Build a serde_json::Map, parsing each value as JSON so that
                 // numbers, booleans, and null are coerced to their proper types.
+                // Values that are not valid JSON (e.g. bare strings like "dev"
+                // or "localhost") are treated as JSON strings. If a value
+                // contains a typo (e.g. "8o8o" for a port number) it will be
+                // stored as a string and produce a clear deserialization error
+                // from serde_json::from_value below.
                 let mut map = serde_json::Map::new();
                 for (k, v) in default {
                     let val: serde_json::Value = serde_json::from_str(v)
-                        .unwrap_or(serde_json::Value::String(v.clone()));
+                        .unwrap_or_else(|_| serde_json::Value::String(v.clone()));
                     map.insert(k.clone(), val);
                 }
                 let json_value = serde_json::Value::Object(map);

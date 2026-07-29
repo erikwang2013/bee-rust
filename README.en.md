@@ -306,14 +306,14 @@ bee_rust = { git = "https://github.com/erikwang2013/bee-rust", features = ["full
 
 ## Test Coverage
 
-44 tests passing across all crates:
+57 tests passing across all crates:
 
 | Crate | Tests |
 |-------|-------|
 | bee_config | 4 |
 | bee_cache | 4 |
-| bee_template | 3 |
-| bee_logs | 2 |
+| bee_template | 2 |
+| bee_logs | 3 |
 | bee_kv | 4 |
 | bee_search | 6 |
 | bee_graph | 5 |
@@ -321,6 +321,7 @@ bee_rust = { git = "https://github.com/erikwang2013/bee-rust", features = ["full
 | bee_orm | 7 |
 | bee_session | 2 |
 | bee_router | 3 |
+| bee_cli | 9 |
 
 ## License
 

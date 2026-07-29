@@ -60,6 +60,11 @@ impl<T> QuerySet<T> {
     }
 
     /// Build the SQL string for this query.
+    ///
+    /// **Warning:** This method concatenates user-supplied filter and ordering
+    /// strings directly into SQL. It is intended for debugging and testing
+    /// only. Backend drivers MUST use parameterised queries rather than
+    /// calling this method for production execution.
     pub fn to_sql(&self) -> String {
         let capacity = 16 + self.table.len()
             + self.filters.iter().map(|f| f.len() + 5).sum::<usize>()

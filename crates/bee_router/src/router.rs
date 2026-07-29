@@ -2,6 +2,9 @@
 use axum::Router as AxumRouter;
 use axum::routing::MethodRouter;
 
+/// A declarative router that collects named routes and builds an
+/// [`axum::Router`]. Routes are organised into [`RouteGroup`]s via
+/// the [`ns`](Router::ns) method.
 pub struct Router {
     routes: Vec<(String, MethodRouter)>,
 }
@@ -38,6 +41,8 @@ impl Default for Router {
     }
 }
 
+/// A grouping of routes sharing a common URL prefix, created via
+/// [`Router::ns`]. Supports get, post, put, and delete.
 pub struct RouteGroup {
     prefix: String,
     routes: Vec<(String, MethodRouter)>,

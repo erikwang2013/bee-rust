@@ -238,7 +238,7 @@ mod tests {
             let emap = self.edges.lock().unwrap();
             let mut results = Vec::new();
 
-            for (_eid, edge) in emap.iter() {
+            for edge in emap.values() {
                 let follows = match &traversal.direction {
                     TraversalDirection::Outgoing => edge.from == traversal.start,
                     TraversalDirection::Incoming => edge.to == traversal.start,

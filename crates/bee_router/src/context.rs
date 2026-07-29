@@ -19,8 +19,6 @@ pub enum RouterError {
 pub struct Context {
     pub request: Request<Body>,
     params: HashMap<String, String>,
-    #[allow(dead_code)]
-    query_map: HashMap<String, String>,
     pub session: Session,
     pub templates: Arc<TemplateEngine>,
     response_status: StatusCode,
@@ -34,7 +32,6 @@ impl Context {
         Self {
             request,
             params: HashMap::new(),
-            query_map: HashMap::new(),
             session,
             templates,
             response_status: StatusCode::OK,
@@ -116,7 +113,11 @@ impl Context {
         for (k, v) in &self.response_headers {
             builder = builder.header(k.as_str(), v.as_str());
         }
-        builder.body(Body::from(self.response_body)).unwrap()
+        // SAFETY: header values are constructed internally (Content-Type, Location)
+        // and never contain invalid characters.
+        builder
+            .body(Body::from(self.response_body))
+            .expect("response builder with internal-only headers should never fail")
     }
 }
 

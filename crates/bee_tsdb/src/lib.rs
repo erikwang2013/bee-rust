@@ -195,12 +195,12 @@ mod tests {
             if let Some(filters) = tag_filters {
                 results.retain(|p| {
                     filters.iter().all(|f| match &f.op {
-                        FilterOp::Eq => p.tags.get(&f.key).map_or(false, |v| v == &f.value),
-                        FilterOp::Neq => p.tags.get(&f.key).map_or(true, |v| v != &f.value),
+                        FilterOp::Eq => p.tags.get(&f.key) == Some(&f.value),
+                        FilterOp::Neq => p.tags.get(&f.key) != Some(&f.value),
                         FilterOp::Regex => p
                             .tags
                             .get(&f.key)
-                            .map_or(false, |v| regex_match(&f.value, v)),
+                            .is_some_and(|v| regex_match(&f.value, v)),
                     })
                 });
             }
