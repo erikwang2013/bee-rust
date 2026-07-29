@@ -97,6 +97,26 @@ bee_cli    → bee_router, bee_orm
 bee_rust   → all above (re-export)
 ```
 
+### Supported Databases
+
+| Category | Database | Crate | Feature Flag |
+|----------|---------|-------|-------------|
+| **Relational** | SQLite | `bee_orm` | `sqlite` |
+| | PostgreSQL | `bee_orm` | `postgres` |
+| | MySQL | `bee_orm` | `mysql` |
+| | TiDB | `bee_orm` | `mysql` |
+| **KV / Cache** | Redis | `bee_kv` / `bee_cache` | `redis` |
+| | Memcached | `bee_kv` / `bee_cache` | `memcache` |
+| **Search / Analytics** | Elasticsearch | `bee_search` | `elasticsearch` |
+| | OpenSearch | `bee_search` | `opensearch` |
+| | ClickHouse | `bee_search` | `clickhouse` |
+| **Graph** | Neo4j | `bee_graph` | `neo4j` |
+| | NebulaGraph | `bee_graph` | `nebulagraph` |
+| | ArangoDB | `bee_graph` | `arangodb` |
+| **Time Series** | InfluxDB | `bee_tsdb` | `influxdb` |
+| | Apache IoTDB | `bee_tsdb` | `iotdb` |
+| | QuestDB | `bee_tsdb` | `questdb` |
+
 ### Request Filter Chain
 
 ```

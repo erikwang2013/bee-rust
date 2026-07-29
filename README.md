@@ -102,6 +102,26 @@ bee_cli    → bee_router, bee_orm
 bee_rust   → 全部上述 crate (re-export)
 ```
 
+### 支持的数据库
+
+| 类别 | 数据库 | 对应 Crate | Feature Flag |
+|------|--------|-----------|-------------|
+| **关系型** | SQLite | `bee_orm` | `sqlite` |
+| | PostgreSQL | `bee_orm` | `postgres` |
+| | MySQL | `bee_orm` | `mysql` |
+| | TiDB | `bee_orm` | `mysql` |
+| **KV / 缓存** | Redis | `bee_kv` / `bee_cache` | `redis` |
+| | Memcached | `bee_kv` / `bee_cache` | `memcache` |
+| **搜索 / 分析** | Elasticsearch | `bee_search` | `elasticsearch` |
+| | OpenSearch | `bee_search` | `opensearch` |
+| | ClickHouse | `bee_search` | `clickhouse` |
+| **图数据库** | Neo4j | `bee_graph` | `neo4j` |
+| | NebulaGraph | `bee_graph` | `nebulagraph` |
+| | ArangoDB | `bee_graph` | `arangodb` |
+| **时序数据库** | InfluxDB | `bee_tsdb` | `influxdb` |
+| | Apache IoTDB | `bee_tsdb` | `iotdb` |
+| | QuestDB | `bee_tsdb` | `questdb` |
+
 ### 请求过滤器链
 
 ```
