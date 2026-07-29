@@ -1,3 +1,4 @@
+// Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
 use bee_orm::Model;
 
 #[derive(Model)]

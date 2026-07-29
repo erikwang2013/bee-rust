@@ -1,3 +1,4 @@
+// Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
 use std::marker::PhantomData;
 
 pub use bee_orm_macro::Model;

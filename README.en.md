@@ -1,3 +1,4 @@
+<!-- Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz -->
 # bee-rust
 
 [中文](README.md)

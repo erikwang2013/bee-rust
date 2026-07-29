@@ -1,3 +1,4 @@
+// Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
 #[cfg(feature = "config")]   pub use bee_config;
 #[cfg(feature = "logs")]     pub use bee_logs;
 #[cfg(feature = "cache")]    pub use bee_cache;

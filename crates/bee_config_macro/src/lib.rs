@@ -1,3 +1,4 @@
+// Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput};

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
 use crate::context::{Context, RouterError};
 
 pub trait Filter: Send + Sync {

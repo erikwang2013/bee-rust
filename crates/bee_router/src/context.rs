@@ -1,3 +1,4 @@
+// Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use bee_template::TemplateEngine;

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
 pub mod context;
 pub mod filter;
 pub mod router;

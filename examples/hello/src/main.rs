@@ -1,3 +1,4 @@
+// Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
 #[tokio::main]
 async fn main() {
     let _log_handle = bee_rust::bee_logs::Logger::new().init().unwrap();

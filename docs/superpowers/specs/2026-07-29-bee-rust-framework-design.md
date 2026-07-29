@@ -1,3 +1,4 @@
+<!-- Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz -->
 # bee-rust Framework — Architecture Design
 
 > 日期：2026-07-29 | 状态：已确认
