@@ -220,22 +220,25 @@ kv.set("key", b"value", Some(Duration::from_secs(60))).await?;
 let val = kv.get("key").await?;
 ```
 
-**搜索引擎：**
+**搜索引擎（计划中）：**
 ```rust
+// 驱动实现计划中，当前为 trait stub
 let engine = ElasticsearchEngine::new("http://localhost:9200")?;
 let result = engine.search("my_index", &SearchQuery {
     q: Some("keyword".into()), ..Default::default()
 }).await?;
 ```
 
-**图数据库：**
+**图数据库（计划中）：**
 ```rust
+// 驱动实现计划中，当前为 trait stub
 let db = Neo4jDB::new("bolt://localhost:7687").await?;
 let vid = db.add_vertex("Person", &[("name", "Alice")]).await?;
 ```
 
-**时序数据库：**
+**时序数据库（计划中）：**
 ```rust
+// 驱动实现计划中，当前为 trait stub
 let tsdb = InfluxDB::new("http://localhost:8086").await?;
 tsdb.write_point("cpu", &[("host", "srv1")], &[("value", 0.85)], Utc::now()).await?;
 ```
@@ -389,6 +392,12 @@ bee_rust = { git = "https://github.com/erikwang2013/bee-rust", features = ["full
 | bee_session | 2 |
 | bee_router | 9 |
 | bee_cli | 9 |
+
+## 欢迎支持
+
+| 微信 | 支付宝 |
+|:---:|:---:|
+| <img src="docs/weixinpay.png" width="130" height="130" alt="微信支付"> | <img src="docs/alipay.png" width="130" height="130" alt="支付宝"> |
 
 ### 许可证
 

@@ -21,10 +21,13 @@ members = [
 ]
 
 [workspace.package]
-name = "bee-rust"
-version = "1.0.3"
+version = "1.0.5"
 edition = "2024"
 license = "Apache-2.0"
+repository = "https://github.com/erikwang2013/bee-rust"
+description = "A production-grade web framework for Rust, inspired by Go's Beego"
+keywords = ["web", "framework", "beego", "mvc", "orm"]
+categories = ["web-programming"]
 
 [workspace.dependencies]
 tokio = { version = "1", features = ["full"] }

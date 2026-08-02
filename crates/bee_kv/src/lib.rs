@@ -58,9 +58,14 @@ mod tests {
     use super::*;
     use std::sync::Mutex;
 
+    struct Entry {
+        value: String,
+        expires_at: Option<std::time::Instant>,
+    }
+
     /// In-memory stub used by doc-tests and integration tests.
     pub struct StubKvStore {
-        data: Mutex<std::collections::HashMap<String, String>>,
+        data: Mutex<std::collections::HashMap<String, Entry>>,
     }
 
     impl StubKvStore {
@@ -69,18 +74,25 @@ mod tests {
                 data: Mutex::new(std::collections::HashMap::new()),
             }
         }
+
+        fn check_expired(entry: &Entry) -> bool {
+            match entry.expires_at {
+                Some(expires_at) => std::time::Instant::now() >= expires_at,
+                None => false,
+            }
+        }
     }
 
     #[async_trait]
     impl KvStore for StubKvStore {
         async fn get(&self, key: &str) -> Result<Option<String>, KvError> {
             let map = self.data.lock().unwrap();
-            Ok(map.get(key).cloned())
+            Ok(map.get(key).filter(|e| !Self::check_expired(e)).map(|e| e.value.clone()))
         }
 
         async fn set(&self, key: &str, value: &str) -> Result<(), KvError> {
             let mut map = self.data.lock().unwrap();
-            map.insert(key.to_string(), value.to_string());
+            map.insert(key.to_string(), Entry { value: value.to_string(), expires_at: None });
             Ok(())
         }
 
@@ -92,35 +104,44 @@ mod tests {
 
         async fn exists(&self, key: &str) -> Result<bool, KvError> {
             let map = self.data.lock().unwrap();
-            Ok(map.contains_key(key))
+            Ok(map.get(key).map_or(false, |e| !Self::check_expired(e)))
         }
 
         async fn incr(&self, key: &str, amount: i64) -> Result<i64, KvError> {
             let mut map = self.data.lock().unwrap();
             let entry = map
                 .entry(key.to_string())
-                .or_insert_with(|| "0".to_string());
-            let current: i64 = entry
+                .or_insert_with(|| Entry { value: "0".to_string(), expires_at: None });
+            if Self::check_expired(entry) {
+                *entry = Entry { value: "0".to_string(), expires_at: None };
+            }
+            let current: i64 = entry.value
                 .parse()
                 .map_err(|_| KvError::OperationFailed("value is not an integer".into()))?;
             let new_val = current + amount;
-            *entry = new_val.to_string();
+            entry.value = new_val.to_string();
             Ok(new_val)
         }
 
-        async fn expire(&self, _key: &str, _seconds: i64) -> Result<(), KvError> {
+        async fn expire(&self, key: &str, seconds: i64) -> Result<(), KvError> {
+            let mut map = self.data.lock().unwrap();
+            let entry = map.get_mut(key)
+                .ok_or_else(|| KvError::NotFound(key.into()))?;
+            entry.expires_at = Some(std::time::Instant::now() + std::time::Duration::from_secs(seconds as u64));
             Ok(())
         }
 
         async fn mget(&self, keys: &[&str]) -> Result<Vec<Option<String>>, KvError> {
             let map = self.data.lock().unwrap();
-            Ok(keys.iter().map(|k| map.get(*k).cloned()).collect())
+            Ok(keys.iter().map(|k| {
+                map.get(*k).filter(|e| !Self::check_expired(e)).map(|e| e.value.clone())
+            }).collect())
         }
 
         async fn mset(&self, pairs: &[(&str, &str)]) -> Result<(), KvError> {
             let mut map = self.data.lock().unwrap();
             for (k, v) in pairs {
-                map.insert(k.to_string(), v.to_string());
+                map.insert(k.to_string(), Entry { value: v.to_string(), expires_at: None });
             }
             Ok(())
         }

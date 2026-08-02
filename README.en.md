@@ -205,7 +205,9 @@ let cfg = AppConfig::load("conf/app.conf")?;
 
 ### Storage Engines
 
-**KV/Cache, Search, Graph, Time Series** — each with a unified trait and swappable driver implementations via feature gates.
+**KV/Cache** — unified trait with swappable driver implementations via feature gates.
+
+**Search, Graph, Time Series** — unified traits defined; driver implementations planned.
 
 ### Session
 
@@ -337,6 +339,12 @@ bee_rust = { git = "https://github.com/erikwang2013/bee-rust", features = ["full
 | bee_session | 2 |
 | bee_router | 9 |
 | bee_cli | 9 |
+
+## Support
+
+| WeChat Pay | Alipay |
+|:---:|:---:|
+| <img src="docs/weixinpay.png" width="130" height="130" alt="WeChat Pay"> | <img src="docs/alipay.png" width="130" height="130" alt="Alipay"> |
 
 ## License
 
