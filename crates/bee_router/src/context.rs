@@ -53,8 +53,7 @@ impl Context {
         if self.aborted {
             return Ok(());
         }
-        self.response_headers
-            .insert("Content-Type".into(), "application/json".into());
+        self.response_headers.insert("Content-Type".into(), "application/json".into());
         self.response_body =
             serde_json::to_vec(data).map_err(|e| RouterError::SerializeError(e.to_string()))?;
         Ok(())
@@ -64,8 +63,7 @@ impl Context {
         if self.aborted {
             return Ok(());
         }
-        self.response_headers
-            .insert("Content-Type".into(), "text/plain; charset=utf-8".into());
+        self.response_headers.insert("Content-Type".into(), "text/plain; charset=utf-8".into());
         self.response_body = body.as_bytes().to_vec();
         Ok(())
     }
@@ -82,8 +80,7 @@ impl Context {
             .templates
             .render(template, data)
             .map_err(|e| RouterError::TemplateError(e.to_string()))?;
-        self.response_headers
-            .insert("Content-Type".into(), "text/html; charset=utf-8".into());
+        self.response_headers.insert("Content-Type".into(), "text/html; charset=utf-8".into());
         self.response_body = rendered.into_bytes();
         Ok(())
     }
@@ -93,8 +90,7 @@ impl Context {
             return Ok(());
         }
         self.response_status = StatusCode::FOUND;
-        self.response_headers
-            .insert("Location".into(), url.to_string());
+        self.response_headers.insert("Location".into(), url.to_string());
         Ok(())
     }
 

@@ -1,6 +1,6 @@
 // Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
 use tracing::Level;
-use tracing_subscriber::{fmt, prelude::*, util::SubscriberInitExt, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt, prelude::*, util::SubscriberInitExt};
 
 pub enum Output {
     Stdout,
@@ -20,11 +20,7 @@ pub struct LogHandle {
 
 impl Logger {
     pub fn new() -> Self {
-        Self {
-            level: Level::INFO,
-            output: Output::Stdout,
-            async_mode: false,
-        }
+        Self { level: Level::INFO, output: Output::Stdout, async_mode: false }
     }
 
     pub fn level(mut self, level: Level) -> Self {
@@ -56,10 +52,7 @@ impl Logger {
                     .try_init()?;
             }
             Output::File(path) => {
-                let file = std::fs::OpenOptions::new()
-                    .create(true)
-                    .append(true)
-                    .open(path)?;
+                let file = std::fs::OpenOptions::new().create(true).append(true).open(path)?;
                 let (writer, g) = tracing_appender::non_blocking(file);
                 guard = Some(g);
                 tracing_subscriber::registry()
@@ -115,10 +108,7 @@ mod tests {
     #[test]
     fn test_logger_builder() {
         init_logging();
-        let handle = Logger::new()
-            .level(Level::DEBUG)
-            .output(Output::Stdout)
-            .init();
+        let handle = Logger::new().level(Level::DEBUG).output(Output::Stdout).init();
         // May fail if subscriber already registered; builder chain is what we test.
         assert!(handle.is_ok() || handle.is_err());
     }

@@ -13,11 +13,7 @@ pub enum ConfigError {
     MissingKey(String),
 
     #[error("invalid type for key {key}: expected {expected}, got {actual}")]
-    TypeMismatch {
-        key: String,
-        expected: String,
-        actual: String,
-    },
+    TypeMismatch { key: String, expected: String, actual: String },
 
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),

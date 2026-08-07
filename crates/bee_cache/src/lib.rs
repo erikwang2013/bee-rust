@@ -45,9 +45,7 @@ pub struct MemoryCache {
 
 impl MemoryCache {
     pub fn new() -> Self {
-        Self {
-            store: Arc::new(RwLock::new(HashMap::new())),
-        }
+        Self { store: Arc::new(RwLock::new(HashMap::new())) }
     }
 }
 
@@ -85,11 +83,7 @@ impl Cache for MemoryCache {
 
     async fn delete(&self, key: &str) -> Result<(), CacheError> {
         let mut store = self.store.write().await;
-        if store.remove(key).is_some() {
-            Ok(())
-        } else {
-            Err(CacheError::NotFound)
-        }
+        if store.remove(key).is_some() { Ok(()) } else { Err(CacheError::NotFound) }
     }
 
     async fn incr(&self, key: &str) -> Result<i64, CacheError> {
@@ -101,16 +95,11 @@ impl Cache for MemoryCache {
                 if let Some(expires_at) = occ.get().expires_at
                     && Instant::now() >= expires_at
                 {
-                    occ.insert(MemoryEntry {
-                        value: b"1".to_vec(),
-                        expires_at: None,
-                    });
+                    occ.insert(MemoryEntry { value: b"1".to_vec(), expires_at: None });
                     return Ok(1);
                 }
-                let current: i64 = String::from_utf8_lossy(&occ.get().value)
-                    .trim()
-                    .parse()
-                    .map_err(|_| {
+                let current: i64 =
+                    String::from_utf8_lossy(&occ.get().value).trim().parse().map_err(|_| {
                         CacheError::SerializeError(format!(
                             "value for key '{key}' is not an integer"
                         ))
@@ -120,10 +109,7 @@ impl Cache for MemoryCache {
                 Ok(new_value)
             }
             std::collections::hash_map::Entry::Vacant(vac) => {
-                vac.insert(MemoryEntry {
-                    value: b"1".to_vec(),
-                    expires_at: None,
-                });
+                vac.insert(MemoryEntry { value: b"1".to_vec(), expires_at: None });
                 Ok(1)
             }
         }
@@ -165,14 +151,8 @@ mod tests {
     #[tokio::test]
     async fn test_ttl_expiry() {
         let cache = MemoryCache::new();
-        cache
-            .set("ephemeral", b"data".to_vec(), Some(1))
-            .await
-            .unwrap();
-        assert_eq!(
-            cache.get("ephemeral").await.unwrap(),
-            Some(b"data".to_vec())
-        );
+        cache.set("ephemeral", b"data".to_vec(), Some(1)).await.unwrap();
+        assert_eq!(cache.get("ephemeral").await.unwrap(), Some(b"data".to_vec()));
         tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
         assert_eq!(cache.get("ephemeral").await.unwrap(), None);
     }

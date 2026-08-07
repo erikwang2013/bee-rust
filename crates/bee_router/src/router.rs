@@ -1,6 +1,6 @@
 // Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
-use axum::routing::MethodRouter;
 use axum::Router as AxumRouter;
+use axum::routing::MethodRouter;
 
 /// A declarative router that collects named routes and builds an
 /// [`axum::Router`]. Routes are organised into [`RouteGroup`]s via
@@ -48,10 +48,7 @@ pub struct RouteGroup {
 
 impl RouteGroup {
     pub fn new(prefix: String) -> Self {
-        Self {
-            prefix,
-            routes: Vec::new(),
-        }
+        Self { prefix, routes: Vec::new() }
     }
 
     pub fn get<H, T>(mut self, path: &str, handler: H) -> Self

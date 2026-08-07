@@ -42,7 +42,7 @@ bee_cache/          # Cache abstraction — Memory/Redis/Memcache
 bee_session/        # Session — Memory/Redis/Cookie/Database backends
 bee_logs/           # Logging — multi-level + tracing integration
 bee_template/       # Template rendering — tera-based
-bee_cli/            # CLI — scaffolding/codegen/hot-reload/migrations
+bee_cli/            # CLI — scaffolding/codegen/dev-run/pack (migrations planned)
 ```
 
 ### Architecture Diagram
@@ -239,14 +239,26 @@ let result = engine.render("hello.html", &context! { name: &"World" })?;
 ### CLI Tool
 
 ```bash
+# Scaffold a runnable project (Cargo.toml + src/main.rs)
 bee-rust new my-app
+
+# Code generation
 bee-rust generate controller user
 bee-rust generate model user --fields "name:string,age:int"
+
+# Dev server (--watch restarts on src/ changes)
+bee-rust run
 bee-rust run --watch
+
+# Packaging (cargo build --release + copy to dist/)
+bee-rust pack
+
+# Database migrations (not implemented yet — planned)
 bee-rust migrate up
-bee-rust migrate down
-bee-rust pack --target linux/x86_64
 ```
+
+> Note: `pack --target` is a reserved argument; packaging does not currently
+> distinguish target platforms.
 
 ## Getting Started
 
@@ -323,7 +335,7 @@ bee_rust = { git = "https://github.com/erikwang2013/bee-rust", features = ["full
 
 ## Test Coverage
 
-63 tests passing across all crates:
+68 tests passing across all crates:
 
 | Crate | Tests |
 |-------|-------|
@@ -338,13 +350,19 @@ bee_rust = { git = "https://github.com/erikwang2013/bee-rust", features = ["full
 | bee_orm | 7 |
 | bee_session | 2 |
 | bee_router | 9 |
-| bee_cli | 9 |
+| bee_cli | 16 |
 
 ## Support
 
-| WeChat Pay | Alipay |
-|:---:|:---:|
-| <img src="docs/weixinpay.png" width="130" height="130" alt="WeChat Pay"> | <img src="docs/alipay.png" width="130" height="130" alt="Alipay"> |
+If this project helps you, feel free to scan the QR codes below to show your support. Thank you!
+
+**WeChat Pay**
+
+<img src="docs/weixinpay.png" width="160" height="175" alt="WeChat Pay">
+
+**Alipay**
+
+<img src="docs/alipay.png" width="160" height="175" alt="Alipay">
 
 ## License
 

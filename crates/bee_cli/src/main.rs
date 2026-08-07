@@ -54,20 +54,21 @@ enum MigrateDirection {
 
 fn main() {
     let cli = Cli::parse();
-    match cli.command {
-        Commands::New { name } => println!("Creating new project: {}", name),
+    let result = match cli.command {
+        Commands::New { name } => bee_cli::new_project(&name),
         Commands::Generate { kind } => match kind {
-            GenerateKind::Controller { name } => println!("Generating controller: {}", name),
+            GenerateKind::Controller { name } => bee_cli::generate_controller(&name),
             GenerateKind::Model { name, fields } => {
-                println!("Generating model: {} with fields: {:?}", name, fields)
+                bee_cli::generate_model(&name, fields.as_deref())
             }
         },
-        Commands::Run { watch } => println!("Running server (watch: {})", watch),
-        Commands::Migrate { direction } => match direction {
-            MigrateDirection::Up => println!("Running migrations up"),
-            MigrateDirection::Down => println!("Running migrations down"),
-        },
-        Commands::Pack { target } => println!("Packaging for target: {}", target),
+        Commands::Run { watch } => bee_cli::run_server(watch),
+        Commands::Migrate { .. } => bee_cli::migrate(),
+        Commands::Pack { .. } => bee_cli::pack(),
+    };
+    if let Err(message) = result {
+        eprintln!("error: {message}");
+        std::process::exit(1);
     }
 }
 

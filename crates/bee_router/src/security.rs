@@ -26,9 +26,7 @@ pub struct SecurityFilter {
 impl SecurityFilter {
     /// Create a filter with all 27 detectors enabled.
     pub fn new() -> Self {
-        Self {
-            scanner: Scanner::default(),
-        }
+        Self { scanner: Scanner::default() }
     }
 
     /// Create a filter backed by a custom-configured [`Scanner`] (e.g. one
@@ -91,10 +89,8 @@ impl Filter for SecurityFilter {
 
 /// Format a human-readable abort message from a list of detection results.
 fn format_attack_message(source: &str, results: &[DetectionResult]) -> String {
-    let attacks: Vec<String> = results
-        .iter()
-        .map(|r| format!("{} ({})", r.attack_type, r.severity))
-        .collect();
+    let attacks: Vec<String> =
+        results.iter().map(|r| format!("{} ({})", r.attack_type, r.severity)).collect();
     format!("attack detected in {}: {}", source, attacks.join(", "))
 }
 

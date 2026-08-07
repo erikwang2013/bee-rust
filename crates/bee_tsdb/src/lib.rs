@@ -142,9 +142,7 @@ mod tests {
 
     /// Helper: create a UTC timestamp from year, month, day.
     fn ts(year: i32, month: u32, day: u32) -> Timestamp {
-        Utc.with_ymd_and_hms(year, month, day, 0, 0, 0)
-            .single()
-            .unwrap()
+        Utc.with_ymd_and_hms(year, month, day, 0, 0, 0).single().unwrap()
     }
 
     struct StubTsdb {
@@ -153,9 +151,7 @@ mod tests {
 
     impl StubTsdb {
         fn new() -> Self {
-            Self {
-                points: std::sync::Mutex::new(Vec::new()),
-            }
+            Self { points: std::sync::Mutex::new(Vec::new()) }
         }
     }
 
@@ -242,10 +238,7 @@ mod tests {
         db.write_point(make_point("cpu", 5)).await.unwrap();
         db.write_point(make_point("cpu", 10)).await.unwrap();
 
-        let results = db
-            .query_range("cpu", ts(2026, 1, 1), ts(2026, 1, 6), None)
-            .await
-            .unwrap();
+        let results = db.query_range("cpu", ts(2026, 1, 1), ts(2026, 1, 6), None).await.unwrap();
         assert_eq!(results.len(), 2);
     }
 
@@ -253,10 +246,7 @@ mod tests {
     async fn test_query_range_outside_window() {
         let db = StubTsdb::new();
         db.write_point(make_point("mem", 3)).await.unwrap();
-        let results = db
-            .query_range("mem", ts(2026, 2, 1), ts(2026, 2, 28), None)
-            .await
-            .unwrap();
+        let results = db.query_range("mem", ts(2026, 2, 1), ts(2026, 2, 28), None).await.unwrap();
         assert!(results.is_empty());
     }
 
@@ -271,15 +261,9 @@ mod tests {
         pt2.tags.insert("host".into(), "srv2".into());
         db.write_point(pt2).await.unwrap();
 
-        let filter = TagFilter {
-            key: "host".into(),
-            value: "srv1".into(),
-            op: FilterOp::Eq,
-        };
-        let results = db
-            .query_range("temp", ts(2026, 1, 1), ts(2026, 1, 31), Some(&[filter]))
-            .await
-            .unwrap();
+        let filter = TagFilter { key: "host".into(), value: "srv1".into(), op: FilterOp::Eq };
+        let results =
+            db.query_range("temp", ts(2026, 1, 1), ts(2026, 1, 31), Some(&[filter])).await.unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].tags.get("host").unwrap(), "srv1");
     }
@@ -287,16 +271,9 @@ mod tests {
     #[tokio::test]
     async fn test_write_batch() {
         let db = StubTsdb::new();
-        let batch = vec![
-            make_point("disk", 1),
-            make_point("disk", 2),
-            make_point("disk", 3),
-        ];
+        let batch = vec![make_point("disk", 1), make_point("disk", 2), make_point("disk", 3)];
         db.write_batch(batch).await.unwrap();
-        let results = db
-            .query_range("disk", ts(2026, 1, 1), ts(2026, 1, 3), None)
-            .await
-            .unwrap();
+        let results = db.query_range("disk", ts(2026, 1, 1), ts(2026, 1, 3), None).await.unwrap();
         assert_eq!(results.len(), 3);
     }
 

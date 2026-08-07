@@ -12,6 +12,7 @@ categories.workspace = true
 [[bin]]
 name = "bee-rust"
 path = "src/main.rs"
+doc = false
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }

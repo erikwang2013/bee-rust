@@ -69,11 +69,7 @@ impl<T> QuerySet<T> {
         let capacity = 16
             + self.table.len()
             + self.filters.iter().map(|f| f.len() + 5).sum::<usize>()
-            + self
-                .order_clauses
-                .iter()
-                .map(|o| o.len() + 2)
-                .sum::<usize>()
+            + self.order_clauses.iter().map(|o| o.len() + 2).sum::<usize>()
             + 20;
         let mut sql = String::with_capacity(capacity);
 

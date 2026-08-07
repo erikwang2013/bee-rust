@@ -42,7 +42,7 @@ bee_cache/          # 缓存抽象 — Memory/Redis/Memcache
 bee_session/        # Session — Memory/Redis/Cookie/Database 后端
 bee_logs/           # 日志 — 多级日志 + tracing 集成
 bee_template/       # 模板渲染 — 基于 tera
-bee_cli/            # CLI — 脚手架/代码生成/热重载/迁移
+bee_cli/            # CLI — 脚手架/代码生成/开发运行/打包（迁移规划中）
 ```
 
 ### 架构图
@@ -273,23 +273,25 @@ let result = engine.render("hello.html", &context! { name: &"World" })?;
 ### CLI 工具
 
 ```bash
-# 创建项目
+# 创建项目（生成可运行的脚手架：Cargo.toml + src/main.rs）
 bee-rust new my-app
 
 # 生成代码
 bee-rust generate controller user
 bee-rust generate model user --fields "name:string,age:int"
 
-# 开发运行
+# 开发运行（--watch 监听 src/ 变化自动重启）
+bee-rust run
 bee-rust run --watch
 
-# 数据库迁移
-bee-rust migrate up
-bee-rust migrate down
+# 打包部署（cargo build --release + 复制到 dist/）
+bee-rust pack
 
-# 打包部署
-bee-rust pack --target linux/x86_64
+# 数据库迁移（未实现，规划中）
+bee-rust migrate up
 ```
+
+> 说明：`pack --target` 参数为预留接口，当前打包流程不区分目标平台。
 
 ## 使用步骤
 
@@ -376,7 +378,7 @@ bee_rust = { git = "https://github.com/erikwang2013/bee-rust", features = ["full
 
 ### 测试覆盖
 
-全仓 63 个测试通过：
+全仓 68 个测试通过：
 
 | Crate | 测试数 |
 |-------|--------|
@@ -391,13 +393,19 @@ bee_rust = { git = "https://github.com/erikwang2013/bee-rust", features = ["full
 | bee_orm | 7 |
 | bee_session | 2 |
 | bee_router | 9 |
-| bee_cli | 9 |
+| bee_cli | 16 |
 
 ## 欢迎支持
 
-| 微信 | 支付宝 |
-|:---:|:---:|
-| <img src="docs/weixinpay.png" width="130" height="130" alt="微信支付"> | <img src="docs/alipay.png" width="130" height="130" alt="支付宝"> |
+如果这个项目对你有帮助，欢迎扫描二维码打赏支持，谢谢！
+
+**微信支付**
+
+<img src="docs/weixinpay.png" width="160" height="175" alt="微信支付">
+
+**支付宝**
+
+<img src="docs/alipay.png" width="160" height="175" alt="支付宝">
 
 ### 许可证
 

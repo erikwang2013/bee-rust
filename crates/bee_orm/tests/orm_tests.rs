@@ -28,10 +28,7 @@ fn test_query_with_filter() {
 
 #[test]
 fn test_query_with_multiple_filters() {
-    let sql = User::query()
-        .filter("age > 18")
-        .filter("name LIKE 'A%'")
-        .to_sql();
+    let sql = User::query().filter("age > 18").filter("name LIKE 'A%'").to_sql();
     assert_eq!(sql, "SELECT * FROM users WHERE age > 18 AND name LIKE 'A%'");
 }
 
@@ -49,14 +46,6 @@ fn test_query_with_limit_offset() {
 
 #[test]
 fn test_query_combined() {
-    let sql = User::query()
-        .filter("age > 18")
-        .order_by("id DESC")
-        .limit(10)
-        .offset(5)
-        .to_sql();
-    assert_eq!(
-        sql,
-        "SELECT * FROM users WHERE age > 18 ORDER BY id DESC LIMIT 10 OFFSET 5"
-    );
+    let sql = User::query().filter("age > 18").order_by("id DESC").limit(10).offset(5).to_sql();
+    assert_eq!(sql, "SELECT * FROM users WHERE age > 18 ORDER BY id DESC LIMIT 10 OFFSET 5");
 }

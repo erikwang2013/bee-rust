@@ -144,9 +144,7 @@ mod tests {
 
     impl StubEngine {
         pub fn new() -> Self {
-            Self {
-                data: Mutex::new(HashMap::new()),
-            }
+            Self { data: Mutex::new(HashMap::new()) }
         }
     }
 
@@ -192,10 +190,7 @@ mod tests {
             for (id, doc) in docs {
                 store.insert(id.clone(), doc.clone());
             }
-            Ok(BulkResult {
-                indexed: count,
-                errors: Vec::new(),
-            })
+            Ok(BulkResult { indexed: count, errors: Vec::new() })
         }
 
         async fn get(&self, index: &str, id: &DocumentId) -> Result<Option<Document>, SearchError> {
@@ -233,19 +228,11 @@ mod tests {
                 })
                 .unwrap_or_default();
             let total = hits.len() as u64;
-            Ok(SearchResult {
-                total,
-                hits,
-                aggregations: None,
-            })
+            Ok(SearchResult { total, hits, aggregations: None })
         }
 
         async fn scroll(&self, _handle: ScrollHandle) -> Result<SearchResult, SearchError> {
-            Ok(SearchResult {
-                total: 0,
-                hits: Vec::new(),
-                aggregations: None,
-            })
+            Ok(SearchResult { total: 0, hits: Vec::new(), aggregations: None })
         }
 
         async fn aggregate(
@@ -265,10 +252,7 @@ mod tests {
     async fn test_stub_create_and_index() {
         let engine = StubEngine::new();
         engine.create_index("posts", None).await.unwrap();
-        engine
-            .index("posts", "1".into(), serde_json::json!({"title": "hello"}))
-            .await
-            .unwrap();
+        engine.index("posts", "1".into(), serde_json::json!({"title": "hello"})).await.unwrap();
         let doc = engine.get("posts", &"1".into()).await.unwrap();
         assert!(doc.is_some());
     }
@@ -277,18 +261,9 @@ mod tests {
     async fn test_stub_search() {
         let engine = StubEngine::new();
         engine.create_index("items", None).await.unwrap();
-        engine
-            .index("items", "a".into(), serde_json::json!({"val": 1}))
-            .await
-            .unwrap();
-        engine
-            .index("items", "b".into(), serde_json::json!({"val": 2}))
-            .await
-            .unwrap();
-        let result = engine
-            .search("items", serde_json::json!({"match_all": {}}))
-            .await
-            .unwrap();
+        engine.index("items", "a".into(), serde_json::json!({"val": 1})).await.unwrap();
+        engine.index("items", "b".into(), serde_json::json!({"val": 2})).await.unwrap();
+        let result = engine.search("items", serde_json::json!({"match_all": {}})).await.unwrap();
         assert_eq!(result.total, 2);
     }
 
@@ -297,10 +272,7 @@ mod tests {
         let engine = StubEngine::new();
         engine.create_index("aggs", None).await.unwrap();
         let res = engine
-            .aggregate(
-                "aggs",
-                serde_json::json!({"avg_score": {"avg": {"field": "score"}}}),
-            )
+            .aggregate("aggs", serde_json::json!({"avg_score": {"avg": {"field": "score"}}}))
             .await
             .unwrap();
         assert!(res.is_object());
@@ -317,10 +289,7 @@ mod tests {
     async fn test_stub_delete() {
         let engine = StubEngine::new();
         engine.create_index("tmp", None).await.unwrap();
-        engine
-            .index("tmp", "x".into(), serde_json::json!({}))
-            .await
-            .unwrap();
+        engine.index("tmp", "x".into(), serde_json::json!({})).await.unwrap();
         engine.delete("tmp", &"x".into()).await.unwrap();
         assert!(engine.get("tmp", &"x".into()).await.unwrap().is_none());
     }

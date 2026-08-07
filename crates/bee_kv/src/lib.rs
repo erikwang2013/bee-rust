@@ -70,9 +70,7 @@ mod tests {
 
     impl StubKvStore {
         pub fn new() -> Self {
-            Self {
-                data: Mutex::new(std::collections::HashMap::new()),
-            }
+            Self { data: Mutex::new(std::collections::HashMap::new()) }
         }
 
         fn check_expired(entry: &Entry) -> bool {
@@ -104,7 +102,7 @@ mod tests {
 
         async fn exists(&self, key: &str) -> Result<bool, KvError> {
             let map = self.data.lock().unwrap();
-            Ok(map.get(key).map_or(false, |e| !Self::check_expired(e)))
+            Ok(map.get(key).is_some_and(|e| !Self::check_expired(e)))
         }
 
         async fn incr(&self, key: &str, amount: i64) -> Result<i64, KvError> {
@@ -115,7 +113,8 @@ mod tests {
             if Self::check_expired(entry) {
                 *entry = Entry { value: "0".to_string(), expires_at: None };
             }
-            let current: i64 = entry.value
+            let current: i64 = entry
+                .value
                 .parse()
                 .map_err(|_| KvError::OperationFailed("value is not an integer".into()))?;
             let new_val = current + amount;
@@ -125,17 +124,18 @@ mod tests {
 
         async fn expire(&self, key: &str, seconds: i64) -> Result<(), KvError> {
             let mut map = self.data.lock().unwrap();
-            let entry = map.get_mut(key)
-                .ok_or_else(|| KvError::NotFound(key.into()))?;
-            entry.expires_at = Some(std::time::Instant::now() + std::time::Duration::from_secs(seconds as u64));
+            let entry = map.get_mut(key).ok_or_else(|| KvError::NotFound(key.into()))?;
+            entry.expires_at =
+                Some(std::time::Instant::now() + std::time::Duration::from_secs(seconds as u64));
             Ok(())
         }
 
         async fn mget(&self, keys: &[&str]) -> Result<Vec<Option<String>>, KvError> {
             let map = self.data.lock().unwrap();
-            Ok(keys.iter().map(|k| {
-                map.get(*k).filter(|e| !Self::check_expired(e)).map(|e| e.value.clone())
-            }).collect())
+            Ok(keys
+                .iter()
+                .map(|k| map.get(*k).filter(|e| !Self::check_expired(e)).map(|e| e.value.clone()))
+                .collect())
         }
 
         async fn mset(&self, pairs: &[(&str, &str)]) -> Result<(), KvError> {
@@ -166,10 +166,7 @@ mod tests {
     #[tokio::test]
     async fn test_stub_mget_mset() {
         let store = StubKvStore::new();
-        store
-            .mset(&[("a", "1"), ("b", "2"), ("c", "3")])
-            .await
-            .unwrap();
+        store.mset(&[("a", "1"), ("b", "2"), ("c", "3")]).await.unwrap();
         let vals = store.mget(&["a", "b", "missing"]).await.unwrap();
         assert_eq!(vals[0], Some("1".into()));
         assert_eq!(vals[1], Some("2".into()));

@@ -155,10 +155,7 @@ mod tests {
 
     impl StubGraphDB {
         fn new() -> Self {
-            Self {
-                vertices: Mutex::new(HashMap::new()),
-                edges: Mutex::new(HashMap::new()),
-            }
+            Self { vertices: Mutex::new(HashMap::new()), edges: Mutex::new(HashMap::new()) }
         }
     }
 
@@ -185,9 +182,7 @@ mod tests {
             properties: Properties,
         ) -> Result<Vertex, GraphError> {
             let mut map = self.vertices.lock().unwrap();
-            let vertex = map
-                .get_mut(id)
-                .ok_or_else(|| GraphError::VertexNotFound(id.clone()))?;
+            let vertex = map.get_mut(id).ok_or_else(|| GraphError::VertexNotFound(id.clone()))?;
             for (k, v) in properties {
                 vertex.properties.insert(k, v);
             }
@@ -253,10 +248,8 @@ mod tests {
                 drop(vmap);
 
                 if let (Some(from), Some(to)) = (from_v, to_v) {
-                    results.push(PathResult {
-                        vertices: vec![from, to],
-                        edges: vec![edge.clone()],
-                    });
+                    results
+                        .push(PathResult { vertices: vec![from, to], edges: vec![edge.clone()] });
                 }
                 if results.len() >= 10 {
                     break;
@@ -270,21 +263,14 @@ mod tests {
             _query: &str,
             _params: Option<Params>,
         ) -> Result<QueryResult, GraphError> {
-            Ok(QueryResult {
-                columns: Vec::new(),
-                rows: Vec::new(),
-            })
+            Ok(QueryResult { columns: Vec::new(), rows: Vec::new() })
         }
     }
 
     #[tokio::test]
     async fn test_add_and_get_vertex() {
         let db = StubGraphDB::new();
-        let v = Vertex {
-            id: "v1".into(),
-            label: "Person".into(),
-            properties: Properties::new(),
-        };
+        let v = Vertex { id: "v1".into(), label: "Person".into(), properties: Properties::new() };
         let created = db.add_vertex(v).await.unwrap();
         assert_eq!(created.id, "v1");
         let found = db.get_vertex(&"v1".into()).await.unwrap();
@@ -308,29 +294,15 @@ mod tests {
         let mut props = Properties::new();
         props.insert("age".into(), serde_json::json!(30));
         let updated = db.update_vertex(&"v1".into(), props).await.unwrap();
-        assert_eq!(
-            updated.properties.get("name").unwrap(),
-            &serde_json::json!("Alice")
-        );
-        assert_eq!(
-            updated.properties.get("age").unwrap(),
-            &serde_json::json!(30)
-        );
+        assert_eq!(updated.properties.get("name").unwrap(), &serde_json::json!("Alice"));
+        assert_eq!(updated.properties.get("age").unwrap(), &serde_json::json!(30));
     }
 
     #[tokio::test]
     async fn test_add_edge_and_traverse() {
         let db = StubGraphDB::new();
-        let a = Vertex {
-            id: "a".into(),
-            label: "Person".into(),
-            properties: Properties::new(),
-        };
-        let b = Vertex {
-            id: "b".into(),
-            label: "Person".into(),
-            properties: Properties::new(),
-        };
+        let a = Vertex { id: "a".into(), label: "Person".into(), properties: Properties::new() };
+        let b = Vertex { id: "b".into(), label: "Person".into(), properties: Properties::new() };
         db.add_vertex(a).await.unwrap();
         db.add_vertex(b).await.unwrap();
 
@@ -360,16 +332,8 @@ mod tests {
     #[tokio::test]
     async fn test_delete_vertex_cascades_edges() {
         let db = StubGraphDB::new();
-        let a = Vertex {
-            id: "a".into(),
-            label: "N".into(),
-            properties: Properties::new(),
-        };
-        let b = Vertex {
-            id: "b".into(),
-            label: "N".into(),
-            properties: Properties::new(),
-        };
+        let a = Vertex { id: "a".into(), label: "N".into(), properties: Properties::new() };
+        let b = Vertex { id: "b".into(), label: "N".into(), properties: Properties::new() };
         db.add_vertex(a).await.unwrap();
         db.add_vertex(b).await.unwrap();
         db.add_edge(Edge {

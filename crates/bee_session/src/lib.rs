@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use bee_cache::{Cache, CacheError};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 
 #[derive(Debug, thiserror::Error)]
 pub enum SessionError {
@@ -26,12 +26,7 @@ pub struct Session {
 impl Session {
     /// Create a new session with a random UUID v4.
     pub fn new(cache: Arc<dyn Cache>, ttl: Duration) -> Self {
-        Self {
-            id: uuid::Uuid::new_v4().to_string(),
-            data: HashMap::new(),
-            cache,
-            ttl,
-        }
+        Self { id: uuid::Uuid::new_v4().to_string(), data: HashMap::new(), cache, ttl }
     }
 
     /// Load an existing session from cache by id.
@@ -45,12 +40,7 @@ impl Session {
         let data: HashMap<String, String> = serde_json::from_slice(&bytes)
             .map_err(|e| SessionError::DeserializeError(e.to_string()))?;
 
-        Ok(Self {
-            id: id.to_string(),
-            data,
-            cache,
-            ttl,
-        })
+        Ok(Self { id: id.to_string(), data, cache, ttl })
     }
 
     /// Return the session ID.
@@ -89,19 +79,12 @@ impl Session {
         let json = serde_json::to_vec(&self.data)
             .map_err(|e| SessionError::SerializeError(e.to_string()))?;
         let ttl_secs = self.ttl.as_secs();
-        self.cache
-            .set(&self.id, json, Some(ttl_secs))
-            .await
-            .map_err(SessionError::from)
+        self.cache.set(&self.id, json, Some(ttl_secs)).await.map_err(SessionError::from)
     }
 
     /// Refresh session data from the cache backend.
     pub async fn refresh(&mut self) -> Result<(), SessionError> {
-        let bytes = self
-            .cache
-            .get(&self.id)
-            .await?
-            .ok_or(CacheError::NotFound)?;
+        let bytes = self.cache.get(&self.id).await?.ok_or(CacheError::NotFound)?;
 
         self.data = serde_json::from_slice(&bytes)
             .map_err(|e| SessionError::DeserializeError(e.to_string()))?;
@@ -146,9 +129,8 @@ mod tests {
         };
 
         // Load the session from cache using the same id
-        let loaded = Session::load(cache.clone(), &session_id, Duration::from_secs(3600))
-            .await
-            .unwrap();
+        let loaded =
+            Session::load(cache.clone(), &session_id, Duration::from_secs(3600)).await.unwrap();
 
         let theme: Option<String> = loaded.get("theme").unwrap();
         assert_eq!(theme, Some("dark".to_string()));
