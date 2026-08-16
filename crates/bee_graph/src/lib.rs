@@ -1,4 +1,11 @@
 // Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
+#[cfg(feature = "neo4j")]
+pub mod neo4j;
+#[cfg(feature = "nebulagraph")]
+pub mod nebulagraph;
+#[cfg(feature = "arangodb")]
+pub mod arangodb;
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;

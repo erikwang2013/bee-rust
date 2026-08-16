@@ -14,12 +14,15 @@ async-trait = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror.workspace = true
+reqwest = { workspace = true, optional = true }
 
 [features]
 default = []
-neo4j = []
-nebulagraph = []
-arangodb = []
+neo4j = ["dep:reqwest"]
+nebulagraph = ["dep:reqwest"]
+arangodb = ["dep:reqwest"]
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["rt", "macros"] }
+tokio = { workspace = true, features = ["rt", "macros", "rt-multi-thread"] }
+axum = { workspace = true }
+serde = { workspace = true }

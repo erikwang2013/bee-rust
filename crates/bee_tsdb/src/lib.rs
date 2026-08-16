@@ -1,4 +1,12 @@
 // Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
+
+#[cfg(feature = "influxdb")]
+pub mod influxdb;
+#[cfg(feature = "iotdb")]
+pub mod iotdb;
+#[cfg(feature = "questdb")]
+pub mod questdb;
+
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
