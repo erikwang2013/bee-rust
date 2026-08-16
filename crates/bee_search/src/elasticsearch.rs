@@ -3,8 +3,8 @@ use async_trait::async_trait;
 use reqwest::{Client, StatusCode};
 
 use crate::{
-    AggResult, Aggregations, BulkResult, Document, DocumentId, Mapping, ScrollHandle,
-    SearchEngine, SearchError, SearchHit, SearchQuery, SearchResult,
+    AggResult, Aggregations, BulkResult, Document, DocumentId, Mapping, ScrollHandle, SearchEngine,
+    SearchError, SearchHit, SearchQuery, SearchResult,
 };
 
 /// Elasticsearch driver backed by its REST API.
@@ -61,9 +61,7 @@ impl SearchEngine for Elasticsearch {
         // NDJSON: one action line + one document line per item.
         let mut body = String::new();
         for (id, doc) in docs {
-            body.push_str(&format!(
-                "{{\"index\":{{\"_index\":\"{index}\",\"_id\":\"{id}\"}}}}\n"
-            ));
+            body.push_str(&format!("{{\"index\":{{\"_index\":\"{index}\",\"_id\":\"{id}\"}}}}\n"));
             body.push_str(&doc.to_string());
             body.push('\n');
         }
@@ -176,11 +174,7 @@ fn parse_hits(payload: &serde_json::Value) -> SearchResult {
 }
 
 async fn check_status(res: reqwest::Response, op: &str) -> Result<(), SearchError> {
-    if res.status().is_success() {
-        Ok(())
-    } else {
-        Err(http_error(res, op).await)
-    }
+    if res.status().is_success() { Ok(()) } else { Err(http_error(res, op).await) }
 }
 
 async fn http_error(res: reqwest::Response, op: &str) -> SearchError {
@@ -240,11 +234,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_missing_document_returns_none() {
-        let base = mock(vec![(
-            "/posts/_doc/404",
-            get(|| async { StatusCode::NOT_FOUND }),
-        )])
-        .await;
+        let base = mock(vec![("/posts/_doc/404", get(|| async { StatusCode::NOT_FOUND }))]).await;
         let engine = Elasticsearch::new(base);
         assert!(engine.get("posts", &"404".into()).await.unwrap().is_none());
     }
@@ -257,10 +247,7 @@ mod tests {
         )])
         .await;
         let engine = Elasticsearch::new(base);
-        let res = engine
-            .search("posts", serde_json::json!({"match_all": {}}))
-            .await
-            .unwrap();
+        let res = engine.search("posts", serde_json::json!({"match_all": {}})).await.unwrap();
         assert_eq!(res.total, 1);
         assert_eq!(res.hits[0].id, "1");
         assert_eq!(res.hits[0].source["title"], "hello");
@@ -274,13 +261,22 @@ mod tests {
                 let body = axum::body::to_bytes(req.into_body(), 4096).await.unwrap();
                 let text = String::from_utf8(body.to_vec()).unwrap();
                 assert_eq!(text.lines().count(), 4, "2 docs = 2 action + 2 doc lines");
-                (StatusCode::OK, axum::Json(serde_json::json!({"errors": false, "items": [{}, {}]})))
+                (
+                    StatusCode::OK,
+                    axum::Json(serde_json::json!({"errors": false, "items": [{}, {}]})),
+                )
             }),
         )])
         .await;
         let engine = Elasticsearch::new(base);
         let res = engine
-            .bulk_index("posts", &[("1".into(), serde_json::json!({"a": 1})), ("2".into(), serde_json::json!({"a": 2}))])
+            .bulk_index(
+                "posts",
+                &[
+                    ("1".into(), serde_json::json!({"a": 1})),
+                    ("2".into(), serde_json::json!({"a": 2})),
+                ],
+            )
             .await
             .unwrap();
         assert_eq!(res.indexed, 2);

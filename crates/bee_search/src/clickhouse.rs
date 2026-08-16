@@ -1,11 +1,11 @@
 // Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
 use async_trait::async_trait;
 use reqwest::Client;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::{
-    AggResult, Aggregations, BulkResult, Document, DocumentId, Mapping, ScrollHandle,
-    SearchEngine, SearchError, SearchHit, SearchQuery, SearchResult,
+    AggResult, Aggregations, BulkResult, Document, DocumentId, Mapping, ScrollHandle, SearchEngine,
+    SearchError, SearchHit, SearchQuery, SearchResult,
 };
 
 /// ClickHouse driver backed by its HTTP interface (SQL-over-HTTP with
@@ -47,7 +47,13 @@ fn insert_pairs(doc: &Value) -> Vec<(String, String)> {
                 .map(|(k, v)| {
                     let val = match v {
                         Value::Null => "NULL".to_string(),
-                        Value::Bool(b) => if *b { "1".into() } else { "0".into() },
+                        Value::Bool(b) => {
+                            if *b {
+                                "1".into()
+                            } else {
+                                "0".into()
+                            }
+                        }
                         Value::Number(n) => n.to_string(),
                         _ => format!("'{}'", escape(v.as_str().unwrap_or(&v.to_string()))),
                     };
@@ -133,11 +139,7 @@ impl SearchEngine for ClickHouse {
     }
 
     async fn delete(&self, index: &str, id: &DocumentId) -> Result<(), SearchError> {
-        self.exec(&format!(
-            "ALTER TABLE `{index}` DELETE WHERE `id` = '{}'",
-            escape(id)
-        ))
-        .await
+        self.exec(&format!("ALTER TABLE `{index}` DELETE WHERE `id` = '{}'", escape(id))).await
     }
 
     async fn search(&self, index: &str, query: SearchQuery) -> Result<SearchResult, SearchError> {
@@ -150,11 +152,7 @@ impl SearchEngine for ClickHouse {
         let hits: Vec<SearchHit> = rows
             .drain(..)
             .map(|mut row| {
-                let id = row
-                    .get("id")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or_default()
-                    .to_string();
+                let id = row.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
                 if let Some(obj) = row.as_object_mut() {
                     obj.remove("id");
                 }
@@ -207,11 +205,7 @@ impl ClickHouse {
 }
 
 async fn check_status(res: reqwest::Response, op: &str) -> Result<(), SearchError> {
-    if res.status().is_success() {
-        Ok(())
-    } else {
-        Err(http_error(res, op).await)
-    }
+    if res.status().is_success() { Ok(()) } else { Err(http_error(res, op).await) }
 }
 
 async fn http_error(res: reqwest::Response, op: &str) -> SearchError {
@@ -266,10 +260,7 @@ mod tests {
     #[tokio::test]
     async fn search_parses_json_each_row() {
         let engine = ClickHouse::new(mock().await);
-        let res = engine
-            .search("posts", json!({"sql": "SELECT * FROM posts"}))
-            .await
-            .unwrap();
+        let res = engine.search("posts", json!({"sql": "SELECT * FROM posts"})).await.unwrap();
         assert_eq!(res.total, 2);
         assert_eq!(res.hits[0].id, "1");
         assert_eq!(res.hits[0].source["title"], "hello");
@@ -278,10 +269,7 @@ mod tests {
     #[tokio::test]
     async fn index_sends_insert() {
         let engine = ClickHouse::new(mock().await);
-        engine
-            .index("posts", "1".into(), json!({"title": "hello"}))
-            .await
-            .unwrap();
+        engine.index("posts", "1".into(), json!({"title": "hello"})).await.unwrap();
     }
 
     #[tokio::test]

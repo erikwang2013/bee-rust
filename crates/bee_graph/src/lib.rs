@@ -1,10 +1,10 @@
 // Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
-#[cfg(feature = "neo4j")]
-pub mod neo4j;
-#[cfg(feature = "nebulagraph")]
-pub mod nebulagraph;
 #[cfg(feature = "arangodb")]
 pub mod arangodb;
+#[cfg(feature = "nebulagraph")]
+pub mod nebulagraph;
+#[cfg(feature = "neo4j")]
+pub mod neo4j;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -245,9 +245,7 @@ mod tests {
                         let follows = match &traversal.direction {
                             TraversalDirection::Outgoing => edge.from == *cur,
                             TraversalDirection::Incoming => edge.to == *cur,
-                            TraversalDirection::Both => {
-                                edge.from == *cur || edge.to == *cur
-                            }
+                            TraversalDirection::Both => edge.from == *cur || edge.to == *cur,
                         };
                         if !follows {
                             continue;
@@ -261,7 +259,11 @@ mod tests {
                             TraversalDirection::Outgoing => edge.to.clone(),
                             TraversalDirection::Incoming => edge.from.clone(),
                             TraversalDirection::Both => {
-                                if edge.from == *cur { edge.to.clone() } else { edge.from.clone() }
+                                if edge.from == *cur {
+                                    edge.to.clone()
+                                } else {
+                                    edge.from.clone()
+                                }
                             }
                         };
                         if let Some(nv) = vmap.get(&next_id).cloned() {

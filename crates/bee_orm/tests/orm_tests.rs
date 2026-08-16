@@ -76,13 +76,7 @@ fn test_filter_contains_parametrised() {
 
 #[test]
 fn test_mixed_raw_and_parametrised_filters() {
-    let qs = User::query()
-        .filter("active = 1")
-        .filter_eq("name", "o'neil")
-        .filter_gt("age", "18");
-    assert_eq!(
-        qs.to_sql(),
-        "SELECT * FROM users WHERE active = 1 AND name = ? AND age > ?"
-    );
+    let qs = User::query().filter("active = 1").filter_eq("name", "o'neil").filter_gt("age", "18");
+    assert_eq!(qs.to_sql(), "SELECT * FROM users WHERE active = 1 AND name = ? AND age > ?");
     assert_eq!(qs.params(), &["o'neil", "18"]);
 }

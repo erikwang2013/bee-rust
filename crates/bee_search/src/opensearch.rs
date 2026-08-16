@@ -3,8 +3,8 @@ use async_trait::async_trait;
 use reqwest::{Client, StatusCode};
 
 use crate::{
-    AggResult, Aggregations, BulkResult, Document, DocumentId, Mapping, ScrollHandle,
-    SearchEngine, SearchError, SearchHit, SearchQuery, SearchResult,
+    AggResult, Aggregations, BulkResult, Document, DocumentId, Mapping, ScrollHandle, SearchEngine,
+    SearchError, SearchHit, SearchQuery, SearchResult,
 };
 
 /// OpenSearch driver backed by its REST API (compatible with the
@@ -61,9 +61,7 @@ impl SearchEngine for OpenSearch {
     ) -> Result<BulkResult, SearchError> {
         let mut body = String::new();
         for (id, doc) in docs {
-            body.push_str(&format!(
-                "{{\"index\":{{\"_index\":\"{index}\",\"_id\":\"{id}\"}}}}\n"
-            ));
+            body.push_str(&format!("{{\"index\":{{\"_index\":\"{index}\",\"_id\":\"{id}\"}}}}\n"));
             body.push_str(&doc.to_string());
             body.push('\n');
         }
@@ -176,11 +174,7 @@ fn parse_hits(payload: &serde_json::Value) -> SearchResult {
 }
 
 async fn check_status(res: reqwest::Response, op: &str) -> Result<(), SearchError> {
-    if res.status().is_success() {
-        Ok(())
-    } else {
-        Err(http_error(res, op).await)
-    }
+    if res.status().is_success() { Ok(()) } else { Err(http_error(res, op).await) }
 }
 
 async fn http_error(res: reqwest::Response, op: &str) -> SearchError {
@@ -263,10 +257,8 @@ mod tests {
         )])
         .await;
         let engine = OpenSearch::new(base);
-        let res = engine
-            .bulk_index("posts", &[("1".into(), serde_json::json!({"a": 1}))])
-            .await
-            .unwrap();
+        let res =
+            engine.bulk_index("posts", &[("1".into(), serde_json::json!({"a": 1}))]).await.unwrap();
         assert_eq!(res.indexed, 1);
     }
 }

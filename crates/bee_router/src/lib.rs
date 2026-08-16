@@ -91,9 +91,10 @@ impl Context {
         // untouched sessions on cookie-less requests are skipped to avoid
         // cache churn and a Set-Cookie on every visit.
         if had_cookie || !self.session().is_empty() {
-            self.session_mut().save().await.map_err(|e| {
-                RouterError::Internal(format!("session save failed: {e}"))
-            })?;
+            self.session_mut()
+                .save()
+                .await
+                .map_err(|e| RouterError::Internal(format!("session save failed: {e}")))?;
             let id = self.session().id().to_string();
             let cookie = format!("{SESSION_COOKIE}={id}; Path=/; HttpOnly");
             self.set_header("Set-Cookie", &cookie)?;
@@ -146,9 +147,8 @@ mod tests {
     fn make_context(request: Request<Body>) -> Context {
         let cache: Arc<dyn Cache> = Arc::new(MemoryCache::new());
         let session = Session::new(cache, Duration::from_secs(3600));
-        let templates = Arc::new(
-            TemplateEngine::new(Path::new("tests/fixtures/templates")).unwrap(),
-        );
+        let templates =
+            Arc::new(TemplateEngine::new(Path::new("tests/fixtures/templates")).unwrap());
         Context::new(request, session, templates)
     }
 
@@ -207,9 +207,12 @@ mod tests {
         let mut ctx = make_context(Request::builder().body(Body::empty()).unwrap());
         let calls = Arc::new(AtomicUsize::new(0));
         let result = ctx
-            .dispatch(cache(), Duration::from_secs(3600), &[&AbortFilter], &TrackController {
-                calls: calls.clone(),
-            })
+            .dispatch(
+                cache(),
+                Duration::from_secs(3600),
+                &[&AbortFilter],
+                &TrackController { calls: calls.clone() },
+            )
             .await;
         assert!(result.is_ok());
         assert!(ctx.is_aborted());
@@ -221,9 +224,12 @@ mod tests {
         let mut ctx = make_context(Request::builder().body(Body::empty()).unwrap());
         let calls = Arc::new(AtomicUsize::new(0));
         let result = ctx
-            .dispatch(cache(), Duration::from_secs(3600), &[&ErrorFilter], &TrackController {
-                calls: calls.clone(),
-            })
+            .dispatch(
+                cache(),
+                Duration::from_secs(3600),
+                &[&ErrorFilter],
+                &TrackController { calls: calls.clone() },
+            )
             .await;
         assert!(result.is_err());
         assert_eq!(calls.load(Ordering::SeqCst), 0);
@@ -246,9 +252,7 @@ mod tests {
         }
 
         let mut ctx = make_context(Request::builder().body(Body::empty()).unwrap());
-        ctx.dispatch(cache(), Duration::from_secs(3600), &[], &AbortInPrepare)
-            .await
-            .unwrap();
+        ctx.dispatch(cache(), Duration::from_secs(3600), &[], &AbortInPrepare).await.unwrap();
         assert_eq!(ctx.into_response().status(), StatusCode::FORBIDDEN);
     }
 
@@ -297,9 +301,8 @@ mod tests {
     #[tokio::test]
     async fn session_written_by_handler_gets_cookie_and_is_saved() {
         let cache: Arc<dyn Cache> = Arc::new(MemoryCache::new());
-        let templates = Arc::new(
-            TemplateEngine::new(Path::new("tests/fixtures/templates")).unwrap(),
-        );
+        let templates =
+            Arc::new(TemplateEngine::new(Path::new("tests/fixtures/templates")).unwrap());
         let mut ctx = Context::new(
             Request::builder().body(Body::empty()).unwrap(),
             Session::new(cache.clone(), Duration::from_secs(3600)),
@@ -316,9 +319,7 @@ mod tests {
             }
         }
 
-        ctx.dispatch(cache.clone(), Duration::from_secs(3600), &[], &WriteUser)
-            .await
-            .unwrap();
+        ctx.dispatch(cache.clone(), Duration::from_secs(3600), &[], &WriteUser).await.unwrap();
 
         let sid = ctx.session().id().to_string();
         let response = ctx.into_response();
@@ -334,9 +335,7 @@ mod tests {
     #[tokio::test]
     async fn untouched_cookie_less_session_gets_no_cookie() {
         let mut ctx = make_context(Request::builder().body(Body::empty()).unwrap());
-        ctx.dispatch(cache(), Duration::from_secs(3600), &[], &NoopController)
-            .await
-            .unwrap();
+        ctx.dispatch(cache(), Duration::from_secs(3600), &[], &NoopController).await.unwrap();
         assert!(ctx.into_response().headers().get("set-cookie").is_none());
     }
 
@@ -348,9 +347,7 @@ mod tests {
             .body(Body::empty())
             .unwrap();
         let mut ctx = make_context(request);
-        ctx.dispatch(cache.clone(), Duration::from_secs(3600), &[], &NoopController)
-            .await
-            .unwrap();
+        ctx.dispatch(cache.clone(), Duration::from_secs(3600), &[], &NoopController).await.unwrap();
         assert_ne!(ctx.session().id(), "nonexistent-id");
         assert!(ctx.into_response().headers().contains_key("set-cookie"));
     }

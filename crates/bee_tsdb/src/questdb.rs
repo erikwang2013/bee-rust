@@ -1,9 +1,11 @@
 // Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use reqwest::{header::CONTENT_TYPE, Client};
+use reqwest::{Client, header::CONTENT_TYPE};
 
-use crate::{CQSpec, Fields, Point, TagFilter, Tags, TimeSeries, TimeSeriesDB, Timestamp, TsdbError};
+use crate::{
+    CQSpec, Fields, Point, TagFilter, Tags, TimeSeries, TimeSeriesDB, Timestamp, TsdbError,
+};
 
 /// QuestDB driver backed by its HTTP exec API (`POST /exec`).
 pub struct QuestDB {
@@ -195,7 +197,9 @@ fn urlencode(s: &str) -> String {
     let mut out = String::new();
     for b in s.bytes() {
         match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => out.push(b as char),
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(b as char)
+            }
             b' ' => out.push('+'),
             _ => out.push_str(&format!("%{b:02X}")),
         }
@@ -254,9 +258,9 @@ mod tests {
         let mut i = 0;
         while i < bytes.len() {
             let hex = if bytes[i] == b'%' && i + 2 < bytes.len() {
-                (bytes[i + 1] as char)
-                    .to_digit(16)
-                    .and_then(|hi| (bytes[i + 2] as char).to_digit(16).map(|lo| (hi * 16 + lo) as u8))
+                (bytes[i + 1] as char).to_digit(16).and_then(|hi| {
+                    (bytes[i + 2] as char).to_digit(16).map(|lo| (hi * 16 + lo) as u8)
+                })
             } else {
                 None
             };
@@ -299,7 +303,9 @@ mod tests {
             post(|req: Request<Body>| async move {
                 let body = axum::body::to_bytes(req.into_body(), 4096).await.unwrap();
                 let text = decoded(core::str::from_utf8(&body).unwrap());
-                assert!(text.contains("VALUES (1767225600000000, 'srv1', 42.0), (1767312000000000, 'srv1', 42.0)"));
+                assert!(text.contains(
+                    "VALUES (1767225600000000, 'srv1', 42.0), (1767312000000000, 'srv1', 42.0)"
+                ));
                 (StatusCode::OK, axum::Json(serde_json::json!({"ddl": false, "count": 2})))
             }),
         )])

@@ -137,12 +137,7 @@ mod tests {
         let app = Router::new().ns("/api", |ns| ns.get("/hello", hello));
         let res = app
             .build()
-            .oneshot(
-                Request::builder()
-                    .uri("/api/hello?name=rust")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
+            .oneshot(Request::builder().uri("/api/hello?name=rust").body(Body::empty()).unwrap())
             .await
             .unwrap();
         assert_eq!(res.status(), StatusCode::OK);
@@ -165,12 +160,7 @@ mod tests {
             .ns("/api", |ns| ns.get("/count", count))
             .with_state(AppState { counter: 42 });
         let res = app
-            .oneshot(
-                Request::builder()
-                    .uri("/api/count")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
+            .oneshot(Request::builder().uri("/api/count").body(Body::empty()).unwrap())
             .await
             .unwrap();
         assert_eq!(res.status(), StatusCode::OK);

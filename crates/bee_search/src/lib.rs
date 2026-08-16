@@ -3,12 +3,12 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+#[cfg(feature = "clickhouse")]
+pub mod clickhouse;
 #[cfg(feature = "elasticsearch")]
 pub mod elasticsearch;
 #[cfg(feature = "opensearch")]
 pub mod opensearch;
-#[cfg(feature = "clickhouse")]
-pub mod clickhouse;
 
 // ---------------------------------------------------------------------------
 // Public types

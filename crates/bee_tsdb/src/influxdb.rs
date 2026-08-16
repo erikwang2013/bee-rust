@@ -26,7 +26,12 @@ impl InfluxDB {
         bucket: impl Into<String>,
         org: impl Into<String>,
     ) -> Self {
-        Self { client: Client::new(), base_url: base_url.into(), bucket: bucket.into(), org: org.into() }
+        Self {
+            client: Client::new(),
+            base_url: base_url.into(),
+            bucket: bucket.into(),
+            org: org.into(),
+        }
     }
 }
 
@@ -167,11 +172,7 @@ fn line_protocol(point: &Point) -> Result<String, TsdbError> {
 }
 
 fn parse_value(s: &str) -> serde_json::Value {
-    if let Ok(n) = s.parse::<f64>() {
-        serde_json::json!(n)
-    } else {
-        serde_json::json!(s)
-    }
+    if let Ok(n) = s.parse::<f64>() { serde_json::json!(n) } else { serde_json::json!(s) }
 }
 
 fn parse_time(s: &str) -> Result<Timestamp, TsdbError> {
@@ -222,11 +223,7 @@ fn parse_csv(body: &str) -> Result<TimeSeries, TsdbError> {
 }
 
 async fn check_status(res: reqwest::Response, op: &str) -> Result<(), TsdbError> {
-    if res.status().is_success() {
-        Ok(())
-    } else {
-        Err(http_error(res, op).await)
-    }
+    if res.status().is_success() { Ok(()) } else { Err(http_error(res, op).await) }
 }
 
 async fn http_error(res: reqwest::Response, op: &str) -> TsdbError {
@@ -352,7 +349,9 @@ mod tests {
 
     #[tokio::test]
     async fn query_error_on_non_2xx() {
-        let base = mock(vec![("/api/v2/query", post(|| async { StatusCode::INTERNAL_SERVER_ERROR }))]).await;
+        let base =
+            mock(vec![("/api/v2/query", post(|| async { StatusCode::INTERNAL_SERVER_ERROR }))])
+                .await;
         let db = InfluxDB::new(base);
         let start = Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).single().unwrap();
         let end = Utc.with_ymd_and_hms(2026, 1, 2, 0, 0, 0).single().unwrap();

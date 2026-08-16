@@ -18,7 +18,11 @@ impl Neo4j {
         Self { client: Client::new(), base_url: base_url.into() }
     }
 
-    async fn run(&self, statement: &str, parameters: Properties) -> Result<serde_json::Value, GraphError> {
+    async fn run(
+        &self,
+        statement: &str,
+        parameters: Properties,
+    ) -> Result<serde_json::Value, GraphError> {
         let res = self
             .client
             .post(format!("{}/db/neo4j/tx/commit", self.base_url))
@@ -47,10 +51,7 @@ impl GraphDB for Neo4j {
         let mut p = Properties::new();
         p.insert("id".into(), serde_json::json!(vertex.id));
         p.insert("props".into(), serde_json::Value::Object(vertex.properties.clone()));
-        let stmt = format!(
-            "CREATE (n:`{}` {{id: $id}}) SET n += $props",
-            backtick(&vertex.label)
-        );
+        let stmt = format!("CREATE (n:`{}` {{id: $id}}) SET n += $props", backtick(&vertex.label));
         self.run(&stmt, p).await?;
         Ok(vertex)
     }
@@ -110,11 +111,8 @@ impl GraphDB for Neo4j {
     }
 
     async fn traverse(&self, traversal: Traversal) -> Result<Vec<PathResult>, GraphError> {
-        let label = traversal
-            .edge_labels
-            .first()
-            .map(|l| format!("`{}`", backtick(l)))
-            .unwrap_or_default();
+        let label =
+            traversal.edge_labels.first().map(|l| format!("`{}`", backtick(l))).unwrap_or_default();
         let arrow = match traversal.direction {
             TraversalDirection::Outgoing => "->",
             TraversalDirection::Incoming => "<-",
@@ -160,7 +158,11 @@ fn node_to_vertex(v: &serde_json::Value) -> Vertex {
     let props = v.get("properties").cloned().unwrap_or_else(|| serde_json::json!({}));
     Vertex {
         id: v["properties"]["id"].as_str().unwrap_or("").to_string(),
-        label: v["labels"].as_array().and_then(|a| a.first().and_then(|x| x.as_str())).unwrap_or("").to_string(),
+        label: v["labels"]
+            .as_array()
+            .and_then(|a| a.first().and_then(|x| x.as_str()))
+            .unwrap_or("")
+            .to_string(),
         properties: props.as_object().cloned().unwrap_or_default(),
     }
 }

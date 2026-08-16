@@ -45,11 +45,8 @@ struct RetryConfig {
 }
 
 fn write_test_conf(path: &std::path::Path, port: u16, mode: &str) {
-    std::fs::write(
-        path,
-        format!("app_name = test-app\nhttp_port = {port}\nrun_mode = {mode}\n"),
-    )
-    .unwrap();
+    std::fs::write(path, format!("app_name = test-app\nhttp_port = {port}\nrun_mode = {mode}\n"))
+        .unwrap();
 }
 
 fn temp_dir(name: &str) -> (std::path::PathBuf, std::path::PathBuf) {
@@ -85,10 +82,7 @@ fn test_reload_updates_values() {
 #[test]
 fn test_reload_without_load_errors() {
     let mut cfg = UnloadedConfig { app_name: "x".into() };
-    assert!(matches!(
-        cfg.reload(),
-        Err(bee_config::ConfigError::NotFound(_))
-    ));
+    assert!(matches!(cfg.reload(), Err(bee_config::ConfigError::NotFound(_))));
 }
 
 #[test]

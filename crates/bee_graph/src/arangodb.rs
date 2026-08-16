@@ -63,7 +63,11 @@ impl GraphDB for ArangoDB {
         doc.insert("_label".into(), serde_json::json!(vertex.label));
         self.send(
             self.client
-                .post(format!("{}/_api/document/{collection}", self.base_url, collection = self.vertex_collection))
+                .post(format!(
+                    "{}/_api/document/{collection}",
+                    self.base_url,
+                    collection = self.vertex_collection
+                ))
                 .json(&doc),
             "add_vertex",
         )
@@ -72,12 +76,7 @@ impl GraphDB for ArangoDB {
     }
 
     async fn get_vertex(&self, id: &VertexId) -> Result<Option<Vertex>, GraphError> {
-        let res = self
-            .client
-            .get(self.vertex_url(id))
-            .send()
-            .await
-            .map_err(conn_err)?;
+        let res = self.client.get(self.vertex_url(id)).send().await.map_err(conn_err)?;
         if res.status() == StatusCode::NOT_FOUND {
             return Ok(None);
         }
@@ -112,12 +111,7 @@ impl GraphDB for ArangoDB {
     }
 
     async fn delete_vertex(&self, id: &VertexId) -> Result<(), GraphError> {
-        let res = self
-            .client
-            .delete(self.vertex_url(id))
-            .send()
-            .await
-            .map_err(conn_err)?;
+        let res = self.client.delete(self.vertex_url(id)).send().await.map_err(conn_err)?;
         if res.status() == StatusCode::NOT_FOUND {
             return Err(GraphError::VertexNotFound(id.clone()));
         }
@@ -139,9 +133,7 @@ impl GraphDB for ArangoDB {
             serde_json::json!(format!("{}/{to}", self.vertex_collection, to = edge.to)),
         );
         self.send(
-            self.client
-                .post(format!("{}/_api/document/{}", self.base_url, edge.label))
-                .json(&doc),
+            self.client.post(format!("{}/_api/document/{}", self.base_url, edge.label)).json(&doc),
             "add_edge",
         )
         .await?;
@@ -154,11 +146,8 @@ impl GraphDB for ArangoDB {
             TraversalDirection::Incoming => "INBOUND",
             TraversalDirection::Both => "ANY",
         };
-        let label = traversal
-            .edge_labels
-            .first()
-            .map(|l| format!(" `{}`", aql_esc(l)))
-            .unwrap_or_default();
+        let label =
+            traversal.edge_labels.first().map(|l| format!(" `{}`", aql_esc(l))).unwrap_or_default();
         let query = format!(
             "FOR v, e IN 1..{} {direction} \"{}/{}\"{label} RETURN {{v: v, e: e}}",
             traversal.max_depth,
@@ -186,9 +175,9 @@ impl GraphDB for ArangoDB {
     async fn query(&self, query: &str, params: Option<Params>) -> Result<QueryResult, GraphError> {
         let payload = self
             .send(
-                self.client
-                    .post(format!("{}/_api/cursor", self.base_url))
-                    .json(&serde_json::json!({"query": query, "bindVars": params.unwrap_or_default()})),
+                self.client.post(format!("{}/_api/cursor", self.base_url)).json(
+                    &serde_json::json!({"query": query, "bindVars": params.unwrap_or_default()}),
+                ),
                 "query",
             )
             .await?;
@@ -285,7 +274,10 @@ mod tests {
                 assert_eq!(doc["_key"], "v1");
                 assert_eq!(doc["_label"], "Person");
                 assert_eq!(doc["name"], "Alice");
-                (StatusCode::CREATED, axum::Json(serde_json::json!({"_key": "v1", "_id": "vertices/v1"})))
+                (
+                    StatusCode::CREATED,
+                    axum::Json(serde_json::json!({"_key": "v1", "_id": "vertices/v1"})),
+                )
             }),
         )])
         .await;
@@ -298,7 +290,9 @@ mod tests {
 
     #[tokio::test]
     async fn get_vertex_missing_returns_none() {
-        let base = mock(vec![("/_api/document/vertices/nope", get(|| async { StatusCode::NOT_FOUND }))]).await;
+        let base =
+            mock(vec![("/_api/document/vertices/nope", get(|| async { StatusCode::NOT_FOUND }))])
+                .await;
         let db = ArangoDB::new(base);
         assert!(db.get_vertex(&"nope".into()).await.unwrap().is_none());
     }
@@ -358,7 +352,11 @@ mod tests {
 
     #[tokio::test]
     async fn update_missing_vertex_errors() {
-        let base = mock(vec![("/_api/document/vertices/nope", axum::routing::patch(|| async { StatusCode::NOT_FOUND }))]).await;
+        let base = mock(vec![(
+            "/_api/document/vertices/nope",
+            axum::routing::patch(|| async { StatusCode::NOT_FOUND }),
+        )])
+        .await;
         let db = ArangoDB::new(base);
         let err = db.update_vertex(&"nope".into(), Properties::new()).await.unwrap_err();
         assert!(matches!(err, GraphError::VertexNotFound(_)));

@@ -71,7 +71,10 @@ impl TimeSeriesDB for IoTDB {
         if payload["code"].as_i64().unwrap_or(200) != 200 {
             return Err(TsdbError::QueryError(format!("iotdb query failed: {payload}")));
         }
-        let mut points = parse_result(payload["result"].as_array().map(Vec::as_slice).unwrap_or(&[]), measurement)?;
+        let mut points = parse_result(
+            payload["result"].as_array().map(Vec::as_slice).unwrap_or(&[]),
+            measurement,
+        )?;
         if let Some(filters) = tag_filters {
             points.retain(|p| filters.iter().all(|f| filter_matches(f, p)));
         }
@@ -163,11 +166,7 @@ fn parse_result(result: &[serde_json::Value], measurement: &str) -> Result<TimeS
                 timestamp = Some(parse_time(vals.get(col_idx).copied().unwrap_or_default())?);
                 continue;
             }
-            let segs: Vec<&str> = col
-                .strip_prefix("root.")
-                .unwrap_or(col)
-                .split('.')
-                .collect();
+            let segs: Vec<&str> = col.strip_prefix("root.").unwrap_or(col).split('.').collect();
             // [measurement, (tagk, tagv)*, field] — always even length.
             if segs.len() < 2 || segs[0] != measurement {
                 continue;
@@ -290,7 +289,9 @@ mod tests {
             post(|req: Request<Body>| async move {
                 let body = axum::body::to_bytes(req.into_body(), 4096).await.unwrap();
                 let text = String::from_utf8(body.to_vec()).unwrap();
-                assert!(text.contains("SELECT * FROM root.cpu.** WHERE time >= '2026-01-01T00:00:00+00:00'"));
+                assert!(text.contains(
+                    "SELECT * FROM root.cpu.** WHERE time >= '2026-01-01T00:00:00+00:00'"
+                ));
                 (
                     StatusCode::OK,
                     axum::Json(serde_json::json!({

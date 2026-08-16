@@ -260,9 +260,7 @@ fn validate_name(name: &str) -> CliResult {
     if ok {
         Ok(())
     } else {
-        Err(format!(
-            "invalid name `{name}`: must be a single path segment (no `/` or `\\`)"
-        ))
+        Err(format!("invalid name `{name}`: must be a single path segment (no `/` or `\\`)"))
     }
 }
 

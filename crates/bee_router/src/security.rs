@@ -155,7 +155,8 @@ mod tests {
         let cache: Arc<dyn bee_cache::Cache> = Arc::new(MemoryCache::new());
         let session = bee_session::Session::new(cache, Duration::from_secs(3600));
         let req = Request::builder().uri(uri).body(Body::empty()).unwrap();
-        let engine = bee_template::TemplateEngine::new(Path::new("tests/fixtures/templates")).unwrap();
+        let engine =
+            bee_template::TemplateEngine::new(Path::new("tests/fixtures/templates")).unwrap();
         Context::new(req, session, Arc::new(engine))
     }
 
@@ -165,7 +166,10 @@ mod tests {
 
     #[test]
     fn test_percent_decode() {
-        assert_eq!(percent_decode("%3Cscript%3Ealert(1)%3C/script%3E"), "<script>alert(1)</script>");
+        assert_eq!(
+            percent_decode("%3Cscript%3Ealert(1)%3C/script%3E"),
+            "<script>alert(1)</script>"
+        );
         assert_eq!(percent_decode("%27 OR 1%3D1--"), "' OR 1=1--");
         assert_eq!(percent_decode("%2e%2e%2f"), "../");
         assert_eq!(percent_decode("%20"), " ");
@@ -199,9 +203,7 @@ mod tests {
     fn test_non_utf8_header_is_blocked() {
         let filter = SecurityFilter::new();
         let mut ctx = make_context("/");
-        ctx.request
-            .headers_mut()
-            .insert("cookie", HeaderValue::from_bytes(&[0xff, 0xfe]).unwrap());
+        ctx.request.headers_mut().insert("cookie", HeaderValue::from_bytes(&[0xff, 0xfe]).unwrap());
         assert!(is_blocked(&filter, &mut ctx));
     }
 

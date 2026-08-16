@@ -78,10 +78,8 @@ impl GraphDB for NebulaGraph {
         // ponytail: nGQL UPDATE requires a tag name, which the trait does not carry;
         // the wildcard tag `*` keeps the call site simple — if a backend rejects it,
         // give the driver a tag field and use it here.
-        let assigns: Vec<String> = properties
-            .iter()
-            .map(|(k, v)| format!("{k} = {}", lit(v)))
-            .collect();
+        let assigns: Vec<String> =
+            properties.iter().map(|(k, v)| format!("{k} = {}", lit(v))).collect();
         let stmt = format!("UPDATE VERTEX ON * \"{}\" SET {}", esc(id), assigns.join(", "));
         let payload = self.exec(&stmt).await?;
         if payload["data"][0]["rows"].as_array().map(|r| r.is_empty()).unwrap_or(true) {
@@ -117,11 +115,8 @@ impl GraphDB for NebulaGraph {
     }
 
     async fn traverse(&self, traversal: Traversal) -> Result<Vec<PathResult>, GraphError> {
-        let label = traversal
-            .edge_labels
-            .first()
-            .map(|l| format!("`{}`", backtick(l)))
-            .unwrap_or_default();
+        let label =
+            traversal.edge_labels.first().map(|l| format!("`{}`", backtick(l))).unwrap_or_default();
         let dir = match traversal.direction {
             TraversalDirection::Outgoing => "",
             TraversalDirection::Incoming => " REVERSELY",
@@ -139,9 +134,17 @@ impl GraphDB for NebulaGraph {
         for row in payload["data"][0]["rows"].as_array().into_iter().flatten() {
             let vid = row[0].as_str().unwrap_or("").to_string();
             let e = &row[1];
-            let props = e.get("props").or_else(|| e.get("properties")).cloned().unwrap_or_else(|| serde_json::json!({}));
+            let props = e
+                .get("props")
+                .or_else(|| e.get("properties"))
+                .cloned()
+                .unwrap_or_else(|| serde_json::json!({}));
             out.push(PathResult {
-                vertices: vec![Vertex { id: vid, label: String::new(), properties: Properties::new() }],
+                vertices: vec![Vertex {
+                    id: vid,
+                    label: String::new(),
+                    properties: Properties::new(),
+                }],
                 edges: vec![Edge {
                     id: String::new(),
                     label: e["name"].as_str().unwrap_or("").to_string(),
@@ -225,7 +228,9 @@ mod tests {
                 let body = axum::body::to_bytes(req.into_body(), 4096).await.unwrap();
                 let text = String::from_utf8(body.to_vec()).unwrap();
                 assert!(
-                    text.contains("INSERT+VERTEX+%60Person%60+%28name%29+VALUES+%22v1%22%3A%28%22Alice%22%29"),
+                    text.contains(
+                        "INSERT+VERTEX+%60Person%60+%28name%29+VALUES+%22v1%22%3A%28%22Alice%22%29"
+                    ),
                     "unexpected body: {text}"
                 );
                 (StatusCode::OK, axum::Json(serde_json::json!({"code": 0, "data": []})))
@@ -268,7 +273,12 @@ mod tests {
         let base = mock(vec![(
             "/api/v2/statement",
             post(|| async {
-                (StatusCode::OK, axum::Json(serde_json::json!({"code": 0, "data": [{"columns": ["v"], "rows": []}]})))
+                (
+                    StatusCode::OK,
+                    axum::Json(
+                        serde_json::json!({"code": 0, "data": [{"columns": ["v"], "rows": []}]}),
+                    ),
+                )
             }),
         )])
         .await;
@@ -299,7 +309,10 @@ mod tests {
         let base = mock(vec![(
             "/api/v2/statement",
             post(|| async {
-                (StatusCode::OK, axum::Json(serde_json::json!({"code": -1009, "message": "bad stmt"})))
+                (
+                    StatusCode::OK,
+                    axum::Json(serde_json::json!({"code": -1009, "message": "bad stmt"})),
+                )
             }),
         )])
         .await;

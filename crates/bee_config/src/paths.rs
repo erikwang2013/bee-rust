@@ -63,9 +63,7 @@ pub fn watch_path(path: &Path) -> Result<(), ConfigError> {
         .map_err(|e| ConfigError::Io(std::io::Error::other(e.to_string())))?;
     match rx.recv() {
         Ok(_) => Ok(()),
-        Err(_) => Err(ConfigError::Io(std::io::Error::other(
-            "watch channel closed",
-        ))),
+        Err(_) => Err(ConfigError::Io(std::io::Error::other("watch channel closed"))),
     }
 }
 
@@ -82,9 +80,9 @@ pub fn watch_path_timeout(path: &Path, timeout: Duration) -> Result<bool, Config
     match rx.recv_timeout(timeout) {
         Ok(_) => Ok(true),
         Err(std::sync::mpsc::RecvTimeoutError::Timeout) => Ok(false),
-        Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => Err(ConfigError::Io(
-            std::io::Error::other("watch channel closed"),
-        )),
+        Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+            Err(ConfigError::Io(std::io::Error::other("watch channel closed")))
+        }
     }
 }
 
