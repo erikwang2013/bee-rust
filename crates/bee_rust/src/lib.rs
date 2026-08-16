@@ -26,7 +26,7 @@ pub mod prelude {
     #[cfg(feature = "cache")]
     pub use bee_cache::Cache;
     #[cfg(feature = "config")]
-    pub use bee_config::Config;
+    pub use bee_config::{Config, ConfigSource};
     #[cfg(feature = "logs")]
     pub use bee_logs::{Logger, Output};
     #[cfg(feature = "orm")]

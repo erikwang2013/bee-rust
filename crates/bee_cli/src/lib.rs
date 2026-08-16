@@ -275,6 +275,11 @@ fn io_err(e: std::io::Error) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    // CWD is process-global; tests that chdir must run exclusively or they
+    // clobber each other when the test binary runs tests in parallel.
+    static CWD_LOCK: Mutex<()> = Mutex::new(());
 
     fn temp_dir(tag: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!(
@@ -307,6 +312,7 @@ mod tests {
 
     #[test]
     fn generate_controller_writes_file() {
+        let _guard = CWD_LOCK.lock().unwrap();
         let dir = temp_dir("controller");
         let old = std::env::current_dir().unwrap();
         std::env::set_current_dir(&dir).unwrap();
@@ -321,6 +327,7 @@ mod tests {
 
     #[test]
     fn generate_model_parses_fields() {
+        let _guard = CWD_LOCK.lock().unwrap();
         let dir = temp_dir("model");
         let old = std::env::current_dir().unwrap();
         std::env::set_current_dir(&dir).unwrap();
@@ -336,6 +343,7 @@ mod tests {
 
     #[test]
     fn generate_model_without_fields_has_only_id() {
+        let _guard = CWD_LOCK.lock().unwrap();
         let dir = temp_dir("model-nofields");
         let old = std::env::current_dir().unwrap();
         std::env::set_current_dir(&dir).unwrap();
@@ -349,6 +357,7 @@ mod tests {
 
     #[test]
     fn generate_model_rejects_bad_field_spec() {
+        let _guard = CWD_LOCK.lock().unwrap();
         let dir = temp_dir("model-bad");
         let old = std::env::current_dir().unwrap();
         std::env::set_current_dir(&dir).unwrap();

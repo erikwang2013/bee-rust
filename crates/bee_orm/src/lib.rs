@@ -3,6 +3,8 @@ use std::marker::PhantomData;
 
 pub use bee_orm_macro::Model;
 
+pub trait Model: Send + Sync + 'static {}
+
 #[derive(Debug, thiserror::Error)]
 pub enum OrmError {
     #[error("connection error: {0}")]
@@ -14,7 +16,7 @@ pub enum OrmError {
 }
 
 /// A fluent SQL query builder for a model type `T`.
-pub struct QuerySet<T> {
+pub struct QuerySet<T: Model> {
     table: String,
     filters: Vec<String>,
     order_clauses: Vec<String>,
@@ -23,7 +25,7 @@ pub struct QuerySet<T> {
     _marker: PhantomData<T>,
 }
 
-impl<T> QuerySet<T> {
+impl<T: Model> QuerySet<T> {
     pub fn new(table: impl Into<String>) -> Self {
         Self {
             table: table.into(),

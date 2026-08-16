@@ -11,7 +11,8 @@ pub fn derive_config(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         impl bee_config::ConfigSource for #name {
             fn load<P: AsRef<std::path::Path>>(path: P) -> Result<Self, bee_config::ConfigError> {
-                let content = std::fs::read_to_string(&path)
+                let path = path.as_ref();
+                let content = std::fs::read_to_string(path)
                     .map_err(bee_config::ConfigError::from)?;
                 let sections = bee_config::ini::IniParser::parse(&content);
                 let default = sections
@@ -33,16 +34,21 @@ pub fn derive_config(input: TokenStream) -> TokenStream {
                 }
                 let json_value = serde_json::Value::Object(map);
 
-                serde_json::from_value(json_value)
-                    .map_err(|e| bee_config::ConfigError::Deserialize(e.to_string()))
+                let cfg: Self = serde_json::from_value(json_value)
+                    .map_err(|e| bee_config::ConfigError::Deserialize(e.to_string()))?;
+                bee_config::paths::record::<Self>(path);
+                Ok(cfg)
             }
 
             fn reload(&mut self) -> Result<(), bee_config::ConfigError> {
+                let path = bee_config::paths::path_of::<Self>()?;
+                *self = Self::load(&path)?;
                 Ok(())
             }
 
             fn watch(&self) -> Result<(), bee_config::ConfigError> {
-                Ok(())
+                let path = bee_config::paths::path_of::<Self>()?;
+                bee_config::paths::watch_path(&path)
             }
         }
     };

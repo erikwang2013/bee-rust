@@ -1,4 +1,6 @@
 // Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
+// The load-path registry is keyed by TypeId with one path per type, so each
+// test uses its own struct to stay deterministic under parallel execution.
 use bee_config::{Config, ConfigSource};
 use serde::Deserialize;
 
@@ -7,6 +9,39 @@ struct AppConfig {
     app_name: String,
     http_port: u16,
     run_mode: String,
+}
+
+#[derive(Deserialize, Debug, PartialEq, Config)]
+struct ReloadConfig {
+    app_name: String,
+    http_port: u16,
+    run_mode: String,
+}
+
+#[derive(Deserialize, Debug, PartialEq, Config)]
+struct WatchConfig {
+    app_name: String,
+    http_port: u16,
+    run_mode: String,
+}
+
+#[derive(Deserialize, Debug, PartialEq, Config)]
+struct UnloadedConfig {
+    app_name: String,
+}
+
+fn write_test_conf(path: &std::path::Path, port: u16, mode: &str) {
+    std::fs::write(
+        path,
+        format!("app_name = test-app\nhttp_port = {port}\nrun_mode = {mode}\n"),
+    )
+    .unwrap();
+}
+
+fn temp_dir(name: &str) -> (std::path::PathBuf, std::path::PathBuf) {
+    let dir = std::env::temp_dir().join(format!("bee_config_{name}_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    (dir.clone(), dir.join("test.conf"))
 }
 
 #[test]
@@ -18,8 +53,50 @@ fn test_load_ini_config() {
 }
 
 #[test]
+fn test_reload_updates_values() {
+    let (dir, path) = temp_dir("reload");
+    write_test_conf(&path, 8080, "dev");
+
+    let mut cfg = ReloadConfig::load(&path).unwrap();
+    assert_eq!(cfg.http_port, 8080);
+
+    write_test_conf(&path, 9090, "prod");
+    cfg.reload().unwrap();
+    assert_eq!(cfg.http_port, 9090);
+    assert_eq!(cfg.run_mode, "prod");
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn test_reload_without_load_errors() {
+    let mut cfg = UnloadedConfig { app_name: "x".into() };
+    assert!(matches!(
+        cfg.reload(),
+        Err(bee_config::ConfigError::NotFound(_))
+    ));
+}
+
+#[test]
 fn test_reload_and_watch() {
-    let mut cfg = AppConfig::load("tests/fixtures/test.conf").unwrap();
+    let (dir, path) = temp_dir("watch");
+    write_test_conf(&path, 8080, "dev");
+
+    let mut cfg = WatchConfig::load(&path).unwrap();
     assert!(cfg.reload().is_ok());
+
+    // watch() blocks until the file changes; modify it from another thread.
+    let path = path.clone();
+    let writer = std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        write_test_conf(&path, 9090, "prod");
+    });
     assert!(cfg.watch().is_ok());
+    writer.join().unwrap();
+
+    cfg.reload().unwrap();
+    assert_eq!(cfg.http_port, 9090);
+    assert_eq!(cfg.run_mode, "prod");
+
+    std::fs::remove_dir_all(&dir).ok();
 }

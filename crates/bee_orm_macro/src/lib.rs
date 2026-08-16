@@ -10,6 +10,8 @@ pub fn derive_model(input: TokenStream) -> TokenStream {
     let table_name = name.to_string().to_lowercase() + "s";
 
     let expanded = quote! {
+        impl bee_orm::Model for #name {}
+
         impl #name {
             pub fn query() -> bee_orm::QuerySet<Self> {
                 bee_orm::QuerySet::new(#table_name)
