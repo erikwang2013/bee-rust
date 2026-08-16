@@ -10,6 +10,4 @@ bee_config_macro = { path = "../bee_config_macro" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-toml = "0.8"
-serde_yaml = "0.9"
 notify = "6"

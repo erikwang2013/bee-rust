@@ -1,5 +1,6 @@
 // Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
 use axum::body::Body;
+use axum::http::header::HeaderValue;
 use axum::http::{Request, StatusCode};
 use bee_session::Session;
 use bee_template::TemplateEngine;
@@ -19,7 +20,7 @@ pub enum RouterError {
 pub struct Context {
     pub request: Request<Body>,
     params: HashMap<String, String>,
-    pub session: Session,
+    session: Session,
     pub templates: Arc<TemplateEngine>,
     response_status: StatusCode,
     response_headers: HashMap<String, String>,
@@ -89,6 +90,14 @@ impl Context {
         if self.aborted {
             return Ok(());
         }
+        // Validate before the user-controlled value reaches the Location
+        // header: a bad HeaderValue (CRLF, control bytes) would otherwise
+        // poison the response builder and panic in into_response().
+        if !is_safe_redirect_url(url) {
+            return Err(RouterError::Internal(format!("invalid redirect URL: {url:?}")));
+        }
+        HeaderValue::try_from(url)
+            .map_err(|_| RouterError::Internal(format!("invalid redirect URL: {url:?}")))?;
         self.response_status = StatusCode::FOUND;
         self.response_headers.insert("Location".into(), url.to_string());
         Ok(())
@@ -104,17 +113,45 @@ impl Context {
         self.aborted
     }
 
+    /// Access the request session.
+    pub fn session(&self) -> &Session {
+        &self.session
+    }
+
+    /// Mutably access the request session.
+    pub fn session_mut(&mut self) -> &mut Session {
+        &mut self.session
+    }
+
+    /// Set a response header. The value is validated up front so the
+    /// response builder in [`Context::into_response`] never panics.
+    pub fn set_header(&mut self, name: &str, value: &str) -> Result<(), RouterError> {
+        HeaderValue::from_str(value)
+            .map_err(|_| RouterError::Internal(format!("invalid value for header {name}")))?;
+        self.response_headers.insert(name.to_string(), value.to_string());
+        Ok(())
+    }
+
     pub fn into_response(self) -> axum::response::Response<Body> {
         let mut builder = axum::response::Response::builder().status(self.response_status);
         for (k, v) in &self.response_headers {
             builder = builder.header(k.as_str(), v.as_str());
         }
-        // SAFETY: header values are constructed internally (Content-Type, Location)
-        // and never contain invalid characters.
+        // SAFETY: Content-Type values are constants; Location is validated in
+        // redirect() and arbitrary headers are validated in set_header().
         builder
             .body(Body::from(self.response_body))
-            .expect("response builder with internal-only headers should never fail")
+            .expect("response builder with validated headers should never fail")
     }
+}
+
+/// Accept only http(s) absolute URLs and same-origin relative paths
+/// (protocol-relative `//host` is rejected to prevent open redirects).
+fn is_safe_redirect_url(url: &str) -> bool {
+    let lower = url.to_ascii_lowercase();
+    let absolute = lower.starts_with("http://") || lower.starts_with("https://");
+    let relative = url.starts_with('/') && !url.starts_with("//");
+    absolute || relative
 }
 
 #[cfg(test)]
@@ -157,5 +194,34 @@ mod tests {
         assert!(ctx.is_aborted());
         // abort should not panic when called multiple times
         ctx.json(&serde_json::json!({})).unwrap(); // should be no-op
+    }
+
+    #[test]
+    fn test_redirect_valid_urls() {
+        let engine = TemplateEngine::new(Path::new("tests/fixtures/templates")).unwrap();
+        let mut ctx = make_context(Arc::new(engine));
+        ctx.redirect("/dashboard").unwrap();
+        ctx.redirect("https://example.com/path").unwrap();
+        ctx.redirect("HTTP://example.com").unwrap();
+        // into_response must not panic with a validated Location value
+        let _ = ctx.into_response();
+    }
+
+    #[test]
+    fn test_redirect_rejects_crlf() {
+        let engine = TemplateEngine::new(Path::new("tests/fixtures/templates")).unwrap();
+        let mut ctx = make_context(Arc::new(engine));
+        assert!(ctx.redirect("http://evil.com/\r\nX-Injected: 1").is_err());
+        assert!(ctx.redirect("/path\r\nSet-Cookie: admin=1").is_err());
+    }
+
+    #[test]
+    fn test_redirect_rejects_unsafe_schemes() {
+        let engine = TemplateEngine::new(Path::new("tests/fixtures/templates")).unwrap();
+        let mut ctx = make_context(Arc::new(engine));
+        assert!(ctx.redirect("ftp://example.com").is_err());
+        assert!(ctx.redirect("javascript:alert(1)").is_err());
+        // protocol-relative open redirect
+        assert!(ctx.redirect("//evil.com").is_err());
     }
 }

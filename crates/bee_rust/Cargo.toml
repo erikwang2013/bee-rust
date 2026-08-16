@@ -24,7 +24,7 @@ bee_router = { path = "../bee_router", optional = true }
 
 [features]
 default = ["full"]
-full = ["router", "orm", "kv", "config", "logs", "cache", "session", "security"]
+full = ["router", "orm", "kv", "config", "logs", "cache", "session", "security", "template"]
 security = ["bee_router/security"]
 router = ["bee_router", "bee_session", "bee_template", "bee_config", "bee_logs"]
 orm = ["bee_orm", "bee_config", "bee_cache"]

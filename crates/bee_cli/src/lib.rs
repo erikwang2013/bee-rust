@@ -9,6 +9,7 @@ pub type CliResult = Result<(), String>;
 
 /// Scaffold a new bee-rust project directory with a runnable template.
 pub fn new_project(name: &str) -> CliResult {
+    validate_name(name)?;
     let dir = Path::new(name);
     if dir.exists() {
         return Err(format!("directory `{name}` already exists"));
@@ -19,6 +20,8 @@ pub fn new_project(name: &str) -> CliResult {
         .filter(|s| !s.is_empty())
         .ok_or_else(|| format!("invalid project name `{name}`"))?;
     fs::create_dir_all(dir.join("src")).map_err(io_err)?;
+    fs::create_dir_all(dir.join("src/controllers")).map_err(io_err)?;
+    fs::create_dir_all(dir.join("src/models")).map_err(io_err)?;
 
     let cargo_toml = format!(
         r#"[package]
@@ -35,6 +38,9 @@ tracing = "0.1"
 "#
     );
     let main_rs = r#"use bee_rust::prelude::*;
+
+mod controllers;
+mod models;
 
 async fn health() -> &'static str {
     "OK"
@@ -54,6 +60,8 @@ async fn main() -> bee_rust::Result<()> {
 
     fs::write(dir.join("Cargo.toml"), cargo_toml).map_err(io_err)?;
     fs::write(dir.join("src/main.rs"), main_rs).map_err(io_err)?;
+    fs::write(dir.join("src/controllers/mod.rs"), "").map_err(io_err)?;
+    fs::write(dir.join("src/models/mod.rs"), "").map_err(io_err)?;
     fs::write(dir.join(".gitignore"), "/target\n").map_err(io_err)?;
     println!("Created project `{name}`. Next: cd {name} && cargo run");
     Ok(())
@@ -61,6 +69,7 @@ async fn main() -> bee_rust::Result<()> {
 
 /// Generate a controller file implementing the `bee_router::Controller` trait.
 pub fn generate_controller(name: &str) -> CliResult {
+    validate_name(name)?;
     ensure_module_dir("controllers")?;
     let file = format!("controllers/{name}.rs");
     if Path::new(&file).exists() {
@@ -89,6 +98,7 @@ impl Controller for {class}Controller {{
 /// Generate a model file with the `bee_orm::Model` derive macro, from field
 /// specs like `name:string,age:int`.
 pub fn generate_model(name: &str, fields: Option<&str>) -> CliResult {
+    validate_name(name)?;
     ensure_module_dir("models")?;
     let file = format!("models/{name}.rs");
     if Path::new(&file).exists() {
@@ -105,11 +115,11 @@ pub fn generate_model(name: &str, fields: Option<&str>) -> CliResult {
             let (field, ty) = spec
                 .split_once(':')
                 .ok_or_else(|| format!("invalid field spec `{spec}` (expected name:type)"))?;
-            members.push(format!("    {field}: {}", rust_type(ty.trim())));
+            members.push(format!("    {field}: {}", rust_type(ty.trim())?));
         }
     }
     let content = format!(
-        r#"use bee_orm::Model;
+        r#"use bee_rust::bee_orm::Model;
 
 #[derive(Model)]
 #[allow(dead_code)]
@@ -152,25 +162,27 @@ pub fn run_server(watch: bool) -> CliResult {
 }
 
 /// Build a release binary and copy it into `dist/`.
-pub fn pack() -> CliResult {
+pub fn pack(target: &str) -> CliResult {
     println!("building release binary...");
     let status = Command::new("cargo")
         .arg("build")
         .arg("--release")
+        .arg("--target")
+        .arg(target)
         .status()
-        .map_err(|e| format!("failed to run cargo build --release: {e}"))?;
+        .map_err(|e| format!("failed to run cargo build --release --target {target}: {e}"))?;
     if !status.success() {
         return Err("cargo build --release failed".into());
     }
     let bin = find_bin_name()?;
-    let src = format!("target/release/{bin}");
-    if !Path::new(&src).exists() {
-        return Err(format!("release binary `{src}` not found"));
+    let src = release_bin_path(target, &bin);
+    if !src.exists() {
+        return Err(format!("release binary `{}` not found", src.display()));
     }
     fs::create_dir_all("dist").map_err(io_err)?;
     let dst = format!("dist/{bin}");
     fs::copy(&src, &dst).map_err(io_err)?;
-    println!("packaged `{src}` -> `{dst}`");
+    println!("packaged `{}` -> `{dst}`", src.display());
     Ok(())
 }
 
@@ -237,6 +249,28 @@ fn find_bin_name() -> Result<String, String> {
     Err("could not find a package name in Cargo.toml".into())
 }
 
+/// Reject names that escape the intended directory (`../x`, `/abs`,
+/// `a/b`): only a single non-empty path segment is allowed.
+fn validate_name(name: &str) -> CliResult {
+    let ok = !name.is_empty()
+        && name != "."
+        && name != ".."
+        && !name.contains(['/', '\\'])
+        && Path::new(name).file_name().and_then(|s| s.to_str()) == Some(name);
+    if ok {
+        Ok(())
+    } else {
+        Err(format!(
+            "invalid name `{name}`: must be a single path segment (no `/` or `\\`)"
+        ))
+    }
+}
+
+/// Cross-compiled binaries land under `target/<target>/release/`.
+fn release_bin_path(target: &str, bin: &str) -> PathBuf {
+    Path::new("target").join(target).join("release").join(bin)
+}
+
 fn ensure_module_dir(dir: &str) -> CliResult {
     if Path::new(dir).exists() && !Path::new(dir).is_dir() {
         return Err(format!("`{dir}` exists and is not a directory"));
@@ -257,14 +291,14 @@ fn pascal_case(name: &str) -> String {
         .collect()
 }
 
-fn rust_type(ty: &str) -> &'static str {
+fn rust_type(ty: &str) -> Result<&'static str, String> {
     match ty {
-        "string" | "text" | "str" => "String",
-        "int" | "integer" | "i64" => "i64",
-        "i32" => "i32",
-        "float" | "f64" => "f64",
-        "bool" | "boolean" => "bool",
-        _ => "String",
+        "string" | "text" | "str" => Ok("String"),
+        "int" | "integer" | "i64" => Ok("i64"),
+        "i32" => Ok("i32"),
+        "float" | "f64" => Ok("f64"),
+        "bool" | "boolean" => Ok("bool"),
+        _ => Err(format!("unknown type: {ty}")),
     }
 }
 
@@ -294,19 +328,25 @@ mod tests {
 
     #[test]
     fn new_project_scaffolds_runnable_template() {
+        let _guard = CWD_LOCK.lock().unwrap();
         let dir = temp_dir("new");
-        let name = dir.join("myapp");
-        let name_str = name.to_str().unwrap();
-        new_project(name_str).unwrap();
-        assert!(name.join("Cargo.toml").exists());
-        assert!(name.join("src/main.rs").exists());
-        let manifest = fs::read_to_string(name.join("Cargo.toml")).unwrap();
+        let old = std::env::current_dir().unwrap();
+        std::env::set_current_dir(&dir).unwrap();
+        new_project("myapp").unwrap();
+        assert!(Path::new("myapp/Cargo.toml").exists());
+        assert!(Path::new("myapp/src/main.rs").exists());
+        assert!(Path::new("myapp/src/controllers/mod.rs").exists());
+        assert!(Path::new("myapp/src/models/mod.rs").exists());
+        let manifest = fs::read_to_string("myapp/Cargo.toml").unwrap();
         assert!(manifest.contains("name = \"myapp\""));
         assert!(manifest.contains("bee-rust = \"1\""));
-        let main = fs::read_to_string(name.join("src/main.rs")).unwrap();
+        let main = fs::read_to_string("myapp/src/main.rs").unwrap();
         assert!(main.contains("bee_rust::init()"));
+        assert!(main.contains("mod controllers;"));
+        assert!(main.contains("mod models;"));
         // Re-creating the same project must fail cleanly.
-        assert!(new_project(name_str).is_err());
+        assert!(new_project("myapp").is_err());
+        std::env::set_current_dir(old).unwrap();
         fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -369,6 +409,58 @@ mod tests {
     #[test]
     fn migrate_reports_not_implemented() {
         assert!(migrate().unwrap_err().contains("not implemented"));
+    }
+
+    #[test]
+    fn names_with_path_separators_are_rejected() {
+        let _guard = CWD_LOCK.lock().unwrap();
+        let dir = temp_dir("traversal");
+        let old = std::env::current_dir().unwrap();
+        std::env::set_current_dir(&dir).unwrap();
+        for bad in ["../x", "/abs/path", "a/b", ".", "..", "sub\\file"] {
+            assert!(generate_controller(bad).is_err(), "{bad} controller");
+            assert!(generate_model(bad, None).is_err(), "{bad} model");
+            assert!(new_project(bad).is_err(), "{bad} new");
+        }
+        assert!(!Path::new("../x.rs").exists());
+        assert!(!Path::new("models/x.rs").exists());
+        std::env::set_current_dir(old).unwrap();
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn generate_model_rejects_unknown_type() {
+        let _guard = CWD_LOCK.lock().unwrap();
+        let dir = temp_dir("model-unknown-type");
+        let old = std::env::current_dir().unwrap();
+        std::env::set_current_dir(&dir).unwrap();
+        let err = generate_model("user", Some("age:innt")).unwrap_err();
+        assert!(err.contains("unknown type: innt"), "{err}");
+        assert!(!Path::new("models/user.rs").exists());
+        std::env::set_current_dir(old).unwrap();
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn generate_model_uses_meta_crate_orm_path() {
+        let _guard = CWD_LOCK.lock().unwrap();
+        let dir = temp_dir("model-orm-path");
+        let old = std::env::current_dir().unwrap();
+        std::env::set_current_dir(&dir).unwrap();
+        generate_model("post", None).unwrap();
+        let content = fs::read_to_string("models/post.rs").unwrap();
+        assert!(content.contains("use bee_rust::bee_orm::Model;"));
+        assert!(!content.contains("use bee_orm::Model;"));
+        std::env::set_current_dir(old).unwrap();
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn release_bin_path_respects_target() {
+        assert_eq!(
+            release_bin_path("linux/aarch64", "app"),
+            PathBuf::from("target/linux/aarch64/release/app")
+        );
     }
 
     #[test]

@@ -156,13 +156,13 @@ mod tests {
             name: &str,
             _mapping: Option<Mapping>,
         ) -> Result<(), SearchError> {
-            let mut map = self.data.lock().unwrap();
+            let mut map = self.data.lock().unwrap_or_else(|e| e.into_inner());
             map.entry(name.to_string()).or_default();
             Ok(())
         }
 
         async fn delete_index(&self, name: &str) -> Result<(), SearchError> {
-            let mut map = self.data.lock().unwrap();
+            let mut map = self.data.lock().unwrap_or_else(|e| e.into_inner());
             map.remove(name);
             Ok(())
         }
@@ -173,7 +173,7 @@ mod tests {
             id: DocumentId,
             doc: Document,
         ) -> Result<(), SearchError> {
-            let mut map = self.data.lock().unwrap();
+            let mut map = self.data.lock().unwrap_or_else(|e| e.into_inner());
             let store = map.entry(index.to_string()).or_default();
             store.insert(id, doc);
             Ok(())
@@ -184,7 +184,7 @@ mod tests {
             index: &str,
             docs: &[(DocumentId, Document)],
         ) -> Result<BulkResult, SearchError> {
-            let mut map = self.data.lock().unwrap();
+            let mut map = self.data.lock().unwrap_or_else(|e| e.into_inner());
             let store = map.entry(index.to_string()).or_default();
             let count = docs.len() as u64;
             for (id, doc) in docs {
@@ -194,13 +194,13 @@ mod tests {
         }
 
         async fn get(&self, index: &str, id: &DocumentId) -> Result<Option<Document>, SearchError> {
-            let map = self.data.lock().unwrap();
+            let map = self.data.lock().unwrap_or_else(|e| e.into_inner());
             let doc = map.get(index).and_then(|store| store.get(id)).cloned();
             Ok(doc)
         }
 
         async fn delete(&self, index: &str, id: &DocumentId) -> Result<(), SearchError> {
-            let mut map = self.data.lock().unwrap();
+            let mut map = self.data.lock().unwrap_or_else(|e| e.into_inner());
             if let Some(store) = map.get_mut(index) {
                 store.remove(id);
             }
@@ -212,7 +212,7 @@ mod tests {
             index: &str,
             _query: SearchQuery,
         ) -> Result<SearchResult, SearchError> {
-            let map = self.data.lock().unwrap();
+            let map = self.data.lock().unwrap_or_else(|e| e.into_inner());
             let hits: Vec<SearchHit> = map
                 .get(index)
                 .map(|store| {

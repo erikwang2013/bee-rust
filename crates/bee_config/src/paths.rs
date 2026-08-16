@@ -17,12 +17,22 @@ fn registry() -> &'static Mutex<HashMap<TypeId, PathBuf>> {
     PATHS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-/// Records the path `T` was loaded from.
-pub fn record<T: 'static>(path: &Path) {
-    registry()
-        .lock()
-        .unwrap()
-        .insert(TypeId::of::<T>(), path.to_path_buf());
+/// Records the path `T` was loaded from. Errors if `T` was already loaded
+/// from a different path, so reload()/watch() never silently point at a
+/// second location.
+pub fn record<T: 'static>(path: &Path) -> Result<(), ConfigError> {
+    let mut map = registry().lock().unwrap();
+    if let Some(previous) = map.get(&TypeId::of::<T>())
+        && previous != path
+    {
+        return Err(ConfigError::PathConflict(
+            std::any::type_name::<T>().to_string(),
+            previous.clone(),
+            path.to_path_buf(),
+        ));
+    }
+    map.insert(TypeId::of::<T>(), path.to_path_buf());
+    Ok(())
 }
 
 /// Returns the path `T` was last loaded from, or `ConfigError::NotFound`.
@@ -38,6 +48,11 @@ pub fn path_of<T: 'static>() -> Result<PathBuf, ConfigError> {
 /// Blocks until `path` changes once, then returns. Callers should call
 /// `reload()` afterwards. Changes that happen before the watcher is
 /// registered are not observed.
+///
+/// Synchronous only: this blocks the calling thread on a `recv()` with no
+/// timeout. In async contexts, run it via
+/// `tokio::task::spawn_blocking` (or the equivalent of your executor) —
+/// never call it directly on a worker thread.
 pub fn watch_path(path: &Path) -> Result<(), ConfigError> {
     let (tx, rx) = std::sync::mpsc::channel();
     let mut watcher = RecommendedWatcher::new(tx, NotifyConfig::default())

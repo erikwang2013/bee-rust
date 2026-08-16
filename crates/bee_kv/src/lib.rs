@@ -84,29 +84,29 @@ mod tests {
     #[async_trait]
     impl KvStore for StubKvStore {
         async fn get(&self, key: &str) -> Result<Option<String>, KvError> {
-            let map = self.data.lock().unwrap();
+            let map = self.data.lock().unwrap_or_else(|e| e.into_inner());
             Ok(map.get(key).filter(|e| !Self::check_expired(e)).map(|e| e.value.clone()))
         }
 
         async fn set(&self, key: &str, value: &str) -> Result<(), KvError> {
-            let mut map = self.data.lock().unwrap();
+            let mut map = self.data.lock().unwrap_or_else(|e| e.into_inner());
             map.insert(key.to_string(), Entry { value: value.to_string(), expires_at: None });
             Ok(())
         }
 
         async fn del(&self, key: &str) -> Result<(), KvError> {
-            let mut map = self.data.lock().unwrap();
+            let mut map = self.data.lock().unwrap_or_else(|e| e.into_inner());
             map.remove(key);
             Ok(())
         }
 
         async fn exists(&self, key: &str) -> Result<bool, KvError> {
-            let map = self.data.lock().unwrap();
+            let map = self.data.lock().unwrap_or_else(|e| e.into_inner());
             Ok(map.get(key).is_some_and(|e| !Self::check_expired(e)))
         }
 
         async fn incr(&self, key: &str, amount: i64) -> Result<i64, KvError> {
-            let mut map = self.data.lock().unwrap();
+            let mut map = self.data.lock().unwrap_or_else(|e| e.into_inner());
             let entry = map
                 .entry(key.to_string())
                 .or_insert_with(|| Entry { value: "0".to_string(), expires_at: None });
@@ -123,7 +123,7 @@ mod tests {
         }
 
         async fn expire(&self, key: &str, seconds: i64) -> Result<(), KvError> {
-            let mut map = self.data.lock().unwrap();
+            let mut map = self.data.lock().unwrap_or_else(|e| e.into_inner());
             let entry = map.get_mut(key).ok_or_else(|| KvError::NotFound(key.into()))?;
             entry.expires_at =
                 Some(std::time::Instant::now() + std::time::Duration::from_secs(seconds as u64));
@@ -131,7 +131,7 @@ mod tests {
         }
 
         async fn mget(&self, keys: &[&str]) -> Result<Vec<Option<String>>, KvError> {
-            let map = self.data.lock().unwrap();
+            let map = self.data.lock().unwrap_or_else(|e| e.into_inner());
             Ok(keys
                 .iter()
                 .map(|k| map.get(*k).filter(|e| !Self::check_expired(e)).map(|e| e.value.clone()))
@@ -139,7 +139,7 @@ mod tests {
         }
 
         async fn mset(&self, pairs: &[(&str, &str)]) -> Result<(), KvError> {
-            let mut map = self.data.lock().unwrap();
+            let mut map = self.data.lock().unwrap_or_else(|e| e.into_inner());
             for (k, v) in pairs {
                 map.insert(k.to_string(), Entry { value: v.to_string(), expires_at: None });
             }

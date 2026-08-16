@@ -163,7 +163,7 @@ mod tests {
     #[async_trait]
     impl GraphDB for StubGraphDB {
         async fn add_vertex(&self, mut vertex: Vertex) -> Result<Vertex, GraphError> {
-            let mut map = self.vertices.lock().unwrap();
+            let mut map = self.vertices.lock().unwrap_or_else(|e| e.into_inner());
             if vertex.id.is_empty() {
                 vertex.id = format!("v{}", map.len());
             }
@@ -172,7 +172,7 @@ mod tests {
         }
 
         async fn get_vertex(&self, id: &VertexId) -> Result<Option<Vertex>, GraphError> {
-            let map = self.vertices.lock().unwrap();
+            let map = self.vertices.lock().unwrap_or_else(|e| e.into_inner());
             Ok(map.get(id).cloned())
         }
 
@@ -181,7 +181,7 @@ mod tests {
             id: &VertexId,
             properties: Properties,
         ) -> Result<Vertex, GraphError> {
-            let mut map = self.vertices.lock().unwrap();
+            let mut map = self.vertices.lock().unwrap_or_else(|e| e.into_inner());
             let vertex = map.get_mut(id).ok_or_else(|| GraphError::VertexNotFound(id.clone()))?;
             for (k, v) in properties {
                 vertex.properties.insert(k, v);
@@ -190,16 +190,16 @@ mod tests {
         }
 
         async fn delete_vertex(&self, id: &VertexId) -> Result<(), GraphError> {
-            let mut vmap = self.vertices.lock().unwrap();
+            let mut vmap = self.vertices.lock().unwrap_or_else(|e| e.into_inner());
             vmap.remove(id);
-            let mut emap = self.edges.lock().unwrap();
+            let mut emap = self.edges.lock().unwrap_or_else(|e| e.into_inner());
             emap.retain(|_, e| e.from != *id && e.to != *id);
             Ok(())
         }
 
         async fn add_edge(&self, mut edge: Edge) -> Result<Edge, GraphError> {
             // Validate endpoints exist
-            let vmap = self.vertices.lock().unwrap();
+            let vmap = self.vertices.lock().unwrap_or_else(|e| e.into_inner());
             if !vmap.contains_key(&edge.from) {
                 return Err(GraphError::VertexNotFound(edge.from.clone()));
             }
@@ -208,7 +208,7 @@ mod tests {
             }
             drop(vmap);
 
-            let mut map = self.edges.lock().unwrap();
+            let mut map = self.edges.lock().unwrap_or_else(|e| e.into_inner());
             if edge.id.is_empty() {
                 edge.id = format!("e{}", map.len());
             }
@@ -217,41 +217,64 @@ mod tests {
         }
 
         async fn traverse(&self, traversal: Traversal) -> Result<Vec<PathResult>, GraphError> {
-            let vmap = self.vertices.lock().unwrap();
+            // Acquire vmap before emap, matching delete_vertex, to avoid ABBA deadlock.
+            let vmap = self.vertices.lock().unwrap_or_else(|e| e.into_inner());
             if !vmap.contains_key(&traversal.start) {
                 return Err(GraphError::VertexNotFound(traversal.start.clone()));
             }
-            drop(vmap);
+            let emap = self.edges.lock().unwrap_or_else(|e| e.into_inner());
 
-            let emap = self.edges.lock().unwrap();
             let mut results = Vec::new();
+            let mut frontier: Vec<(VertexId, Vec<Vertex>, Vec<Edge>)> = Vec::new();
+            if let Some(v) = vmap.get(&traversal.start).cloned() {
+                frontier.push((traversal.start.clone(), vec![v], Vec::new()));
+            }
 
-            for edge in emap.values() {
-                let follows = match &traversal.direction {
-                    TraversalDirection::Outgoing => edge.from == traversal.start,
-                    TraversalDirection::Incoming => edge.to == traversal.start,
-                    TraversalDirection::Both => {
-                        edge.from == traversal.start || edge.to == traversal.start
+            // BFS, collecting every path of up to `max_depth` hops.
+            for _ in 0..traversal.max_depth {
+                let mut next = Vec::new();
+                for (cur, vs, es) in &frontier {
+                    for edge in emap.values() {
+                        let follows = match &traversal.direction {
+                            TraversalDirection::Outgoing => edge.from == *cur,
+                            TraversalDirection::Incoming => edge.to == *cur,
+                            TraversalDirection::Both => {
+                                edge.from == *cur || edge.to == *cur
+                            }
+                        };
+                        if !follows {
+                            continue;
+                        }
+                        if !traversal.edge_labels.is_empty()
+                            && !traversal.edge_labels.contains(&edge.label)
+                        {
+                            continue;
+                        }
+                        let next_id = match &traversal.direction {
+                            TraversalDirection::Outgoing => edge.to.clone(),
+                            TraversalDirection::Incoming => edge.from.clone(),
+                            TraversalDirection::Both => {
+                                if edge.from == *cur { edge.to.clone() } else { edge.from.clone() }
+                            }
+                        };
+                        if let Some(nv) = vmap.get(&next_id).cloned() {
+                            let mut nvs = vs.clone();
+                            let mut nes = es.clone();
+                            nvs.push(nv);
+                            nes.push(edge.clone());
+                            results.push(PathResult { vertices: nvs.clone(), edges: nes.clone() });
+                            next.push((next_id, nvs, nes));
+                        }
                     }
-                };
-                if !follows {
-                    continue;
-                }
-                if !traversal.edge_labels.is_empty() && !traversal.edge_labels.contains(&edge.label)
-                {
-                    continue;
-                }
-
-                let vmap = self.vertices.lock().unwrap();
-                let from_v = vmap.get(&edge.from).cloned();
-                let to_v = vmap.get(&edge.to).cloned();
-                drop(vmap);
-
-                if let (Some(from), Some(to)) = (from_v, to_v) {
-                    results
-                        .push(PathResult { vertices: vec![from, to], edges: vec![edge.clone()] });
+                    if results.len() >= 10 {
+                        break;
+                    }
                 }
                 if results.len() >= 10 {
+                    break;
+                }
+                frontier = next;
+                if frontier.is_empty() {
                     break;
                 }
             }

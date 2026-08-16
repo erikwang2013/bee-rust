@@ -19,6 +19,7 @@ pub enum OrmError {
 pub struct QuerySet<T: Model> {
     table: String,
     filters: Vec<String>,
+    params: Vec<String>,
     order_clauses: Vec<String>,
     limit_val: Option<usize>,
     offset_val: Option<usize>,
@@ -30,6 +31,7 @@ impl<T: Model> QuerySet<T> {
         Self {
             table: table.into(),
             filters: Vec::new(),
+            params: Vec::new(),
             order_clauses: Vec::new(),
             limit_val: None,
             offset_val: None,
@@ -37,10 +39,55 @@ impl<T: Model> QuerySet<T> {
         }
     }
 
-    /// Add a WHERE condition (e.g. `"age > 18"`).
+    /// Add a raw WHERE condition (e.g. `"age > 18"`).
+    ///
+    /// **Warning:** The string is concatenated into SQL verbatim. Only use it
+    /// with trusted constants; use `filter_eq` / `filter_gt` / `filter_lt` /
+    /// `filter_contains` for any value that comes from user input.
     pub fn filter(mut self, condition: impl Into<String>) -> Self {
         self.filters.push(condition.into());
         self
+    }
+
+    /// Add a parameterised equality condition: `field = ?`.
+    ///
+    /// The value is never concatenated into SQL; it is accumulated in
+    /// [`QuerySet::params`], which the backend driver must bind to the `?`
+    /// placeholders (in order) before execution.
+    pub fn filter_eq(mut self, field: impl Into<String>, value: impl Into<String>) -> Self {
+        self.filters.push(format!("{} = ?", field.into()));
+        self.params.push(value.into());
+        self
+    }
+
+    /// Add a parameterised greater-than condition: `field > ?`.
+    pub fn filter_gt(mut self, field: impl Into<String>, value: impl Into<String>) -> Self {
+        self.filters.push(format!("{} > ?", field.into()));
+        self.params.push(value.into());
+        self
+    }
+
+    /// Add a parameterised less-than condition: `field < ?`.
+    pub fn filter_lt(mut self, field: impl Into<String>, value: impl Into<String>) -> Self {
+        self.filters.push(format!("{} < ?", field.into()));
+        self.params.push(value.into());
+        self
+    }
+
+    /// Add a parameterised substring condition: `field LIKE ?`, with the value
+    /// wrapped in `%...%` wildcards.
+    pub fn filter_contains(mut self, field: impl Into<String>, value: impl Into<String>) -> Self {
+        self.filters.push(format!("{} LIKE ?", field.into()));
+        self.params.push(format!("%{}%", value.into()));
+        self
+    }
+
+    /// Bound parameters for the `?` placeholders in SQL, in positional order.
+    ///
+    /// Each `filter_eq` / `filter_gt` / `filter_lt` / `filter_contains` call
+    /// appends exactly one parameter. Raw `filter` strings carry no parameter.
+    pub fn params(&self) -> &[String] {
+        &self.params
     }
 
     /// Add an ORDER BY clause (e.g. `"id DESC"`).
@@ -61,12 +108,15 @@ impl<T: Model> QuerySet<T> {
         self
     }
 
-    /// Build the SQL string for this query.
+    /// Build the SQL string for this query (debugging and tests only).
     ///
-    /// **Warning:** This method concatenates user-supplied filter and ordering
-    /// strings directly into SQL. It is intended for debugging and testing
-    /// only. Backend drivers MUST use parameterised queries rather than
-    /// calling this method for production execution.
+    /// **Warning:** This method concatenates raw `filter` and `order_by`
+    /// strings directly into SQL. In production, NEVER execute this string
+    /// with values embedded — it is an injection path. Production queries
+    /// MUST use the parameterised API (`filter_eq` / `filter_gt` / `filter_lt`
+    /// / `filter_contains`) and bind [`QuerySet::params`] to the `?`
+    /// placeholders, in order, through the driver's prepared-statement
+    /// interface.
     pub fn to_sql(&self) -> String {
         let capacity = 16
             + self.table.len()

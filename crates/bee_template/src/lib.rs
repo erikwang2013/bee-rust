@@ -58,6 +58,11 @@ impl TemplateEngine {
 
 /// Macro to create a `HashMap<String, serde_json::Value>` from key-value pairs.
 ///
+/// # Panics
+///
+/// Panics if a value cannot be serialized to JSON, e.g. non-finite floats
+/// (`NaN`, `Infinity`, `-Infinity`).
+///
 /// # Examples
 ///
 /// ```

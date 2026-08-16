@@ -64,7 +64,7 @@ fn main() {
         },
         Commands::Run { watch } => bee_cli::run_server(watch),
         Commands::Migrate { .. } => bee_cli::migrate(),
-        Commands::Pack { .. } => bee_cli::pack(),
+        Commands::Pack { target } => bee_cli::pack(&target),
     };
     if let Err(message) = result {
         eprintln!("error: {message}");

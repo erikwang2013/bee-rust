@@ -17,5 +17,8 @@ pub trait ConfigSource: Sized {
     fn reload(&mut self) -> Result<(), ConfigError>;
     /// Blocks until the config file changes once, then returns. Call
     /// `reload()` afterwards to pick up the new values.
+    ///
+    /// Synchronous only — blocks the calling thread. In async code run it
+    /// with `tokio::task::spawn_blocking`, never on a worker thread.
     fn watch(&self) -> Result<(), ConfigError>;
 }

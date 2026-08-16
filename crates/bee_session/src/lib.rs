@@ -74,11 +74,17 @@ impl Session {
         self.data.remove(key);
     }
 
+    /// Whether the session holds no data yet.
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
+
     /// Persist the session data to the cache backend.
     pub async fn save(&self) -> Result<(), SessionError> {
         let json = serde_json::to_vec(&self.data)
             .map_err(|e| SessionError::SerializeError(e.to_string()))?;
-        let ttl_secs = self.ttl.as_secs();
+        // Sub-second TTLs would truncate to 0 and expire immediately.
+        let ttl_secs = self.ttl.as_secs().max(1);
         self.cache.set(&self.id, json, Some(ttl_secs)).await.map_err(SessionError::from)
     }
 

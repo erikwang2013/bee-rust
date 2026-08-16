@@ -1,7 +1,7 @@
 // Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use tokio::sync::RwLock;
@@ -36,6 +36,7 @@ pub trait Cache: Send + Sync {
 struct MemoryEntry {
     value: Vec<u8>,
     expires_at: Option<Instant>,
+    ttl: Option<Duration>,
 }
 
 /// An in-memory cache backed by `Arc<RwLock<HashMap<String, MemoryEntry>>>` with TTL expiry.
@@ -65,7 +66,13 @@ impl Cache for MemoryCache {
             {
                 drop(store);
                 let mut write = self.store.write().await;
-                write.remove(key);
+                // Re-check under the write lock: another task may have set() a
+                // fresh value (or deleted the key) between the two locks.
+                if let Some(expires_at) = write.get(key).and_then(|e| e.expires_at)
+                    && Instant::now() >= expires_at
+                {
+                    write.remove(key);
+                }
                 return Ok(None);
             }
             return Ok(Some(entry.value.clone()));
@@ -74,9 +81,9 @@ impl Cache for MemoryCache {
     }
 
     async fn set(&self, key: &str, value: Vec<u8>, ttl: Option<u64>) -> Result<(), CacheError> {
-        let expires_at =
-            ttl.map(|seconds| Instant::now() + std::time::Duration::from_secs(seconds));
-        let entry = MemoryEntry { value, expires_at };
+        let ttl = ttl.map(Duration::from_secs);
+        let expires_at = ttl.map(|d| Instant::now() + d);
+        let entry = MemoryEntry { value, expires_at, ttl };
         self.store.write().await.insert(key.to_string(), entry);
         Ok(())
     }
@@ -95,7 +102,11 @@ impl Cache for MemoryCache {
                 if let Some(expires_at) = occ.get().expires_at
                     && Instant::now() >= expires_at
                 {
-                    occ.insert(MemoryEntry { value: b"1".to_vec(), expires_at: None });
+                    // Refresh with the original TTL instead of dropping it, so
+                    // the counter keeps expiring.
+                    let ttl = occ.get().ttl;
+                    let expires_at = ttl.map(|d| Instant::now() + d);
+                    occ.insert(MemoryEntry { value: b"1".to_vec(), expires_at, ttl });
                     return Ok(1);
                 }
                 let current: i64 =
@@ -109,7 +120,7 @@ impl Cache for MemoryCache {
                 Ok(new_value)
             }
             std::collections::hash_map::Entry::Vacant(vac) => {
-                vac.insert(MemoryEntry { value: b"1".to_vec(), expires_at: None });
+                vac.insert(MemoryEntry { value: b"1".to_vec(), expires_at: None, ttl: None });
                 Ok(1)
             }
         }
@@ -155,5 +166,59 @@ mod tests {
         assert_eq!(cache.get("ephemeral").await.unwrap(), Some(b"data".to_vec()));
         tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
         assert_eq!(cache.get("ephemeral").await.unwrap(), None);
+    }
+
+    #[tokio::test]
+    async fn test_expired_get_cleanup_preserves_fresh_value() {
+        let cache = Arc::new(MemoryCache::new());
+        cache.store.write().await.insert(
+            "k".to_string(),
+            MemoryEntry {
+                value: b"old".to_vec(),
+                expires_at: Some(Instant::now() - Duration::from_secs(1)),
+                ttl: None,
+            },
+        );
+
+        // Orchestrate the TOCTOU window deterministically: hold the write lock,
+        // spawn a get() that queues on the read lock, then release and set() a
+        // fresh value. The set()'s write request queues before get()'s cleanup
+        // phase, so the old code would delete the fresh value.
+        let write = cache.store.write().await;
+        let get_task = tokio::spawn({
+            let cache = cache.clone();
+            async move { cache.get("k").await }
+        });
+        tokio::task::yield_now().await; // get() is now queued on the read lock
+        drop(write);
+        cache.set("k", b"new".to_vec(), None).await.unwrap();
+
+        let result = get_task.await.unwrap().unwrap();
+        // The expired path was exercised (get saw the expired entry)...
+        assert_eq!(result, None);
+        // ...and the fresh value set in between was not deleted.
+        assert_eq!(cache.get("k").await.unwrap(), Some(b"new".to_vec()));
+    }
+
+    #[tokio::test]
+    async fn test_incr_expired_entry_keeps_ttl() {
+        let cache = MemoryCache::new();
+        cache.store.write().await.insert(
+            "counter".to_string(),
+            MemoryEntry {
+                value: b"5".to_vec(),
+                expires_at: Some(Instant::now() - Duration::from_secs(1)),
+                ttl: Some(Duration::from_secs(1)),
+            },
+        );
+
+        let v = cache.incr("counter").await.unwrap();
+        assert_eq!(v, 1);
+
+        // The refreshed entry must still expire: TTL preserved, not None/never.
+        let store = cache.store.read().await;
+        let entry = store.get("counter").unwrap();
+        assert!(entry.expires_at.is_some());
+        assert!(entry.expires_at.unwrap() > Instant::now());
     }
 }
