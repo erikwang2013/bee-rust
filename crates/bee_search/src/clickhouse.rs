@@ -38,6 +38,17 @@ fn escape(s: &str) -> String {
     s.replace('\'', "''")
 }
 
+/// Extracts the row's `id` column and removes it from the document, so
+/// returned documents never expose the storage-side key (matches the
+/// `_source` semantics of the ES/OS drivers).
+fn take_id(row: &mut Value) -> DocumentId {
+    let id = row.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+    if let Some(obj) = row.as_object_mut() {
+        obj.remove("id");
+    }
+    id
+}
+
 /// Builds a `(name, escaped-value)` pair list for INSERT, treating all values
 /// as strings (ClickHouse accepts quoted strings for any column).
 fn insert_pairs(doc: &Value) -> Vec<(String, String)> {
@@ -135,7 +146,11 @@ impl SearchEngine for ClickHouse {
 
     async fn get(&self, index: &str, id: &DocumentId) -> Result<Option<Document>, SearchError> {
         let sql = format!("SELECT * FROM `{index}` WHERE `id` = '{}' LIMIT 1", escape(id));
-        Ok(self.query_rows(&sql).await?.into_iter().next())
+        let mut row = self.query_rows(&sql).await?.into_iter().next();
+        if let Some(doc) = row.as_mut() {
+            take_id(doc);
+        }
+        Ok(row)
     }
 
     async fn delete(&self, index: &str, id: &DocumentId) -> Result<(), SearchError> {
@@ -152,10 +167,7 @@ impl SearchEngine for ClickHouse {
         let hits: Vec<SearchHit> = rows
             .drain(..)
             .map(|mut row| {
-                let id = row.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
-                if let Some(obj) = row.as_object_mut() {
-                    obj.remove("id");
-                }
+                let id = take_id(&mut row);
                 SearchHit { id, score: 1.0, source: row }
             })
             .collect();
@@ -255,6 +267,7 @@ mod tests {
         let engine = ClickHouse::new(mock().await);
         let doc = engine.get("posts", &"1".into()).await.unwrap().unwrap();
         assert_eq!(doc["title"], "hello");
+        assert!(doc.get("id").is_none(), "get() must strip the storage-side id");
     }
 
     #[tokio::test]
