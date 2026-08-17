@@ -7,6 +7,9 @@ use std::time::{Duration, SystemTime};
 
 pub type CliResult = Result<(), String>;
 
+mod pet;
+pub use pet::pet;
+
 /// Scaffold a new bee-rust project directory with a runnable template.
 pub fn new_project(name: &str) -> CliResult {
     validate_name(name)?;

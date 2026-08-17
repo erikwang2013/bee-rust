@@ -32,6 +32,8 @@ enum Commands {
         #[arg(long, default_value = "linux/x86_64")]
         target: String,
     },
+    /// Show the project pet bee (mood follows project state)
+    Pet,
 }
 
 #[derive(Subcommand)]
@@ -65,6 +67,7 @@ fn main() {
         Commands::Run { watch } => bee_cli::run_server(watch),
         Commands::Migrate { .. } => bee_cli::migrate(),
         Commands::Pack { target } => bee_cli::pack(&target),
+        Commands::Pet => bee_cli::pet(),
     };
     if let Err(message) = result {
         eprintln!("error: {message}");
@@ -178,6 +181,15 @@ mod tests {
         match cli.command {
             Commands::Pack { target } => assert_eq!(target, "linux/aarch64"),
             _ => panic!("expected Pack command"),
+        }
+    }
+
+    #[test]
+    fn test_pet_command() {
+        let cli = Cli::try_parse_from(["bee-rust", "pet"]).unwrap();
+        match cli.command {
+            Commands::Pet => {}
+            _ => panic!("expected Pet command"),
         }
     }
 }
