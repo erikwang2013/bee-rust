@@ -33,9 +33,27 @@ impl ClickHouse {
     }
 }
 
-/// Escapes a string literal for SQL: single quotes are doubled.
+/// Escapes a string literal for SQL. Backslashes must be escaped first:
+/// ClickHouse honors `\'` escapes inside `'...'` literals, so a raw `\`
+/// would otherwise let the value out of the literal.
 fn escape(s: &str) -> String {
-    s.replace('\'', "''")
+    s.replace('\\', "\\\\").replace('\'', "''")
+}
+
+/// Formats a value for an INSERT column.
+fn col_value(v: &Value) -> String {
+    match v {
+        Value::Null => "NULL".to_string(),
+        Value::Bool(b) => {
+            if *b {
+                "1".into()
+            } else {
+                "0".into()
+            }
+        }
+        Value::Number(n) => n.to_string(),
+        _ => format!("'{}'", escape(v.as_str().unwrap_or(&v.to_string()))),
+    }
 }
 
 /// Extracts the row's `id` column and removes it from the document, so
@@ -53,25 +71,7 @@ fn take_id(row: &mut Value) -> DocumentId {
 /// as strings (ClickHouse accepts quoted strings for any column).
 fn insert_pairs(doc: &Value) -> Vec<(String, String)> {
     doc.as_object()
-        .map(|obj| {
-            obj.iter()
-                .map(|(k, v)| {
-                    let val = match v {
-                        Value::Null => "NULL".to_string(),
-                        Value::Bool(b) => {
-                            if *b {
-                                "1".into()
-                            } else {
-                                "0".into()
-                            }
-                        }
-                        Value::Number(n) => n.to_string(),
-                        _ => format!("'{}'", escape(v.as_str().unwrap_or(&v.to_string()))),
-                    };
-                    (k.clone(), val)
-                })
-                .collect()
-        })
+        .map(|obj| obj.iter().map(|(k, v)| (k.clone(), col_value(v))).collect())
         .unwrap_or_default()
 }
 
@@ -126,20 +126,40 @@ impl SearchEngine for ClickHouse {
         if docs.is_empty() {
             return Ok(BulkResult { indexed: 0, errors: Vec::new() });
         }
-        // All rows share the first document's column shape (sorted key order
-        // preserved by serde_json's Map, which is BTreeMap-backed).
-        let mut pairs = insert_pairs(&docs[0].1);
-        pairs.push(("id".to_string(), format!("'{}'", escape(&docs[0].0))));
-        let cols = pairs.iter().map(|(k, _)| format!("`{k}`")).collect::<Vec<_>>().join(", ");
+        // Columns are the union of all documents' keys; rows lacking a
+        // column are written as NULL, so heterogeneous documents cannot
+        // silently shift values into the wrong columns.
+        let mut cols: Vec<String> = Vec::new();
+        for (_, doc) in docs {
+            if let Some(obj) = doc.as_object() {
+                for k in obj.keys() {
+                    if !cols.iter().any(|c| c == k) {
+                        cols.push(k.clone());
+                    }
+                }
+            }
+        }
+        if !cols.iter().any(|c| c == "id") {
+            cols.push("id".into());
+        }
+        let cols_sql = cols.iter().map(|k| format!("`{k}`")).collect::<Vec<_>>().join(", ");
         let vals: Vec<String> = docs
             .iter()
             .map(|(id, doc)| {
-                let mut p = insert_pairs(doc);
-                p.push(("id".to_string(), format!("'{}'", escape(id))));
-                format!("({})", p.iter().map(|(_, v)| v.clone()).collect::<Vec<_>>().join(", "))
+                let row: Vec<String> = cols
+                    .iter()
+                    .map(|k| {
+                        if k == "id" {
+                            format!("'{}'", escape(id))
+                        } else {
+                            doc.get(k).map(col_value).unwrap_or_else(|| "NULL".into())
+                        }
+                    })
+                    .collect();
+                format!("({})", row.join(", "))
             })
             .collect();
-        let sql = format!("INSERT INTO `{index}` ({cols}) VALUES {}", vals.join(", "));
+        let sql = format!("INSERT INTO `{index}` ({cols_sql}) VALUES {}", vals.join(", "));
         self.exec(&sql).await?;
         Ok(BulkResult { indexed: docs.len() as u64, errors: Vec::new() })
     }
@@ -283,6 +303,46 @@ mod tests {
     async fn index_sends_insert() {
         let engine = ClickHouse::new(mock().await);
         engine.index("posts", "1".into(), json!({"title": "hello"})).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn bulk_index_unions_columns_in_order() {
+        let app = axum::Router::new().route(
+            "/",
+            post(|req: Request<Body>| async move {
+                let uri = req.uri().to_string();
+                let sql: String = reqwest::Url::parse(&format!("http://localhost{uri}"))
+                    .unwrap()
+                    .query_pairs()
+                    .find(|(k, _)| k == "query")
+                    .map(|(_, v)| v.into_owned())
+                    .unwrap_or_default();
+                assert!(
+                    sql.contains("INSERT INTO `posts` (`title`, `score`, `id`) VALUES"),
+                    "union of columns: {sql}"
+                );
+                assert!(
+                    sql.contains("('a', NULL, '1'), ('b', 1, '2')"),
+                    "missing columns become NULL: {sql}"
+                );
+                (StatusCode::OK, "")
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let engine = ClickHouse::new(format!("http://{addr}"));
+        let res = engine
+            .bulk_index(
+                "posts",
+                &[
+                    ("1".into(), json!({"title": "a"})),
+                    ("2".into(), json!({"title": "b", "score": 1})),
+                ],
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.indexed, 2);
     }
 
     #[tokio::test]

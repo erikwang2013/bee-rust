@@ -24,7 +24,7 @@ impl SearchEngine for Elasticsearch {
     async fn create_index(&self, name: &str, mapping: Option<Mapping>) -> Result<(), SearchError> {
         let res = self
             .client
-            .put(format!("{}/{name}", self.base_url))
+            .put(endpoint(&self.base_url, &[name])?)
             .json(&mapping.unwrap_or_default())
             .send()
             .await
@@ -35,7 +35,7 @@ impl SearchEngine for Elasticsearch {
     async fn delete_index(&self, name: &str) -> Result<(), SearchError> {
         let res = self
             .client
-            .delete(format!("{}/{name}", self.base_url))
+            .delete(endpoint(&self.base_url, &[name])?)
             .send()
             .await
             .map_err(conn_err)?;
@@ -45,7 +45,7 @@ impl SearchEngine for Elasticsearch {
     async fn index(&self, index: &str, id: DocumentId, doc: Document) -> Result<(), SearchError> {
         let res = self
             .client
-            .put(format!("{}/{index}/_doc/{id}", self.base_url))
+            .put(endpoint(&self.base_url, &[index, "_doc", id.as_str()])?)
             .json(&doc)
             .send()
             .await
@@ -58,16 +58,20 @@ impl SearchEngine for Elasticsearch {
         index: &str,
         docs: &[(DocumentId, Document)],
     ) -> Result<BulkResult, SearchError> {
-        // NDJSON: one action line + one document line per item.
+        // NDJSON: one action line + one document line per item. Action lines
+        // are JSON-serialized so ids are escaped — a raw `"` would break out
+        // of the action object and inject arbitrary bulk operations.
         let mut body = String::new();
         for (id, doc) in docs {
-            body.push_str(&format!("{{\"index\":{{\"_index\":\"{index}\",\"_id\":\"{id}\"}}}}\n"));
+            let action = serde_json::json!({ "index": { "_index": index, "_id": id } });
+            body.push_str(&action.to_string());
+            body.push('\n');
             body.push_str(&doc.to_string());
             body.push('\n');
         }
         let res = self
             .client
-            .post(format!("{}/_bulk", self.base_url))
+            .post(endpoint(&self.base_url, &["_bulk"])?)
             .header("content-type", "application/x-ndjson")
             .body(body)
             .send()
@@ -77,14 +81,25 @@ impl SearchEngine for Elasticsearch {
             return Err(http_error(res, "bulk_index").await);
         }
         let payload: serde_json::Value = res.json().await.map_err(query_err)?;
-        let indexed = payload["items"].as_array().map(|i| i.len() as u64).unwrap_or(0);
-        Ok(BulkResult { indexed, errors: Vec::new() })
+        // `_bulk` returns 200 even when items fail (`errors: true`); count
+        // only successful items and surface the per-item errors.
+        let mut indexed = 0u64;
+        let mut errors = Vec::new();
+        if let Some(items) = payload["items"].as_array() {
+            for item in items {
+                match item.get("index").and_then(|i| i.get("error")) {
+                    Some(err) => errors.push(err.to_string()),
+                    None => indexed += 1,
+                }
+            }
+        }
+        Ok(BulkResult { indexed, errors })
     }
 
     async fn get(&self, index: &str, id: &DocumentId) -> Result<Option<Document>, SearchError> {
         let res = self
             .client
-            .get(format!("{}/{index}/_doc/{id}", self.base_url))
+            .get(endpoint(&self.base_url, &[index, "_doc", id.as_str()])?)
             .send()
             .await
             .map_err(conn_err)?;
@@ -101,7 +116,7 @@ impl SearchEngine for Elasticsearch {
     async fn delete(&self, index: &str, id: &DocumentId) -> Result<(), SearchError> {
         let res = self
             .client
-            .delete(format!("{}/{index}/_doc/{id}", self.base_url))
+            .delete(endpoint(&self.base_url, &[index, "_doc", id.as_str()])?)
             .send()
             .await
             .map_err(conn_err)?;
@@ -111,7 +126,7 @@ impl SearchEngine for Elasticsearch {
     async fn search(&self, index: &str, query: SearchQuery) -> Result<SearchResult, SearchError> {
         let res = self
             .client
-            .post(format!("{}/{index}/_search", self.base_url))
+            .post(endpoint(&self.base_url, &[index, "_search"])?)
             .json(&query)
             .send()
             .await
@@ -126,7 +141,7 @@ impl SearchEngine for Elasticsearch {
     async fn scroll(&self, handle: ScrollHandle) -> Result<SearchResult, SearchError> {
         let res = self
             .client
-            .post(format!("{}/_search/scroll", self.base_url))
+            .post(endpoint(&self.base_url, &["_search", "scroll"])?)
             .json(&serde_json::json!({ "scroll_id": handle }))
             .send()
             .await
@@ -142,7 +157,7 @@ impl SearchEngine for Elasticsearch {
         let query = serde_json::json!({ "size": 0, "aggs": aggs });
         let res = self
             .client
-            .post(format!("{}/{index}/_search", self.base_url))
+            .post(endpoint(&self.base_url, &[index, "_search"])?)
             .json(&query)
             .send()
             .await
@@ -153,6 +168,24 @@ impl SearchEngine for Elasticsearch {
         let payload: serde_json::Value = res.json().await.map_err(query_err)?;
         Ok(payload.get("aggregations").cloned().unwrap_or_default())
     }
+}
+
+/// Builds `{base}/{segments...}` with each segment percent-encoded, so ids
+/// or index names cannot escape the URL path. Dot segments are rejected
+/// outright: `..` survives percent-encoding and would normalize away to a
+/// sibling path on re-parse, rewriting the request to an arbitrary endpoint.
+fn endpoint(base: &str, segments: &[&str]) -> Result<String, SearchError> {
+    for s in segments {
+        if s.is_empty() || s.split('/').any(|p| p == "." || p == "..") {
+            return Err(SearchError::IndexError(format!("invalid url segment: {s:?}")));
+        }
+    }
+    let mut url = reqwest::Url::parse(base)
+        .map_err(|e| SearchError::ConnectionError(format!("invalid base url {base:?}: {e}")))?;
+    url.path_segments_mut()
+        .map_err(|_| SearchError::ConnectionError("base url is opaque".into()))?
+        .extend(segments);
+    Ok(url.to_string())
 }
 
 fn parse_hits(payload: &serde_json::Value) -> SearchResult {
@@ -280,6 +313,40 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(res.indexed, 2);
+    }
+
+    #[tokio::test]
+    async fn bulk_index_reports_partial_failures() {
+        let base = mock(vec![(
+            "/_bulk",
+            post(|| async {
+                (
+                    StatusCode::OK,
+                    axum::Json(serde_json::json!({
+                        "errors": true,
+                        "items": [
+                            {"index": {"status": 201}},
+                            {"index": {"status": 400, "error": {"type": "mapper_parsing_exception", "reason": "boom"}}}
+                        ]
+                    })),
+                )
+            }),
+        )])
+        .await;
+        let engine = Elasticsearch::new(base);
+        let res = engine
+            .bulk_index(
+                "posts",
+                &[
+                    ("1".into(), serde_json::json!({"a": 1})),
+                    ("2".into(), serde_json::json!({"a": 2})),
+                ],
+            )
+            .await
+            .unwrap();
+        assert_eq!(res.indexed, 1);
+        assert_eq!(res.errors.len(), 1);
+        assert!(res.errors[0].contains("mapper_parsing_exception"));
     }
 
     #[tokio::test]

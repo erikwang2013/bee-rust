@@ -32,14 +32,14 @@ impl ArangoDB {
         self
     }
 
-    fn vertex_url(&self, id: &str) -> String {
+    fn vertex_url(&self, id: &str) -> Result<String, GraphError> {
         self.doc_url(&self.vertex_collection, id)
     }
 
-    fn doc_url(&self, collection: &str, id: &str) -> String {
-        reqwest::Url::parse(&format!("{}/_api/document/{collection}/{id}", self.base_url))
-            .map(|u| u.to_string())
-            .unwrap_or_else(|_| format!("{}/_api/document/{collection}/{id}", self.base_url))
+    fn doc_url(&self, collection: &str, id: &str) -> Result<String, GraphError> {
+        validate_key(collection, "collection name")?;
+        validate_key(id, "document key")?;
+        arango_url(&self.base_url, &["_api", "document", collection, id])
     }
 
     async fn send(
@@ -63,11 +63,7 @@ impl GraphDB for ArangoDB {
         doc.insert("_label".into(), serde_json::json!(vertex.label));
         self.send(
             self.client
-                .post(format!(
-                    "{}/_api/document/{collection}",
-                    self.base_url,
-                    collection = self.vertex_collection
-                ))
+                .post(arango_url(&self.base_url, &["_api", "document", &self.vertex_collection])?)
                 .json(&doc),
             "add_vertex",
         )
@@ -76,7 +72,7 @@ impl GraphDB for ArangoDB {
     }
 
     async fn get_vertex(&self, id: &VertexId) -> Result<Option<Vertex>, GraphError> {
-        let res = self.client.get(self.vertex_url(id)).send().await.map_err(conn_err)?;
+        let res = self.client.get(self.vertex_url(id)?).send().await.map_err(conn_err)?;
         if res.status() == StatusCode::NOT_FOUND {
             return Ok(None);
         }
@@ -94,7 +90,7 @@ impl GraphDB for ArangoDB {
     ) -> Result<Vertex, GraphError> {
         let res = self
             .client
-            .patch(self.vertex_url(id))
+            .patch(self.vertex_url(id)?)
             .query(&[("returnNew", "true")])
             .json(&properties)
             .send()
@@ -111,7 +107,7 @@ impl GraphDB for ArangoDB {
     }
 
     async fn delete_vertex(&self, id: &VertexId) -> Result<(), GraphError> {
-        let res = self.client.delete(self.vertex_url(id)).send().await.map_err(conn_err)?;
+        let res = self.client.delete(self.vertex_url(id)?).send().await.map_err(conn_err)?;
         if res.status() == StatusCode::NOT_FOUND {
             return Err(GraphError::VertexNotFound(id.clone()));
         }
@@ -133,7 +129,9 @@ impl GraphDB for ArangoDB {
             serde_json::json!(format!("{}/{to}", self.vertex_collection, to = edge.to)),
         );
         self.send(
-            self.client.post(format!("{}/_api/document/{}", self.base_url, edge.label)).json(&doc),
+            self.client
+                .post(arango_url(&self.base_url, &["_api", "document", &edge.label])?)
+                .json(&doc),
             "add_edge",
         )
         .await?;
@@ -146,8 +144,16 @@ impl GraphDB for ArangoDB {
             TraversalDirection::Incoming => "INBOUND",
             TraversalDirection::Both => "ANY",
         };
-        let label =
-            traversal.edge_labels.first().map(|l| format!(" `{}`", aql_esc(l))).unwrap_or_default();
+        let label = traversal
+            .edge_labels
+            .first()
+            .map(|l| {
+                validate_key(l, "edge label")?;
+                Ok::<String, GraphError>(format!(" `{}`", aql_esc(l)))
+            })
+            .transpose()?
+            .unwrap_or_default();
+        validate_key(&traversal.start, "start vertex key")?;
         let query = format!(
             "FOR v, e IN 1..{} {direction} \"{}/{}\"{label} RETURN {{v: v, e: e}}",
             traversal.max_depth,
@@ -157,7 +163,7 @@ impl GraphDB for ArangoDB {
         let payload = self
             .send(
                 self.client
-                    .post(format!("{}/_api/cursor", self.base_url))
+                    .post(arango_url(&self.base_url, &["_api", "cursor"])?)
                     .json(&serde_json::json!({"query": query, "bindVars": {}})),
                 "traverse",
             )
@@ -175,7 +181,7 @@ impl GraphDB for ArangoDB {
     async fn query(&self, query: &str, params: Option<Params>) -> Result<QueryResult, GraphError> {
         let payload = self
             .send(
-                self.client.post(format!("{}/_api/cursor", self.base_url)).json(
+                self.client.post(arango_url(&self.base_url, &["_api", "cursor"])?).json(
                     &serde_json::json!({"query": query, "bindVars": params.unwrap_or_default()}),
                 ),
                 "query",
@@ -190,6 +196,28 @@ impl GraphDB for ArangoDB {
             .unwrap_or_default();
         Ok(QueryResult { columns, rows })
     }
+}
+
+/// Builds `{base}/{segments...}` with each segment percent-encoded.
+fn arango_url(base: &str, segments: &[&str]) -> Result<String, GraphError> {
+    let mut url = reqwest::Url::parse(base)
+        .map_err(|e| GraphError::QueryError(format!("invalid base url {base:?}: {e}")))?;
+    url.path_segments_mut()
+        .map_err(|_| GraphError::QueryError("base url is opaque".into()))?
+        .extend(segments);
+    Ok(url.to_string())
+}
+
+/// ArangoDB document keys and collection names are restricted identifiers;
+/// rejecting anything else keeps them safe in URL paths and AQL.
+fn validate_key(s: &str, what: &str) -> Result<(), GraphError> {
+    if s.is_empty()
+        || s == ".."
+        || !s.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | ':' | '.' | '@'))
+    {
+        return Err(GraphError::QueryError(format!("invalid arangodb {what}: {s:?}")));
+    }
+    Ok(())
 }
 
 fn aql_esc(s: &str) -> String {

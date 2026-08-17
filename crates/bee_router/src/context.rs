@@ -1,7 +1,8 @@
 // Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
 use axum::body::Body;
-use axum::http::header::HeaderValue;
+use axum::http::header::{HeaderName, HeaderValue};
 use axum::http::{Request, StatusCode};
+use std::str::FromStr;
 use bee_session::Session;
 use bee_template::TemplateEngine;
 use std::collections::HashMap;
@@ -123,9 +124,11 @@ impl Context {
         &mut self.session
     }
 
-    /// Set a response header. The value is validated up front so the
-    /// response builder in [`Context::into_response`] never panics.
+    /// Set a response header. The name and value are validated up front so
+    /// the response builder in [`Context::into_response`] never panics.
     pub fn set_header(&mut self, name: &str, value: &str) -> Result<(), RouterError> {
+        HeaderName::from_str(name)
+            .map_err(|_| RouterError::Internal(format!("invalid header name {name:?}")))?;
         HeaderValue::from_str(value)
             .map_err(|_| RouterError::Internal(format!("invalid value for header {name}")))?;
         self.response_headers.insert(name.to_string(), value.to_string());
@@ -213,6 +216,15 @@ mod tests {
         let mut ctx = make_context(Arc::new(engine));
         assert!(ctx.redirect("http://evil.com/\r\nX-Injected: 1").is_err());
         assert!(ctx.redirect("/path\r\nSet-Cookie: admin=1").is_err());
+    }
+
+    #[test]
+    fn set_header_rejects_invalid_name() {
+        let engine = TemplateEngine::new(Path::new("tests/fixtures/templates")).unwrap();
+        let mut ctx = make_context(Arc::new(engine));
+        assert!(ctx.set_header("X-Frame-Options", "DENY").is_ok());
+        assert!(ctx.set_header("x-ok\r\nInjected: 1", "v").is_err());
+        assert!(ctx.set_header("", "v").is_err());
     }
 
     #[test]

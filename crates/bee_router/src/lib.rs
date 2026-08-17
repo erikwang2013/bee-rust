@@ -10,8 +10,8 @@ pub use security::SecurityFilter;
 
 use async_trait::async_trait;
 use axum::http::HeaderMap;
-use bee_cache::Cache;
-use bee_session::Session;
+use bee_cache::{Cache, CacheError};
+use bee_session::{Session, SessionError};
 use context::RouterError;
 use std::sync::Arc;
 use std::time::Duration;
@@ -59,7 +59,7 @@ impl Context {
         filters: &[&dyn Filter],
         controller: &dyn Controller,
     ) -> Result<(), RouterError> {
-        let had_cookie = self.restore_session(cache, ttl).await;
+        let had_cookie = self.restore_session(cache, ttl).await?;
 
         for filter in filters {
             filter.before(self)?;
@@ -96,7 +96,7 @@ impl Context {
                 .await
                 .map_err(|e| RouterError::Internal(format!("session save failed: {e}")))?;
             let id = self.session().id().to_string();
-            let cookie = format!("{SESSION_COOKIE}={id}; Path=/; HttpOnly");
+            let cookie = format!("{SESSION_COOKIE}={id}; Path=/; HttpOnly; SameSite=Lax");
             self.set_header("Set-Cookie", &cookie)?;
         }
         Ok(())
@@ -105,18 +105,27 @@ impl Context {
     /// Restore the session from the `bee_session` cookie, keeping the fresh
     /// session when the cookie is absent or stale. Returns whether the cookie
     /// was present, so the persist step knows a cookie must be issued.
-    async fn restore_session(&mut self, cache: Arc<dyn Cache>, ttl: Duration) -> bool {
+    ///
+    /// Only a missing/stale cookie falls back to a fresh session; real
+    /// failures (cache backend down, corrupt payload) propagate instead of
+    /// silently losing every user's session data.
+    async fn restore_session(
+        &mut self,
+        cache: Arc<dyn Cache>,
+        ttl: Duration,
+    ) -> Result<bool, RouterError> {
         let Some(id) = cookie_value(self.request.headers(), SESSION_COOKIE) else {
-            return false;
+            return Ok(false);
         };
         match Session::load(cache, id, ttl).await {
             Ok(session) => {
                 *self.session_mut() = session;
-                true
+                Ok(true)
             }
             // Stale or invalid cookie: keep the fresh session; the persist
             // step re-issues a cookie with a new id.
-            Err(_) => true,
+            Err(SessionError::CacheError(CacheError::NotFound)) => Ok(true),
+            Err(e) => Err(RouterError::Internal(format!("session restore failed: {e}"))),
         }
     }
 }

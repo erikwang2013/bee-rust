@@ -33,3 +33,9 @@ jobs:
 
       - name: Test
         run: cargo test --workspace
+
+      - name: Test with all features
+        # Driver modules (ES/OS/ClickHouse/InfluxDB/QuestDB/IoTDB/Neo4j/
+        # ArangoDB/NebulaGraph) are feature-gated with `default = []`; this
+        # unlocks their ~37 otherwise-skipped tests.
+        run: cargo test --workspace --all-features

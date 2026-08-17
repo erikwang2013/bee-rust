@@ -64,17 +64,18 @@ impl TimeSeriesDB for InfluxDB {
     ) -> Result<TimeSeries, TsdbError> {
         let mut flux = format!(
             "from(bucket: \"{b}\")\n  |> range(start: {s}, stop: {e})\n  |> filter(fn: (r) => r._measurement == \"{m}\")",
-            b = self.bucket,
+            b = flux_str(&self.bucket),
             s = start.to_rfc3339(),
             e = end.to_rfc3339(),
-            m = measurement,
+            m = flux_str(measurement),
         );
         if let Some(filters) = tag_filters {
             for f in filters {
+                let key = flux_key(&f.key)?;
                 let cond = match f.op {
-                    FilterOp::Eq => format!("r.{} == \"{}\"", f.key, f.value),
-                    FilterOp::Neq => format!("r.{} != \"{}\"", f.key, f.value),
-                    FilterOp::Regex => format!("r.{} =~ /{}/", f.key, f.value),
+                    FilterOp::Eq => format!("r.{key} == \"{}\"", flux_str(&f.value)),
+                    FilterOp::Neq => format!("r.{key} != \"{}\"", flux_str(&f.value)),
+                    FilterOp::Regex => format!("r.{key} =~ /{}/", flux_regex(&f.value)),
                 };
                 flux.push_str(&format!("\n  |> filter(fn: (r) => {cond})"));
             }
@@ -96,18 +97,19 @@ impl TimeSeriesDB for InfluxDB {
 
     async fn create_continuous_query(&self, spec: CQSpec) -> Result<(), TsdbError> {
         let agg = aggregation_fn(&spec.aggregation);
+        let every = flux_duration(&spec.every)?;
         let flux = format!(
             "option task = {{name: \"{n}\", every: {e}, offset: 0s, org: \"{o}\"}}\n\n\
              from(bucket: \"{b}\")\n  |> range(start: -task.every)\n  \
              |> filter(fn: (r) => r._measurement == \"{s}\")\n  \
              |> {a}()\n  |> to(bucket: \"{t}\")",
-            n = spec.name,
-            e = spec.every,
-            o = self.org,
-            b = self.bucket,
-            s = spec.source,
+            n = flux_str(&spec.name),
+            e = every,
+            o = flux_str(&self.org),
+            b = flux_str(&self.bucket),
+            s = flux_str(&spec.source),
             a = agg,
-            t = spec.target,
+            t = flux_str(&spec.target),
         );
         let res = self
             .client
@@ -127,6 +129,40 @@ fn aggregation_fn(agg: &Aggregation) -> &'static str {
         Aggregation::Count => "count",
         Aggregation::Min => "min",
         Aggregation::Max => "max",
+    }
+}
+
+/// Escapes a string inside a Flux double-quoted literal.
+fn flux_str(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+/// Escapes a value inside a Flux regex literal `/.../`.
+fn flux_regex(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('/', "\\/")
+}
+
+/// Tag keys become bare column references (`r.{key}`); only identifiers are
+/// safe there.
+fn flux_key(s: &str) -> Result<&str, TsdbError> {
+    if s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+        Ok(s)
+    } else {
+        Err(TsdbError::QueryError(format!("invalid flux tag key: {s:?}")))
+    }
+}
+
+/// Flux duration literal (e.g. `1m`), used in task options.
+fn flux_duration(s: &str) -> Result<&str, TsdbError> {
+    let body_len = s.trim_end_matches(|c: char| c.is_ascii_alphabetic()).len();
+    let (body, unit) = s.split_at(body_len);
+    if !body.is_empty()
+        && body.bytes().all(|b| b.is_ascii_digit())
+        && matches!(unit, "ns" | "us" | "ms" | "s" | "m" | "h" | "d" | "w")
+    {
+        Ok(s)
+    } else {
+        Err(TsdbError::QueryError(format!("invalid flux duration: {s:?}")))
     }
 }
 
@@ -167,7 +203,9 @@ fn line_protocol(point: &Point) -> Result<String, TsdbError> {
         line.push('=');
         line.push_str(&field_value(v)?);
     }
-    let ts = point.timestamp.timestamp_nanos_opt().unwrap_or_default();
+    let ts = point.timestamp.timestamp_nanos_opt().ok_or_else(|| {
+        TsdbError::WriteError(format!("timestamp out of range: {}", point.timestamp))
+    })?;
     Ok(format!("{line} {ts}"))
 }
 
@@ -181,16 +219,44 @@ fn parse_time(s: &str) -> Result<Timestamp, TsdbError> {
         .map_err(|e| TsdbError::QueryError(format!("bad timestamp {s:?}: {e}")))
 }
 
+/// Splits a CSV line, honoring double-quoted fields: Flux CSV quotes values
+/// containing commas, so a bare `split(',')` would misalign columns.
+fn split_csv(line: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut cur = String::new();
+    let mut in_quotes = false;
+    let mut chars = line.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '"' if in_quotes => {
+                if chars.peek() == Some(&'"') {
+                    cur.push('"');
+                    chars.next();
+                } else {
+                    in_quotes = false;
+                }
+            }
+            '"' => in_quotes = true,
+            ',' if !in_quotes => {
+                out.push(std::mem::take(&mut cur));
+            }
+            c => cur.push(c),
+        }
+    }
+    out.push(cur);
+    out
+}
+
 /// Parses Flux annotated-CSV output into points. Lines starting with `#` are
 /// annotations; the first plain line is the header.
 fn parse_csv(body: &str) -> Result<TimeSeries, TsdbError> {
     let mut points = Vec::new();
-    let mut header: Option<Vec<&str>> = None;
+    let mut header: Option<Vec<String>> = None;
     for line in body.lines() {
         if line.starts_with('#') || line.trim().is_empty() {
             continue;
         }
-        let cols: Vec<&str> = line.split(',').collect();
+        let cols = split_csv(line);
         match header.as_ref() {
             None => header = Some(cols),
             Some(h) => {
@@ -200,7 +266,7 @@ fn parse_csv(body: &str) -> Result<TimeSeries, TsdbError> {
                 let mut field_name = String::new();
                 let mut timestamp = None;
                 for (i, col) in cols.iter().enumerate() {
-                    match h.get(i).copied().unwrap_or_default() {
+                    match h.get(i).map(|s| s.as_str()).unwrap_or_default() {
                         "_time" => timestamp = Some(parse_time(col)?),
                         "_measurement" => measurement = col.to_string(),
                         "_field" => field_name = col.to_string(),
@@ -345,6 +411,49 @@ mod tests {
         })
         .await
         .unwrap();
+    }
+
+    #[test]
+    fn flux_escaping_prevents_injection() {
+        assert_eq!(flux_str("a\"b\\c"), "a\\\"b\\\\c");
+        assert_eq!(flux_regex("a/b"), "a\\/b");
+        assert!(flux_key("good_key").is_ok());
+        assert!(flux_key("bad key").is_err());
+        assert!(flux_duration("1m").is_ok());
+        assert!(flux_duration("2h30m").is_err());
+    }
+
+    #[tokio::test]
+    async fn query_escapes_user_values() {
+        let base = mock(vec![(
+            "/api/v2/query",
+            post(|req: Request<Body>| async move {
+                let body = axum::body::to_bytes(req.into_body(), 4096).await.unwrap();
+                let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+                let flux = v["query"].as_str().unwrap();
+                assert!(flux.contains("r.host == \"srv\\\"x\\\"\""), "got: {flux}");
+                assert!(!flux.contains("\"srv\"x\""), "raw quote must not appear: {flux}");
+                (StatusCode::OK, "")
+            }),
+        )])
+        .await;
+        let db = InfluxDB::new(base);
+        let filter = TagFilter { key: "host".into(), value: "srv\"x\"".into(), op: FilterOp::Eq };
+        let start = Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).single().unwrap();
+        let end = Utc.with_ymd_and_hms(2026, 1, 2, 0, 0, 0).single().unwrap();
+        db.query_range("cpu", start, end, Some(&[filter])).await.unwrap();
+    }
+
+    #[test]
+    fn parse_csv_handles_quoted_values() {
+        let body = "\
+#datatype,string,long,dateTime:RFC3339,string,string,string\n\
+#default,_result,,,,,\n\
+,result,table,_time,_measurement,_field,_value\n\
+,,0,2026-01-01T00:00:00Z,cpu,note,\"a, b\"\n";
+        let points = parse_csv(body).unwrap();
+        assert_eq!(points.len(), 1);
+        assert_eq!(points[0].fields["note"], "a, b");
     }
 
     #[tokio::test]
