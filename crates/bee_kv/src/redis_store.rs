@@ -1,5 +1,8 @@
 // Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
+use std::time::Duration;
+
 use async_trait::async_trait;
+use redis::AsyncConnectionConfig;
 
 use crate::{KvError, KvStore};
 
@@ -18,7 +21,11 @@ impl RedisStore {
         let client = redis::Client::open(addr)
             .map_err(|e| KvError::ConnectionError(format!("failed to create client: {e}")))?;
         let conn = client
-            .get_multiplexed_async_connection()
+            .get_multiplexed_async_connection_with_config(
+                &AsyncConnectionConfig::new()
+                    .set_connection_timeout(Duration::from_secs(5))
+                    .set_response_timeout(Duration::from_secs(30)),
+            )
             .await
             .map_err(|e| KvError::ConnectionError(format!("failed to connect: {e}")))?;
         Ok(Self { conn })
@@ -62,20 +69,10 @@ impl KvStore for RedisStore {
     }
 
     async fn incr(&self, key: &str, amount: i64) -> Result<i64, KvError> {
-        if amount == 1 {
-            redis::cmd("INCR")
-                .arg(key)
-                .query_async(&mut self.conn.clone())
-                .await
-                .map_err(|e| KvError::OperationFailed(e.to_string()))
-        } else {
-            redis::cmd("INCRBY")
-                .arg(key)
-                .arg(amount)
-                .query_async(&mut self.conn.clone())
-                .await
-                .map_err(|e| KvError::OperationFailed(e.to_string()))
-        }
+        incr_cmd(key, amount)
+            .query_async(&mut self.conn.clone())
+            .await
+            .map_err(|e| KvError::OperationFailed(e.to_string()))
     }
 
     async fn expire(&self, key: &str, seconds: i64) -> Result<(), KvError> {
@@ -109,5 +106,44 @@ impl KvStore for RedisStore {
         cmd.query_async(&mut self.conn.clone())
             .await
             .map_err(|e| KvError::OperationFailed(e.to_string()))
+    }
+}
+
+/// `INCR` for 1 (Redis's atomic increment), `INCRBY` otherwise.
+fn incr_cmd(key: &str, amount: i64) -> redis::Cmd {
+    let mut cmd = redis::cmd(if amount == 1 { "INCR" } else { "INCRBY" });
+    cmd.arg(key);
+    if amount != 1 {
+        cmd.arg(amount);
+    }
+    cmd
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn packed(cmd: &redis::Cmd) -> String {
+        String::from_utf8_lossy(&cmd.get_packed_command()).into_owned()
+    }
+
+    #[test]
+    fn incr_uses_incr_for_one_and_incrby_for_others() {
+        let one = packed(&incr_cmd("visits", 1));
+        assert!(one.contains("$4\r\nINCR\r\n"), "{one}");
+        assert!(!one.contains("INCRBY"), "{one}");
+
+        let many = packed(&incr_cmd("visits", 5));
+        assert!(many.contains("$6\r\nINCRBY\r\n"), "{many}");
+        assert!(many.contains("$1\r\n5\r\n"), "{many}");
+
+        let zero = packed(&incr_cmd("visits", 0));
+        assert!(zero.contains("$6\r\nINCRBY\r\n"), "{zero}");
+    }
+
+    #[test]
+    fn packed_command_contains_key() {
+        let cmd = packed(&incr_cmd("page/1", 1));
+        assert!(cmd.contains("$6\r\npage/1\r\n"), "{cmd}");
     }
 }

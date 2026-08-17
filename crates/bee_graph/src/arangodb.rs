@@ -2,6 +2,8 @@
 use async_trait::async_trait;
 use reqwest::{Client, StatusCode};
 
+use crate::neo4j::http_client;
+
 use crate::{
     Edge, GraphDB, GraphError, Params, PathResult, Properties, QueryResult, Traversal,
     TraversalDirection, Vertex, VertexId,
@@ -21,7 +23,7 @@ pub struct ArangoDB {
 impl ArangoDB {
     pub fn new(base_url: impl Into<String>) -> Self {
         Self {
-            client: Client::new(),
+            client: http_client(),
             base_url: base_url.into(),
             vertex_collection: "vertices".into(),
         }

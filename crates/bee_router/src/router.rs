@@ -1,5 +1,8 @@
 // Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
+use std::time::Duration;
+
 use axum::Router as AxumRouter;
+use axum::response::IntoResponse;
 use axum::routing::MethodRouter;
 
 /// A declarative router that collects named routes and builds an
@@ -30,6 +33,8 @@ impl<S> Router<S> {
 
     /// Build the router without supplying state. Handlers using
     /// [`axum::extract::State`] require [`Router::with_state`] instead.
+    ///
+    /// Every route gets a 2 MiB body limit and a 30 s request timeout.
     pub fn build(self) -> AxumRouter<S>
     where
         S: Clone + Send + Sync + 'static,
@@ -38,7 +43,23 @@ impl<S> Router<S> {
         for (path, method_router) in self.routes {
             router = router.route(&path, method_router);
         }
-        router
+        router.layer(
+            // One stack per `Router::layer` call: the error handling must be
+            // inside it so the composed service's error is `Infallible`.
+            tower::ServiceBuilder::new()
+                .layer(axum::error_handling::HandleErrorLayer::new(|err: axum::BoxError| {
+                    async move {
+                        if err.is::<tower::timeout::error::Elapsed>() {
+                            (axum::http::StatusCode::REQUEST_TIMEOUT, "request timed out")
+                                .into_response()
+                        } else {
+                            axum::http::StatusCode::INTERNAL_SERVER_ERROR.into_response()
+                        }
+                    }
+                }))
+                .layer(tower::timeout::TimeoutLayer::new(Duration::from_secs(30)))
+                .layer(axum::extract::DefaultBodyLimit::max(2 * 1024 * 1024)),
+        )
     }
 
     /// Build the router and attach `state`, yielding a fully constructed

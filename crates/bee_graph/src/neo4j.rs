@@ -1,6 +1,18 @@
 // Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
+use std::time::Duration;
+
 use async_trait::async_trait;
 use reqwest::Client;
+
+/// Shared HTTP client: 30s request timeout, 5s connect timeout, so a hung
+/// backend cannot stall a request forever.
+pub(crate) fn http_client() -> Client {
+    Client::builder()
+        .timeout(Duration::from_secs(30))
+        .connect_timeout(Duration::from_secs(5))
+        .build()
+        .unwrap_or_else(|_| Client::new())
+}
 
 use crate::{
     Edge, GraphDB, GraphError, Params, PathResult, Properties, QueryResult, Traversal,
@@ -15,7 +27,7 @@ pub struct Neo4j {
 
 impl Neo4j {
     pub fn new(base_url: impl Into<String>) -> Self {
-        Self { client: Client::new(), base_url: base_url.into() }
+        Self { client: http_client(), base_url: base_url.into() }
     }
 
     async fn run(
@@ -118,9 +130,11 @@ impl GraphDB for Neo4j {
             TraversalDirection::Incoming => "<-",
             TraversalDirection::Both => "-",
         };
+        // Clamp to a sane hop range: `*1..0` is invalid Cypher and an
+        // unbounded depth could explode into a full-graph scan.
+        let depth = traversal.max_depth.clamp(1, 100);
         let stmt = format!(
-            "MATCH (s {{id: $start}})-[r:{label}*1..{}]{arrow}(n) RETURN n, r",
-            traversal.max_depth
+            "MATCH (s {{id: $start}})-[r:{label}*1..{depth}]{arrow}(n) RETURN n, r"
         );
         let mut p = Properties::new();
         p.insert("start".into(), serde_json::json!(traversal.start));

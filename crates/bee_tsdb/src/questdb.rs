@@ -3,6 +3,8 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use reqwest::{Client, header::CONTENT_TYPE};
 
+use crate::influxdb::http_client;
+
 use crate::{
     CQSpec, Fields, Point, TagFilter, Tags, TimeSeries, TimeSeriesDB, Timestamp, TsdbError,
 };
@@ -15,7 +17,7 @@ pub struct QuestDB {
 
 impl QuestDB {
     pub fn new(base_url: impl Into<String>) -> Self {
-        Self { client: Client::new(), base_url: base_url.into() }
+        Self { client: http_client(), base_url: base_url.into() }
     }
 }
 

@@ -3,6 +3,8 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use reqwest::Client;
 
+use crate::influxdb::http_client;
+
 use crate::{
     Aggregation, CQSpec, Fields, FilterOp, Point, TagFilter, Tags, TimeSeries, TimeSeriesDB,
     Timestamp, TsdbError,
@@ -16,7 +18,7 @@ pub struct IoTDB {
 
 impl IoTDB {
     pub fn new(base_url: impl Into<String>) -> Self {
-        Self { client: Client::new(), base_url: base_url.into() }
+        Self { client: http_client(), base_url: base_url.into() }
     }
 }
 
@@ -166,6 +168,10 @@ fn parse_result(result: &[serde_json::Value], measurement: &str) -> Result<TimeS
                 timestamp = Some(parse_time(vals.get(col_idx).copied().unwrap_or_default())?);
                 continue;
             }
+            // ponytail: IoTDB REST does not quote string values, so a comma
+            // inside one splits the row into extra fragments; the last column
+            // absorbs the surplus. Multi-column commas still misalign — use a
+            // server-side format without commas if that ever matters.
             let segs: Vec<&str> = col.strip_prefix("root.").unwrap_or(col).split('.').collect();
             // [measurement, (tagk, tagv)*, field] — always even length.
             if segs.len() < 2 || segs[0] != measurement {
@@ -178,7 +184,11 @@ fn parse_result(result: &[serde_json::Value], measurement: &str) -> Result<TimeS
                 i += 2;
             }
             let field = segs[segs.len() - 1];
-            let value = vals.get(col_idx).copied().unwrap_or_default();
+            let value = if col_idx == cols.len() - 1 && vals.len() > cols.len() {
+                vals[col_idx..].join(",")
+            } else {
+                vals.get(col_idx).copied().unwrap_or_default().to_string()
+            };
             let mut fields = Fields::new();
             if let Ok(n) = value.parse::<f64>() {
                 fields.insert(field.to_string(), serde_json::json!(n));

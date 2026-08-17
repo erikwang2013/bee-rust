@@ -3,6 +3,8 @@ use async_trait::async_trait;
 use reqwest::Client;
 use serde_json::{Value, json};
 
+use crate::http_client;
+
 use crate::{
     AggResult, Aggregations, BulkResult, Document, DocumentId, Mapping, ScrollHandle, SearchEngine,
     SearchError, SearchHit, SearchQuery, SearchResult,
@@ -18,7 +20,7 @@ pub struct ClickHouse {
 
 impl ClickHouse {
     pub fn new(base_url: impl Into<String>) -> Self {
-        Self { client: Client::new(), base_url: base_url.into() }
+        Self { client: http_client(), base_url: base_url.into() }
     }
 
     async fn exec(&self, sql: &str) -> Result<(), SearchError> {
@@ -58,13 +60,22 @@ fn col_value(v: &Value) -> String {
 
 /// Extracts the row's `id` column and removes it from the document, so
 /// returned documents never expose the storage-side key (matches the
-/// `_source` semantics of the ES/OS drivers).
-fn take_id(row: &mut Value) -> DocumentId {
-    let id = row.get("id").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+/// `_source` semantics of the ES/OS drivers). A non-string id is an error,
+/// not a silent empty key.
+fn take_id(row: &mut Value) -> Result<DocumentId, SearchError> {
+    let id = match row.get("id") {
+        Some(Value::String(s)) => s.clone(),
+        Some(v) => {
+            return Err(SearchError::QueryError(format!(
+                "clickhouse row id is not a string: {v}"
+            )))
+        }
+        None => String::new(),
+    };
     if let Some(obj) = row.as_object_mut() {
         obj.remove("id");
     }
-    id
+    Ok(id)
 }
 
 /// Builds a `(name, escaped-value)` pair list for INSERT, treating all values
@@ -168,7 +179,7 @@ impl SearchEngine for ClickHouse {
         let sql = format!("SELECT * FROM `{index}` WHERE `id` = '{}' LIMIT 1", escape(id));
         let mut row = self.query_rows(&sql).await?.into_iter().next();
         if let Some(doc) = row.as_mut() {
-            take_id(doc);
+            take_id(doc)?;
         }
         Ok(row)
     }
@@ -182,15 +193,18 @@ impl SearchEngine for ClickHouse {
             .get("sql")
             .and_then(|s| s.as_str())
             .map(str::to_string)
-            .unwrap_or_else(|| format!("SELECT * FROM `{index}`"));
+            // A user-supplied `sql` is trusted to carry its own LIMIT; the
+            // default full-table scan is capped so search() cannot return
+            // unbounded result sets.
+            .unwrap_or_else(|| format!("SELECT * FROM `{index}` LIMIT 1000"));
         let mut rows = self.query_rows(&sql).await?;
         let hits: Vec<SearchHit> = rows
             .drain(..)
             .map(|mut row| {
-                let id = take_id(&mut row);
-                SearchHit { id, score: 1.0, source: row }
+                let id = take_id(&mut row)?;
+                Ok(SearchHit { id, score: 1.0, source: row })
             })
-            .collect();
+            .collect::<Result<Vec<_>, SearchError>>()?;
         let total = hits.len() as u64;
         Ok(SearchResult { total, hits, aggregations: None })
     }

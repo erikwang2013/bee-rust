@@ -2,6 +2,8 @@
 use async_trait::async_trait;
 use reqwest::Client;
 
+use crate::neo4j::http_client;
+
 use crate::{
     Edge, GraphDB, GraphError, Params, PathResult, Properties, QueryResult, Traversal,
     TraversalDirection, Vertex, VertexId,
@@ -15,7 +17,7 @@ pub struct NebulaGraph {
 
 impl NebulaGraph {
     pub fn new(base_url: impl Into<String>) -> Self {
-        Self { client: Client::new(), base_url: base_url.into() }
+        Self { client: http_client(), base_url: base_url.into() }
     }
 
     async fn exec(&self, stmt: &str) -> Result<serde_json::Value, GraphError> {
@@ -122,9 +124,11 @@ impl GraphDB for NebulaGraph {
             TraversalDirection::Incoming => " REVERSELY",
             TraversalDirection::Both => " BIDIRECT",
         };
+        // Clamp to a sane hop range: `GO 1 TO 0 STEPS` is invalid nGQL and an
+        // unbounded depth could explode into a full-graph scan.
+        let depth = traversal.max_depth.clamp(1, 100);
         let stmt = format!(
-            "GO 1 TO {} STEPS FROM \"{}\" OVER {}{} YIELD dst(edge) AS vid, edge AS e",
-            traversal.max_depth,
+            "GO 1 TO {depth} STEPS FROM \"{}\" OVER {}{} YIELD dst(edge) AS vid, edge AS e",
             esc(&traversal.start),
             label,
             dir
@@ -132,8 +136,14 @@ impl GraphDB for NebulaGraph {
         let payload = self.exec(&stmt).await?;
         let mut out = Vec::new();
         for row in payload["data"][0]["rows"].as_array().into_iter().flatten() {
-            let vid = row[0].as_str().unwrap_or("").to_string();
-            let e = &row[1];
+            // A row is only usable when it carries the full (vid, edge) pair;
+            // skipping malformed rows beats emitting empty edges that look real.
+            let Some(vertex_id) = row.as_array().and_then(|r| r.first()).and_then(|v| v.as_str()) else {
+                continue;
+            };
+            let Some(e) = row.as_array().and_then(|r| r.get(1)) else {
+                continue;
+            };
             let props = e
                 .get("props")
                 .or_else(|| e.get("properties"))
@@ -141,7 +151,7 @@ impl GraphDB for NebulaGraph {
                 .unwrap_or_else(|| serde_json::json!({}));
             out.push(PathResult {
                 vertices: vec![Vertex {
-                    id: vid,
+                    id: vertex_id.to_string(),
                     label: String::new(),
                     properties: Properties::new(),
                 }],

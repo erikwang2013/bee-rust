@@ -21,7 +21,7 @@ memcached = ["dep:memcache"]
 [dependencies.redis]
 version = "0.27"
 optional = true
-features = ["tokio-comp", "aio"]
+features = ["tokio-comp", "aio", "connection-manager"]
 
 [dependencies.memcache]
 version = "0.17"

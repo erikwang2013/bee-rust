@@ -11,6 +11,8 @@ pub enum OrmError {
     ConnectionError(String),
     #[error("query error: {0}")]
     QueryError(String),
+    #[error("invalid field name: {0}")]
+    InvalidField(String),
     #[error("not found")]
     NotFound,
 }
@@ -54,32 +56,60 @@ impl<T: Model> QuerySet<T> {
     /// The value is never concatenated into SQL; it is accumulated in
     /// [`QuerySet::params`], which the backend driver must bind to the `?`
     /// placeholders (in order) before execution.
-    pub fn filter_eq(mut self, field: impl Into<String>, value: impl Into<String>) -> Self {
-        self.filters.push(format!("{} = ?", field.into()));
+    ///
+    /// The field name is validated against `[A-Za-z_][A-Za-z0-9_]*`; anything
+    /// else (e.g. user input with spaces or quotes) is rejected with
+    /// [`OrmError::InvalidField`] instead of being spliced into SQL.
+    pub fn filter_eq(
+        mut self,
+        field: impl Into<String>,
+        value: impl Into<String>,
+    ) -> Result<Self, OrmError> {
+        let field = field.into();
+        validate_field(&field)?;
+        self.filters.push(format!("{field} = ?"));
         self.params.push(value.into());
-        self
+        Ok(self)
     }
 
     /// Add a parameterised greater-than condition: `field > ?`.
-    pub fn filter_gt(mut self, field: impl Into<String>, value: impl Into<String>) -> Self {
-        self.filters.push(format!("{} > ?", field.into()));
+    pub fn filter_gt(
+        mut self,
+        field: impl Into<String>,
+        value: impl Into<String>,
+    ) -> Result<Self, OrmError> {
+        let field = field.into();
+        validate_field(&field)?;
+        self.filters.push(format!("{field} > ?"));
         self.params.push(value.into());
-        self
+        Ok(self)
     }
 
     /// Add a parameterised less-than condition: `field < ?`.
-    pub fn filter_lt(mut self, field: impl Into<String>, value: impl Into<String>) -> Self {
-        self.filters.push(format!("{} < ?", field.into()));
+    pub fn filter_lt(
+        mut self,
+        field: impl Into<String>,
+        value: impl Into<String>,
+    ) -> Result<Self, OrmError> {
+        let field = field.into();
+        validate_field(&field)?;
+        self.filters.push(format!("{field} < ?"));
         self.params.push(value.into());
-        self
+        Ok(self)
     }
 
     /// Add a parameterised substring condition: `field LIKE ?`, with the value
     /// wrapped in `%...%` wildcards.
-    pub fn filter_contains(mut self, field: impl Into<String>, value: impl Into<String>) -> Self {
-        self.filters.push(format!("{} LIKE ?", field.into()));
+    pub fn filter_contains(
+        mut self,
+        field: impl Into<String>,
+        value: impl Into<String>,
+    ) -> Result<Self, OrmError> {
+        let field = field.into();
+        validate_field(&field)?;
+        self.filters.push(format!("{field} LIKE ?"));
         self.params.push(format!("%{}%", value.into()));
-        self
+        Ok(self)
     }
 
     /// Bound parameters for the `?` placeholders in SQL, in positional order.
@@ -147,5 +177,18 @@ impl<T: Model> QuerySet<T> {
         }
 
         sql
+    }
+}
+
+/// Column names may only be `[A-Za-z_][A-Za-z0-9_]*`; anything else could
+/// splice SQL out of the quoted identifier context.
+fn validate_field(field: &str) -> Result<(), OrmError> {
+    let mut chars = field.chars();
+    let valid = matches!(chars.next(), Some(c) if c.is_ascii_alphabetic() || c == '_')
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_');
+    if valid {
+        Ok(())
+    } else {
+        Err(OrmError::InvalidField(field.to_string()))
     }
 }

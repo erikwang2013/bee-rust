@@ -7,7 +7,7 @@ license.workspace = true
 
 [dependencies]
 axum = { workspace = true }
-tower = { workspace = true }
+tower = { workspace = true, features = ["timeout"] }
 tokio = { workspace = true, features = ["sync", "macros"] }
 async-trait = { workspace = true }
 serde = { workspace = true }

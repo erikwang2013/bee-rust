@@ -40,7 +40,7 @@ impl Mood {
 /// Show the project pet bee: detect project state, render the matching
 /// expression as an SVG image, and point at it.
 pub fn pet() -> CliResult {
-    let mood = detect_mood();
+    let mood = detect_mood()?;
     let svg = render_svg(mood);
 
     fs::create_dir_all(OUT_DIR).map_err(|e| e.to_string())?;
@@ -54,21 +54,21 @@ pub fn pet() -> CliResult {
 
 /// Map project state to a mood. Frazzled (secrets in the tree) wins, then
 /// uncommitted work, then night time, then a driver/crate commit.
-fn detect_mood() -> Mood {
-    let status = git(&["status", "--porcelain"]).unwrap_or_default();
+fn detect_mood() -> Result<Mood, String> {
+    let status = git(&["status", "--porcelain"])?;
     if contains_secret(&status) {
-        return Mood::Frazzled;
+        return Ok(Mood::Frazzled);
     }
     if !status.trim().is_empty() {
-        return Mood::Debugging;
+        return Ok(Mood::Debugging);
     }
     if is_night() {
-        return Mood::Dozing;
+        return Ok(Mood::Dozing);
     }
-    if recent_commit_touched_drivers() {
-        return Mood::Loaded;
+    if recent_commit_touched_drivers()? {
+        return Ok(Mood::Loaded);
     }
-    Mood::Cheerful
+    Ok(Mood::Cheerful)
 }
 
 fn contains_secret(porcelain: &str) -> bool {
@@ -90,10 +90,11 @@ fn is_night() -> bool {
     hour >= 23 || hour < 6
 }
 
-fn recent_commit_touched_drivers() -> bool {
-    let stat = git(&["show", "--name-status", "--format=", "HEAD"]).unwrap_or_default();
-    stat.lines()
-        .any(|l| l.starts_with("A\tcrates/") || l.contains("Cargo.toml"))
+fn recent_commit_touched_drivers() -> Result<bool, String> {
+    let stat = git(&["show", "--name-status", "--format=", "HEAD"])?;
+    Ok(stat
+        .lines()
+        .any(|l| l.starts_with("A\tcrates/") || l.starts_with("M\tcrates/") || l.contains("Cargo.toml")))
 }
 
 fn git(args: &[&str]) -> Result<String, String> {

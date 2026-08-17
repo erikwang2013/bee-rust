@@ -52,7 +52,7 @@ fn test_query_combined() {
 
 #[test]
 fn test_filter_eq_parametrised() {
-    let qs = User::query().filter_eq("name", "o'neil");
+    let qs = User::query().filter_eq("name", "o'neil").unwrap();
     let sql = qs.to_sql();
     assert_eq!(sql, "SELECT * FROM users WHERE name = ?");
     assert_eq!(qs.params(), &["o'neil"]);
@@ -61,14 +61,14 @@ fn test_filter_eq_parametrised() {
 
 #[test]
 fn test_filter_comparisons() {
-    let qs = User::query().filter_gt("age", "18").filter_lt("age", "65");
+    let qs = User::query().filter_gt("age", "18").unwrap().filter_lt("age", "65").unwrap();
     assert_eq!(qs.to_sql(), "SELECT * FROM users WHERE age > ? AND age < ?");
     assert_eq!(qs.params(), &["18", "65"]);
 }
 
 #[test]
 fn test_filter_contains_parametrised() {
-    let qs = User::query().filter_contains("name", "o'neil");
+    let qs = User::query().filter_contains("name", "o'neil").unwrap();
     assert_eq!(qs.to_sql(), "SELECT * FROM users WHERE name LIKE ?");
     assert_eq!(qs.params(), &["%o'neil%"]);
     assert!(!qs.to_sql().contains("o'neil"));
@@ -76,7 +76,24 @@ fn test_filter_contains_parametrised() {
 
 #[test]
 fn test_mixed_raw_and_parametrised_filters() {
-    let qs = User::query().filter("active = 1").filter_eq("name", "o'neil").filter_gt("age", "18");
+    let qs = User::query()
+        .filter("active = 1")
+        .filter_eq("name", "o'neil")
+        .unwrap()
+        .filter_gt("age", "18")
+        .unwrap();
     assert_eq!(qs.to_sql(), "SELECT * FROM users WHERE active = 1 AND name = ? AND age > ?");
     assert_eq!(qs.params(), &["o'neil", "18"]);
+}
+
+#[test]
+fn test_invalid_field_name_rejected() {
+    for bad in ["name; DROP TABLE users", "na me", "age DESC --", "", "1name"] {
+        assert!(matches!(User::query().filter_eq(bad, "x"), Err(bee_orm::OrmError::InvalidField(_))));
+        assert!(matches!(User::query().filter_gt(bad, "x"), Err(bee_orm::OrmError::InvalidField(_))));
+        assert!(matches!(
+            User::query().filter_contains(bad, "x"),
+            Err(bee_orm::OrmError::InvalidField(_))
+        ));
+    }
 }

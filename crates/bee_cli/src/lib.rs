@@ -118,6 +118,13 @@ pub fn generate_model(name: &str, fields: Option<&str>) -> CliResult {
             let (field, ty) = spec
                 .split_once(':')
                 .ok_or_else(|| format!("invalid field spec `{spec}` (expected name:type)"))?;
+            let field = field.trim();
+            let valid = !field.is_empty()
+                && !field.chars().next().is_some_and(|c| c.is_ascii_digit())
+                && field.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
+            if !valid {
+                return Err(format!("invalid field name `{field}`"));
+            }
             members.push(format!("    {field}: {}", rust_type(ty.trim())?));
         }
     }
