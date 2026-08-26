@@ -1,7 +1,7 @@
 <!-- Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz -->
 # Beerust
 
-[English](README.en.md)
+[简体中文](README.md) · [English](docs/README.en.md) · [한국어](docs/README.ko.md) · [Русский](docs/README.ru.md) · [Deutsch](docs/README.de.md) · [Français](docs/README.fr.md) · [Español](docs/README.es.md) · [Português](docs/README.pt.md) · [हिन्दी](docs/README.hi.md) · [العربية](docs/README.ar.md) · [বাংলা](docs/README.bn.md) · [Bahasa Indonesia](docs/README.id.md) · [日本語](docs/README.ja.md)
 
 Beerust是一个 Rust 语言的生产级 Web 框架，设计哲学源自 Go 的 Beego框架，用 Rust 惯用的 trait、macro、类型系统重新表达。
 
@@ -182,166 +182,50 @@ bee_rust   → 全部上述 crate (re-export)
 
 ## 功能介绍
 
+功能概览见下，各模块的详细用法、代码示例与 API 说明见 [API 参考](docs/api.md)。
+
 ### Web 核心（bee_router）
 
-```rust
-use bee_rust::prelude::*;
+MVC 控制器：`Controller` trait + `Context`，支持路由命名空间、RESTful 方法注册、请求过滤器链。
 
-// 定义控制器
-struct UserController;
-
-#[bee_router::async_trait]
-impl Controller for UserController {
-    async fn handle(&self, ctx: &mut Context) -> Result<(), RouterError> {
-        ctx.json(&serde_json::json!({"users": []}))
-    }
-}
-
-// 路由注册
-let router = Router::new()
-    .ns("/api/v1", |ns| {
-        ns.get("/users")
-          .post("/users");
-    });
-```
-
-**Context 提供：**
-- `ctx.json()` / `ctx.text()` / `ctx.html()` — 响应输出
-- `ctx.redirect()` — 重定向
-- `ctx.abort()` — 中断请求
-- `ctx.session` — 会话访问
-- `ctx.params` — 路径参数
+- 响应输出：`ctx.json()` / `ctx.text()` / `ctx.html()`
+- 重定向 / 中断：`ctx.redirect()` / `ctx.abort()`
+- 会话与参数：`ctx.session` / `ctx.params`
 
 ### 安全检测（`security` feature）
 
-基于 [security-rust](https://crates.io/crates/security-rust) 的攻击检测过滤器，覆盖 XSS、SQL 注入、命令注入、SSRF 等 27 种攻击类型：
+基于 [security-rust](https://crates.io/crates/security-rust) 的攻击检测过滤器，覆盖 XSS、SQL 注入、命令注入、SSRF 等 27 种攻击类型，一行开启：
 
 ```rust
-use bee_rust::prelude::*;
-
 let security = SecurityFilter::new();  // 27 个检测器全开
-```
-
-在 `Cargo.toml` 中启用：
-```toml
-bee_rust = { features = ["security"] }
 ```
 
 ### ORM（bee_orm）
 
-```rust
-#[derive(Model)]
-#[bee(table = "users")]
-struct User {
-    id:   i64,
-    name: String,
-    age:  i32,
-}
-
-// 链式查询
-let users = User::query()
-    .filter("age > 18")
-    .order_by("created_at DESC")
-    .limit(20)
-    .to_sql();
-// → SELECT * FROM users WHERE age > 18 ORDER BY created_at DESC LIMIT 20
-```
+`#[derive(Model)]` 派生宏 + QuerySet 链式查询（filter / order_by / limit），支持 SQLite、PostgreSQL、MySQL、TiDB。
 
 ### 配置管理（bee_config）
 
-```rust
-#[derive(Config)]
-#[config(file = "conf/app.conf")]
-struct AppConfig {
-    app_name: String,
-    http_port: u16,
-    run_mode: String,
-}
-
-let cfg = AppConfig::load("conf/app.conf")?;
-```
+`#[derive(Config)]` 派生宏，支持 INI / YAML / ENV 加载与热更新。
 
 ### 存储引擎
 
-**KV/Cache：**
-```rust
-let kv = RedisStore::new("redis://localhost:6379").await?;
-kv.set("key", b"value", Some(Duration::from_secs(60))).await?;
-let val = kv.get("key").await?;
-```
+KV / Cache（Redis + Memcached）、搜索引擎（Elasticsearch / OpenSearch / ClickHouse）、图数据库（Neo4j / NebulaGraph / ArangoDB）、时序数据库（InfluxDB / IoTDB / QuestDB）统一 trait 抽象，驱动按 feature gate 编译。
 
-**搜索引擎（计划中）：**
-```rust
-// 驱动实现计划中，当前为 trait stub
-let engine = ElasticsearchEngine::new("http://localhost:9200")?;
-let result = engine.search("my_index", &SearchQuery {
-    q: Some("keyword".into()), ..Default::default()
-}).await?;
-```
+### Session、日志、模板
 
-**图数据库（计划中）：**
-```rust
-// 驱动实现计划中，当前为 trait stub
-let db = Neo4jDB::new("bolt://localhost:7687").await?;
-let vid = db.add_vertex("Person", &[("name", "Alice")]).await?;
-```
-
-**时序数据库（计划中）：**
-```rust
-// 驱动实现计划中，当前为 trait stub
-let tsdb = InfluxDB::new("http://localhost:8086").await?;
-tsdb.write_point("cpu", &[("host", "srv1")], &[("value", 0.85)], Utc::now()).await?;
-```
-
-### Session
-
-```rust
-let cache = Arc::new(MemoryCache::new());
-let mut session = Session::new(cache, Duration::from_secs(3600));
-session.set("user_id", &"123")?;
-let uid: String = session.get("user_id")?.unwrap();
-```
-
-### 日志
-
-```rust
-Logger::new()
-    .level(Level::INFO)
-    .output(Output::MultiFile("logs/"))
-    .async_()
-    .init()?;
-```
-
-### 模板
-
-```rust
-let engine = TemplateEngine::new("views/")?;
-let result = engine.render("hello.html", &context! { name: &"World" })?;
-// → "Hello, World!"
-```
+- Session：Memory / Redis / Cookie / Database 多后端
+- 日志：多级日志 + tracing 集成
+- 模板：基于 tera 渲染
 
 ### CLI 工具
 
 ```bash
-# 创建项目（生成可运行的脚手架：Cargo.toml + src/main.rs）
-bee-rust new my-app
-
-# 生成代码
+bee-rust new my-app            # 创建项目脚手架
 bee-rust generate controller user
-bee-rust generate model user --fields "name:string,age:int"
-
-# 开发运行（--watch 监听 src/ 变化自动重启）
-bee-rust run
-bee-rust run --watch
-
-# 打包部署（cargo build --release + 复制到 dist/）
-bee-rust pack
-
-# 数据库迁移（未实现，规划中）
-bee-rust migrate up
+bee-rust run --watch           # 开发运行（热重载）
+bee-rust pack                  # 打包部署
 ```
-
-> 说明：`pack --target` 参数为预留接口，当前打包流程不区分目标平台。
 
 ## 使用步骤
 
@@ -456,6 +340,49 @@ bee_rust = { git = "https://github.com/erikwang2013/bee-rust", features = ["full
 **支付宝**
 
 <img src="docs/alipay.png" width="160" height="175" alt="支付宝">
+
+**全球转账（Bank Transfer）**
+
+海外用户可通过银行转账支持：
+
+**收款人信息**
+
+| 项目 | 内容 |
+|------|------|
+| 收款人姓名 | WANG KEXUN |
+| 收款账户号码 | 881015918251 |
+
+**收款银行**
+
+| 项目 | 内容 |
+|------|------|
+| SWIFT Code | AABLHKHHXXX |
+| 银行名称 | ZA Bank Limited |
+| 银行编号 | 387 |
+| 银行地址 | Core F, Cyberport 3, 100 Cyberport Road, Hong Kong |
+
+**跨境汇款代理银行（如需）**
+
+> 注意：此为跨境汇款代理银行（中转银行）信息，非收款银行信息。请向你的汇款银行查询是否需要提供。
+
+- **汇入港元、人民币及美元**（代理银行为 Citibank）：
+
+| 项目 | 内容 |
+|------|------|
+| 银行名称 | Citibank N.A. Hong Kong |
+| SWIFT Code | CITIHKHXXXX |
+| 银行编号 | 006 |
+| 分行名称 | Hong Kong Branch |
+| 分行编号 | 391 |
+| 银行地址 | Citibank Tower, Citibank Plaza, 3 Garden Road, Central, Hong Kong |
+
+- **汇入其他币种**（代理银行为 BNY Mellon）：
+
+| 项目 | 内容 |
+|------|------|
+| 银行名称 | THE BANK OF NEW YORK MELLON |
+| SWIFT Code | IRVTUS3NXXX |
+| 银行地址 | THE BANK OF NEW YORK MELLON, 240 GREENWICH STREET, NEW YORK, United States |
 
 ### 许可证
 

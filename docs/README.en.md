@@ -1,7 +1,7 @@
 <!-- Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz -->
 # Beerust
 
-[中文](README.md)
+[简体中文](../README.md) · [English](README.en.md) · [한국어](README.ko.md) · [Русский](README.ru.md) · [Deutsch](README.de.md) · [Français](README.fr.md) · [Español](README.es.md) · [Português](README.pt.md) · [हिन्दी](README.hi.md) · [العربية](README.ar.md) · [বাংলা](README.bn.md) · [Bahasa Indonesia](README.id.md) · [日本語](README.ja.md)
 
 Beerust is a production-grade web framework for Rust, inspired by Go's [Beego](https://github.com/beego/beego) framework and reimagined with Rust-idiomatic traits, macros, and type system.
 
@@ -127,138 +127,50 @@ Request → [SecurityFilter Attack Detection] → [Session Restore] → [Validat
 
 ## Features
 
+For detailed usage, code examples, and API reference, see the [API Reference](api.en.md).
+
 ### Web Core (bee_router)
 
-```rust
-use bee_rust::prelude::*;
+MVC controllers: `Controller` trait + `Context`, with route namespaces, RESTful method registration, and a request filter chain.
 
-struct UserController;
-
-#[bee_router::async_trait]
-impl Controller for UserController {
-    async fn handle(&self, ctx: &mut Context) -> Result<(), RouterError> {
-        ctx.json(&serde_json::json!({"users": []}))
-    }
-}
-
-let router = Router::new()
-    .ns("/api/v1", |ns| {
-        ns.get("/users")
-          .post("/users");
-    });
-```
-
-**Context provides:**
-- `ctx.json()` / `ctx.text()` / `ctx.html()` — response output
-- `ctx.redirect()` — redirection
-- `ctx.abort()` — request interruption
-- `ctx.session` — session access
-- `ctx.params` — path parameters
+- Response output: `ctx.json()` / `ctx.text()` / `ctx.html()`
+- Redirect / abort: `ctx.redirect()` / `ctx.abort()`
+- Session & params: `ctx.session` / `ctx.params`
 
 ### Security Detection (`security` feature)
 
-Attack detection powered by [security-rust](https://crates.io/crates/security-rust), covering XSS, SQL injection, command injection, SSRF, and 23 other attack types via 27 detectors:
+Attack detection powered by [security-rust](https://crates.io/crates/security-rust), covering XSS, SQL injection, command injection, SSRF, and 23 other attack types via 27 detectors — enabled with one line:
 
 ```rust
-use bee_rust::prelude::*;
-
 let security = SecurityFilter::new();  // all 27 detectors enabled
-```
-
-Enable in `Cargo.toml`:
-```toml
-bee_rust = { features = ["security"] }
 ```
 
 ### ORM (bee_orm)
 
-```rust
-#[derive(Model)]
-#[bee(table = "users")]
-struct User {
-    id:   i64,
-    name: String,
-    age:  i32,
-}
-
-let users = User::query()
-    .filter("age > 18")
-    .order_by("created_at DESC")
-    .limit(20)
-    .to_sql();
-// → SELECT * FROM users WHERE age > 18 ORDER BY created_at DESC LIMIT 20
-```
+`#[derive(Model)]` derive macro + chainable QuerySet queries (filter / order_by / limit), supporting SQLite, PostgreSQL, MySQL, and TiDB.
 
 ### Config (bee_config)
 
-```rust
-#[derive(Config)]
-#[config(file = "conf/app.conf")]
-struct AppConfig {
-    app_name: String,
-    http_port: u16,
-    run_mode: String,
-}
-
-let cfg = AppConfig::load("conf/app.conf")?;
-```
+`#[derive(Config)]` derive macro, with INI / YAML / ENV loading and hot-reload.
 
 ### Storage Engines
 
-**KV/Cache** — unified trait with swappable driver implementations via feature gates.
+Unified trait abstractions for KV / Cache (Redis + Memcached), Search (Elasticsearch / OpenSearch / ClickHouse), Graph (Neo4j / NebulaGraph / ArangoDB), and Time Series (InfluxDB / IoTDB / QuestDB), with drivers compiled behind feature gates.
 
-**Search, Graph, Time Series** — unified traits defined; driver implementations planned.
+### Session, Logging, Templates
 
-### Session
-
-```rust
-let cache = Arc::new(MemoryCache::new());
-let mut session = Session::new(cache, Duration::from_secs(3600));
-session.set("user_id", &"123")?;
-let uid: String = session.get("user_id")?.unwrap();
-```
-
-### Logging
-
-```rust
-Logger::new()
-    .level(Level::INFO)
-    .output(Output::MultiFile("logs/"))
-    .async_()
-    .init()?;
-```
-
-### Templates
-
-```rust
-let engine = TemplateEngine::new("views/")?;
-let result = engine.render("hello.html", &context! { name: &"World" })?;
-// → "Hello, World!"
-```
+- Session: Memory / Redis / Cookie / Database backends
+- Logging: multi-level logging + tracing integration
+- Templates: tera-based rendering
 
 ### CLI Tool
 
 ```bash
-# Scaffold a runnable project (Cargo.toml + src/main.rs)
-bee-rust new my-app
-
-# Code generation
+bee-rust new my-app            # Scaffold a runnable project
 bee-rust generate controller user
-bee-rust generate model user --fields "name:string,age:int"
-
-# Dev server (--watch restarts on src/ changes)
-bee-rust run
-bee-rust run --watch
-
-# Packaging (cargo build --release + copy to dist/)
-bee-rust pack
-
-# Database migrations (not implemented yet — planned)
-bee-rust migrate up
+bee-rust run --watch           # Dev server with hot reload
+bee-rust pack                  # Packaging for deployment
 ```
-
-> Note: `pack --target` is a reserved argument; packaging does not currently
-> distinguish target platforms.
 
 ## Getting Started
 
@@ -358,11 +270,54 @@ If this project helps you, feel free to scan the QR codes below to show your sup
 
 **WeChat Pay**
 
-<img src="docs/weixinpay.png" width="160" height="175" alt="WeChat Pay">
+<img src="weixinpay.png" width="160" height="175" alt="WeChat Pay">
 
 **Alipay**
 
-<img src="docs/alipay.png" width="160" height="175" alt="Alipay">
+<img src="alipay.png" width="160" height="175" alt="Alipay">
+
+**Global Bank Transfer**
+
+Users outside China can show support via bank transfer:
+
+**Payee Information**
+
+| Field | Value |
+|-------|-------|
+| Payee Name | WANG KEXUN |
+| Account Number | 881015918251 |
+
+**Receiving Bank**
+
+| Field | Value |
+|-------|-------|
+| SWIFT Code | AABLHKHHXXX |
+| Bank Name | ZA Bank Limited |
+| Bank Code | 387 |
+| Bank Address | Core F, Cyberport 3, 100 Cyberport Road, Hong Kong |
+
+**Correspondent Bank (if required)**
+
+> Note: This is the correspondent (intermediary) bank information for cross-border remittance, NOT the receiving bank. Please check with your remitting bank whether this information is required.
+
+- **For HKD, CNY, and USD remittances** (correspondent bank: Citibank):
+
+| Field | Value |
+|-------|-------|
+| Bank Name | Citibank N.A. Hong Kong |
+| SWIFT Code | CITIHKHXXXX |
+| Bank Code | 006 |
+| Branch Name | Hong Kong Branch |
+| Branch Code | 391 |
+| Bank Address | Citibank Tower, Citibank Plaza, 3 Garden Road, Central, Hong Kong |
+
+- **For other currencies** (correspondent bank: BNY Mellon):
+
+| Field | Value |
+|-------|-------|
+| Bank Name | THE BANK OF NEW YORK MELLON |
+| SWIFT Code | IRVTUS3NXXX |
+| Bank Address | THE BANK OF NEW YORK MELLON, 240 GREENWICH STREET, NEW YORK, United States |
 
 ## License
 
