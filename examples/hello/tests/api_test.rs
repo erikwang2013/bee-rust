@@ -57,9 +57,7 @@ async fn start_server() -> (Server, String) {
 /// full raw response text.
 async fn raw_request(addr: &str, method: &str, path: &str) -> String {
     let mut stream = TcpStream::connect(addr).await.unwrap();
-    let req = format!(
-        "{method} {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n"
-    );
+    let req = format!("{method} {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n");
     stream.write_all(req.as_bytes()).await.unwrap();
     let mut buf = Vec::new();
     stream.read_to_end(&mut buf).await.unwrap();

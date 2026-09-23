@@ -11,7 +11,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 uuid = { version = "1", features = ["v4"] }
-bee_cache = { path = "../bee_cache" }
+bee_cache = { version = "1.0.6", path = "../bee_cache" }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt", "macros"] }

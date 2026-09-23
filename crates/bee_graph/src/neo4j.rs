@@ -133,9 +133,7 @@ impl GraphDB for Neo4j {
         // Clamp to a sane hop range: `*1..0` is invalid Cypher and an
         // unbounded depth could explode into a full-graph scan.
         let depth = traversal.max_depth.clamp(1, 100);
-        let stmt = format!(
-            "MATCH (s {{id: $start}})-[r:{label}*1..{depth}]{arrow}(n) RETURN n, r"
-        );
+        let stmt = format!("MATCH (s {{id: $start}})-[r:{label}*1..{depth}]{arrow}(n) RETURN n, r");
         let mut p = Properties::new();
         p.insert("start".into(), serde_json::json!(traversal.start));
         let payload = self.run(&stmt, p).await?;

@@ -66,9 +66,7 @@ fn take_id(row: &mut Value) -> Result<DocumentId, SearchError> {
     let id = match row.get("id") {
         Some(Value::String(s)) => s.clone(),
         Some(v) => {
-            return Err(SearchError::QueryError(format!(
-                "clickhouse row id is not a string: {v}"
-            )))
+            return Err(SearchError::QueryError(format!("clickhouse row id is not a string: {v}")));
         }
         None => String::new(),
     };

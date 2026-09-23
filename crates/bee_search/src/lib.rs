@@ -3,14 +3,14 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-#[cfg(any(feature = "elasticsearch", feature = "opensearch"))]
-mod rest;
 #[cfg(feature = "clickhouse")]
 pub mod clickhouse;
 #[cfg(feature = "elasticsearch")]
 pub mod elasticsearch;
 #[cfg(feature = "opensearch")]
 pub mod opensearch;
+#[cfg(any(feature = "elasticsearch", feature = "opensearch"))]
+mod rest;
 
 /// Shared HTTP client for REST drivers: 30s request timeout, 5s connect
 /// timeout, so a hung backend cannot stall a request forever.

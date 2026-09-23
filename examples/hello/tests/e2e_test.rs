@@ -78,9 +78,8 @@ fn template_autoescapes_html() {
 #[test]
 fn template_missing_file_reports_error() {
     let engine = TemplateEngine::new(&fixture_template_dir()).unwrap();
-    let err = engine
-        .render("does_not_exist.html", &bee_rust::bee_template::context! {})
-        .unwrap_err();
+    let err =
+        engine.render("does_not_exist.html", &bee_rust::bee_template::context! {}).unwrap_err();
     assert!(
         matches!(err, TemplateError::RenderError(_)) && err.to_string().contains("does_not_exist"),
         "unexpected error: {err}"

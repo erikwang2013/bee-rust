@@ -47,16 +47,16 @@ impl<S> Router<S> {
             // One stack per `Router::layer` call: the error handling must be
             // inside it so the composed service's error is `Infallible`.
             tower::ServiceBuilder::new()
-                .layer(axum::error_handling::HandleErrorLayer::new(|err: axum::BoxError| {
-                    async move {
+                .layer(axum::error_handling::HandleErrorLayer::new(
+                    |err: axum::BoxError| async move {
                         if err.is::<tower::timeout::error::Elapsed>() {
                             (axum::http::StatusCode::REQUEST_TIMEOUT, "request timed out")
                                 .into_response()
                         } else {
                             axum::http::StatusCode::INTERNAL_SERVER_ERROR.into_response()
                         }
-                    }
-                }))
+                    },
+                ))
                 .layer(tower::timeout::TimeoutLayer::new(Duration::from_secs(30)))
                 .layer(axum::extract::DefaultBodyLimit::max(2 * 1024 * 1024)),
         )

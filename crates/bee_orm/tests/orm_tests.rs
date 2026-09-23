@@ -89,8 +89,14 @@ fn test_mixed_raw_and_parametrised_filters() {
 #[test]
 fn test_invalid_field_name_rejected() {
     for bad in ["name; DROP TABLE users", "na me", "age DESC --", "", "1name"] {
-        assert!(matches!(User::query().filter_eq(bad, "x"), Err(bee_orm::OrmError::InvalidField(_))));
-        assert!(matches!(User::query().filter_gt(bad, "x"), Err(bee_orm::OrmError::InvalidField(_))));
+        assert!(matches!(
+            User::query().filter_eq(bad, "x"),
+            Err(bee_orm::OrmError::InvalidField(_))
+        ));
+        assert!(matches!(
+            User::query().filter_gt(bad, "x"),
+            Err(bee_orm::OrmError::InvalidField(_))
+        ));
         assert!(matches!(
             User::query().filter_contains(bad, "x"),
             Err(bee_orm::OrmError::InvalidField(_))

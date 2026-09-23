@@ -6,7 +6,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-bee_config_macro = { path = "../bee_config_macro" }
+bee_config_macro = { version="1.0.6", path = "../bee_config_macro" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

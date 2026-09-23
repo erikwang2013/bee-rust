@@ -186,9 +186,5 @@ fn validate_field(field: &str) -> Result<(), OrmError> {
     let mut chars = field.chars();
     let valid = matches!(chars.next(), Some(c) if c.is_ascii_alphabetic() || c == '_')
         && chars.all(|c| c.is_ascii_alphanumeric() || c == '_');
-    if valid {
-        Ok(())
-    } else {
-        Err(OrmError::InvalidField(field.to_string()))
-    }
+    if valid { Ok(()) } else { Err(OrmError::InvalidField(field.to_string())) }
 }

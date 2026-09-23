@@ -2,10 +2,10 @@
 use axum::body::Body;
 use axum::http::header::{HeaderName, HeaderValue};
 use axum::http::{Request, StatusCode};
-use std::str::FromStr;
 use bee_session::Session;
 use bee_template::TemplateEngine;
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Arc;
 
 #[derive(Debug, thiserror::Error)]

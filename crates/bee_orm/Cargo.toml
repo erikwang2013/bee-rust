@@ -10,7 +10,7 @@ async-trait = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-bee_orm_macro = { path = "../bee_orm_macro" }
+bee_orm_macro = { version="1.0.6", path = "../bee_orm_macro" }
 
 [features]
 sqlite = ["dep:rusqlite"]

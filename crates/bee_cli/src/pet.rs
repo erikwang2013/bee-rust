@@ -92,9 +92,9 @@ fn is_night() -> bool {
 
 fn recent_commit_touched_drivers() -> Result<bool, String> {
     let stat = git(&["show", "--name-status", "--format=", "HEAD"])?;
-    Ok(stat
-        .lines()
-        .any(|l| l.starts_with("A\tcrates/") || l.starts_with("M\tcrates/") || l.contains("Cargo.toml")))
+    Ok(stat.lines().any(|l| {
+        l.starts_with("A\tcrates/") || l.starts_with("M\tcrates/") || l.contains("Cargo.toml")
+    }))
 }
 
 fn git(args: &[&str]) -> Result<String, String> {
@@ -178,8 +178,7 @@ fn parts(mood: Mood) -> (&'static str, &'static str, &'static str, &'static str)
     const EYES_UP: &str = r##"<ellipse cx="205" cy="162" rx="30" ry="38" fill="#2A1E16"/>
   <ellipse cx="307" cy="162" rx="30" ry="38" fill="#2A1E16"/>
   <circle cx="193" cy="146" r="9" fill="#FFFFFF"/><circle cx="295" cy="146" r="9" fill="#FFFFFF"/>"##;
-    const MOUTH_UP: &str =
-        r##"<path d="M244 216 Q256 228 268 216" fill="none" stroke="#1F1A17" stroke-width="5" stroke-linecap="round"/>"##;
+    const MOUTH_UP: &str = r##"<path d="M244 216 Q256 228 268 216" fill="none" stroke="#1F1A17" stroke-width="5" stroke-linecap="round"/>"##;
 
     let debug_eyes = r##"<circle cx="205" cy="165" r="15" fill="#2A1E16"/>
   <circle cx="307" cy="165" r="15" fill="#2A1E16"/>
@@ -199,7 +198,8 @@ fn parts(mood: Mood) -> (&'static str, &'static str, &'static str, &'static str)
     let dozing_eyes = r##"<path d="M182 165 L228 165" stroke="#1F1A17" stroke-width="7" stroke-linecap="round"/>
   <path d="M284 165 L330 165" stroke="#1F1A17" stroke-width="7" stroke-linecap="round"/>"##;
     let dozing_mouth = r##"<path d="M248 224 Q256 227 264 224" fill="none" stroke="#1F1A17" stroke-width="4" stroke-linecap="round"/>"##;
-    let dozing_extra = r##"<text x="330" y="70" font-family="monospace" font-size="30" fill="#9FC9E8">zZ</text>"##;
+    let dozing_extra =
+        r##"<text x="330" y="70" font-family="monospace" font-size="30" fill="#9FC9E8">zZ</text>"##;
 
     let frazzled_eyes = r##"<path d="M178 130 L228 144" stroke="#1F1A17" stroke-width="8" stroke-linecap="round"/>
   <path d="M334 130 L284 144" stroke="#1F1A17" stroke-width="8" stroke-linecap="round"/>
@@ -236,13 +236,7 @@ mod tests {
 
     #[test]
     fn every_mood_renders_a_distinct_svg() {
-        for mood in [
-            Mood::Cheerful,
-            Mood::Debugging,
-            Mood::Loaded,
-            Mood::Dozing,
-            Mood::Frazzled,
-        ] {
+        for mood in [Mood::Cheerful, Mood::Debugging, Mood::Loaded, Mood::Dozing, Mood::Frazzled] {
             let svg = render_svg(mood);
             assert!(svg.starts_with("<svg") && svg.ends_with("</svg>\n"));
             assert_eq!(svg.matches("<!--").count(), 0, "no comment leftovers");

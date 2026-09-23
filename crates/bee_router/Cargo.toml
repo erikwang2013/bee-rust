@@ -15,11 +15,11 @@ serde_json = { workspace = true }
 thiserror.workspace = true
 tracing = { workspace = true }
 http = "1"
-bee_config = { path = "../bee_config" }
-bee_logs = { path = "../bee_logs" }
-bee_template = { path = "../bee_template" }
-bee_session = { path = "../bee_session" }
-bee_cache = { path = "../bee_cache" }
+bee_config = { version = "1.0.6", path = "../bee_config" }
+bee_logs = { version = "1.0.6", path = "../bee_logs" }
+bee_template = { version = "1.0.6", path = "../bee_template" }
+bee_session = { version = "1.0.6", path = "../bee_session" }
+bee_cache = { version = "1.0.6", path = "../bee_cache" }
 security-rust = { workspace = true, optional = true }
 
 [features]

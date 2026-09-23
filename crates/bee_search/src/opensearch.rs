@@ -1,11 +1,11 @@
 // Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
 use async_trait::async_trait;
 
+use crate::rest::RestEngine;
 use crate::{
     AggResult, Aggregations, BulkResult, Document, DocumentId, Mapping, ScrollHandle, SearchEngine,
     SearchError, SearchQuery, SearchResult,
 };
-use crate::rest::RestEngine;
 
 /// OpenSearch driver backed by its REST API (compatible with the
 /// Elasticsearch 7.x API surface used here).

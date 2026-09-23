@@ -8,7 +8,7 @@
 // the `security` feature (SecurityFilter lives behind it); run
 // `cargo test -p bee_router --features security` to include them.
 
-use axum::body::{to_bytes, Body};
+use axum::body::{Body, to_bytes};
 use axum::extract::{Json, Query};
 use axum::http::{Request, StatusCode};
 use axum::response::Response;
@@ -40,9 +40,8 @@ async fn submit(Json(body): Json<Submit>) -> Json<Submit> {
 
 /// Mirrors examples/hello's route table: a single `/api/v1` namespace.
 fn app() -> axum::Router {
-    bee_router::Router::new().ns("/api/v1", |ns| {
-        ns.get("/health", health).get("/hello", hello).post("/submit", submit)
-    })
+    bee_router::Router::new()
+        .ns("/api/v1", |ns| ns.get("/health", health).get("/hello", hello).post("/submit", submit))
 }
 
 async fn call(uri: &str) -> Response {
@@ -76,11 +75,7 @@ async fn unknown_namespace_returns_404() {
 async fn wrong_method_on_existing_route_returns_405() {
     let res = app()
         .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/api/v1/health")
-                .body(Body::empty())
-                .unwrap(),
+            Request::builder().method("POST").uri("/api/v1/health").body(Body::empty()).unwrap(),
         )
         .await
         .unwrap();
@@ -205,10 +200,7 @@ mod security_http {
             .oneshot(
                 Request::builder()
                     .uri("/api/v1/search")
-                    .header(
-                        "cookie",
-                        axum::http::HeaderValue::from_bytes(&[0xff, 0xfe]).unwrap(),
-                    )
+                    .header("cookie", axum::http::HeaderValue::from_bytes(&[0xff, 0xfe]).unwrap())
                     .body(Body::empty())
                     .unwrap(),
             )

@@ -138,7 +138,8 @@ impl GraphDB for NebulaGraph {
         for row in payload["data"][0]["rows"].as_array().into_iter().flatten() {
             // A row is only usable when it carries the full (vid, edge) pair;
             // skipping malformed rows beats emitting empty edges that look real.
-            let Some(vertex_id) = row.as_array().and_then(|r| r.first()).and_then(|v| v.as_str()) else {
+            let Some(vertex_id) = row.as_array().and_then(|r| r.first()).and_then(|v| v.as_str())
+            else {
                 continue;
             };
             let Some(e) = row.as_array().and_then(|r| r.get(1)) else {
