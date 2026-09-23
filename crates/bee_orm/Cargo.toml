@@ -4,6 +4,7 @@ name = "bee_orm"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description.workspace = true
 
 [dependencies]
 async-trait = { workspace = true }

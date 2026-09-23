@@ -3,6 +3,8 @@
 name = "bee_config_macro"
 version.workspace = true
 edition.workspace = true
+description.workspace = true
+license.workspace = true
 
 [lib]
 proc-macro = true
