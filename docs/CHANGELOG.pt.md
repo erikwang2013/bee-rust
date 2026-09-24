@@ -2,6 +2,11 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.1.4] — 2026-09-25
+
+### Alterado
+- A página do crates.io (`docs/crates-readme.md`) agora é bilíngue: inglês em cima, chinês abaixo. O crates.io renderiza apenas um README por crate e não oferece seletor de idioma na página, então o inglês fica na primeira tela e o texto em chinês permanece na mesma página.
+
 ## [1.1.3] — 2026-09-25
 
 ### Adicionado

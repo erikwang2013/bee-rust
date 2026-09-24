@@ -2,6 +2,11 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.1.4] — 2026-09-25
+
+### 변경됨
+- crates.io 페이지(`docs/crates-readme.md`)를 중영 이중 언어로 변경: 영어가 위, 중국어가 아래. crates.io는 크레이트당 README를 하나만 렌더링하고 페이지 내 언어 전환도 지원하지 않으므로, 영어를 첫 화면에 두면서 중국어도 같은 페이지에 유지합니다.
+
 ## [1.1.3] — 2026-09-25
 
 ### 추가됨

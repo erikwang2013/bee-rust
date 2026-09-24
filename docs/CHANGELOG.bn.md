@@ -2,6 +2,11 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.1.4] — 2026-09-25
+
+### যা পরিবর্তন করা হয়েছে
+- crates.io পৃষ্ঠা (`docs/crates-readme.md`) এখন দ্বিভাষিক: উপরে ইংরেজি, নিচে চীনা। crates.io প্রতি ক্রেটে কেবল একটি README রেন্ডার করে এবং পৃষ্ঠার ভিতরে ভাষা পরিবর্তনের সুবিধা দেয় না, তাই ইংরেজি প্রথম স্ক্রিনে এসেছে এবং চীনা লেখা একই পৃষ্ঠায় রয়েছে।
+
 ## [1.1.3] — 2026-09-25
 
 ### যা যোগ হয়েছে

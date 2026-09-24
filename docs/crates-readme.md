@@ -3,11 +3,134 @@
 
 [简体中文](https://github.com/erikwang2013/bee-rust/blob/main/README.md) · [English](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.en.md) · [한국어](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.ko.md) · [Русский](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.ru.md) · [Deutsch](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.de.md) · [Français](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.fr.md) · [Español](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.es.md) · [Português](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.pt.md) · [हिन्दी](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.hi.md) · [العربية](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.ar.md) · [বাংলা](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.bn.md) · [Bahasa Indonesia](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.id.md) · [日本語](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.ja.md)
 
+A production-grade web framework for Rust, with a design philosophy borrowed from Go's Beego and re-expressed through Rust's traits, macros and type system.
+
+MVC controllers · namespaced routing · filter chains · ORM · unified trait abstractions over storage engines
+
+## Install
+
+```bash
+cargo add bee_rust
+```
+
+Or add it to `Cargo.toml`:
+
+```toml
+[dependencies]
+bee_rust = "1.1.4"
+tokio = { version = "1", features = ["full"] }
+axum = "0.8"
+```
+
+The default `full` feature enables `router` + `orm` + `kv` + `config` + `logs` + `cache` + `session` + `security` + `template`.
+
+## Quick start
+
+```rust
+async fn health() -> &'static str {
+    "OK"
+}
+
+#[tokio::main]
+async fn main() -> bee_rust::Result<()> {
+    let _log_handle = bee_rust::init()?;
+
+    let router = bee_rust::bee_router::Router::new()
+        .ns("/api/v1", |ns| ns.get("/health", health));
+
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
+    axum::serve(listener, router.build()).await?;
+    Ok(())
+}
+```
+
+```bash
+cargo run
+curl http://localhost:8080/api/v1/health    # OK
+```
+
+A complete runnable project lives in [examples/hello](https://github.com/erikwang2013/bee-rust/tree/main/examples/hello) (covered by end-to-end tests).
+
+## Feature flags
+
+`search`, `graph` and `tsdb` are **not** part of the default `full` set — enable them explicitly.
+
+| Feature | Pulls in | Notes |
+|---------|----------|-------|
+| `full` *(default)* | router, orm, kv, config, logs, cache, session, security, template | everything |
+| `router` | bee_router, bee_session, bee_template, bee_config, bee_logs | Web core: routing + controllers + filter chain |
+| `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet |
+| `kv` | bee_kv | KV abstraction |
+| `cache` | bee_cache, bee_config | cache abstraction |
+| `session` | bee_session, bee_cache | multi-backend sessions |
+| `config` | bee_config | INI / YAML / ENV + hot reload |
+| `logs` | bee_logs | levelled logging + tracing |
+| `template` | bee_template | tera templates |
+| `security` | bee_router/security | 27 attack-detection filters |
+| `search` | bee_search | Elasticsearch / OpenSearch / ClickHouse |
+| `graph` | bee_graph | Neo4j / NebulaGraph / ArangoDB |
+| `tsdb` | bee_tsdb | InfluxDB / Apache IoTDB / QuestDB |
+
+Minimal core (no ORM, no database drivers):
+
+```toml
+bee_rust = { version = "1.1.4", default-features = false, features = ["router", "logs", "config"] }
+```
+
+## Sub-crates
+
+The framework is a set of independently usable crates; `bee_rust` is the single entry point that re-exports them on demand.
+
+| Crate | What it does | Beego counterpart |
+|-------|--------------|-------------------|
+| `bee_rust` | meta crate, single entry point | — |
+| `bee_router` | routing + controllers + `Context` + filters | `server/web`, `context` |
+| `bee_orm` | ORM + QuerySet + migrations | `client/orm` |
+| `bee_config` | config + hot reload | `client/config` |
+| `bee_logs` | logging | `logs` |
+| `bee_cache` | cache abstraction | `client/cache` |
+| `bee_session` | session management | `server/web/session` |
+| `bee_template` | template rendering | — (enhanced) |
+| `bee_kv` | KV/cache abstraction | `client/cache` (extended) |
+| `bee_search` | search / analytics engines | — (new) |
+| `bee_graph` | graph databases | — (new) |
+| `bee_tsdb` | time-series databases | — (new) |
+| `bee_cli` | scaffolding / codegen / dev runner | `bee` tool |
+
+They can also be depended on directly — for example, just an Elasticsearch client:
+
+```toml
+bee_search = { version = "1.1.4", features = ["elasticsearch"] }
+```
+
+## Supported databases
+
+| Kind | Databases | Crate | Feature |
+|------|-----------|-------|---------|
+| Relational | SQLite / PostgreSQL / MySQL / TiDB | `bee_orm` | `sqlite` / `postgres` / `mysql` |
+| KV / cache | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcache` |
+| Search / analytics | Elasticsearch / OpenSearch / ClickHouse | `bee_search` | `elasticsearch` / `opensearch` / `clickhouse` |
+| Graph | Neo4j / NebulaGraph / ArangoDB | `bee_graph` | `neo4j` / `nebulagraph` / `arangodb` |
+| Time series | InfluxDB / Apache IoTDB / QuestDB | `bee_tsdb` | `influxdb` / `iotdb` / `questdb` |
+
+## Requirements
+
+- Rust 1.80+ (MSRV)
+- edition 2024
+
+## Links
+
+- **API docs**: [docs.rs/bee_rust](https://docs.rs/bee_rust)
+- **Repository**: [github.com/erikwang2013/bee-rust](https://github.com/erikwang2013/bee-rust)
+- **Full API reference** (13 languages): [docs/](https://github.com/erikwang2013/bee-rust/tree/main/docs)
+
+---
+
+# BeeRust（中文）
+
 Rust 生产级 Web 框架，设计哲学源自 Go 的 Beego，用 Rust 惯用的 trait / macro / 类型系统重新表达。
 
 MVC 控制器 · 命名空间路由 · 过滤器链 · ORM · 多存储引擎统一 trait 抽象
-
----
 
 ## 安装
 
@@ -19,7 +142,7 @@ cargo add bee_rust
 
 ```toml
 [dependencies]
-bee_rust = "1.1.3"
+bee_rust = "1.1.4"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -76,7 +199,7 @@ curl http://localhost:8080/api/v1/health    # OK
 只想要最小核心（不拖 ORM、数据库驱动）：
 
 ```toml
-bee_rust = { version = "1.1.3", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.1.4", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## 子 Crate
@@ -102,7 +225,7 @@ bee_rust = { version = "1.1.3", default-features = false, features = ["router", 
 这些 crate 也可以单独依赖，例如只用一个 ES 客户端：
 
 ```toml
-bee_search = { version = "1.1.3", features = ["elasticsearch"] }
+bee_search = { version = "1.1.4", features = ["elasticsearch"] }
 ```
 
 ## 支持的数据库
@@ -124,8 +247,8 @@ bee_search = { version = "1.1.3", features = ["elasticsearch"] }
 
 - **API 文档**：[docs.rs/bee_rust](https://docs.rs/bee_rust)
 - **仓库**：[github.com/erikwang2013/bee-rust](https://github.com/erikwang2013/bee-rust)
-- **完整 API 参考**（12 语言）：[docs/](https://github.com/erikwang2013/bee-rust/tree/main/docs)
+- **完整 API 参考**（13 语言）：[docs/](https://github.com/erikwang2013/bee-rust/tree/main/docs)
 
-## 许可证
+## 许可证 / License
 
 Apache-2.0

@@ -2,6 +2,12 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.1.4] — 2026-09-25
+
+### 变更
+
+- crates.io 页面（`docs/crates-readme.md`）改为中英双语：英文在上、中文在下。crates.io 每个 crate 只能渲染一份 README，也不支持站内切语言，这样国际开发者首屏即可读到英文，中文内容也不必离开同一页面。
+
 ## [1.1.3] — 2026-09-25
 
 ### 新增
