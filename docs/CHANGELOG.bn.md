@@ -2,6 +2,11 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.1.5] — 2026-09-25
+
+### যা যোগ হয়েছে
+- আরও ১১টি ভাষার সংক্ষিপ্ত crates.io README: `docs/crates-readme.{ja,ko,ru,de,fr,es,pt,hi,ar,bn,id}.md`। crates.io পৃষ্ঠার ভাষা সুইচার এখন রিপোজিটরির পূর্ণ README-এর বদলে এই ফাইলগুলো নির্দেশ করে, ফলে প্রতিটি ভাষা একই সংক্ষিপ্ত ডেভেলপার-কেন্দ্রিক ডকুমেন্ট পায়।
+
 ## [1.1.4] — 2026-09-25
 
 ### যা পরিবর্তন করা হয়েছে

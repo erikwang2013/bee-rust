@@ -2,6 +2,11 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.1.5] — 2026-09-25
+
+### 추가됨
+- 나머지 11개 언어의 축약형 crates.io README: `docs/crates-readme.{ja,ko,ru,de,fr,es,pt,hi,ar,bn,id}.md`. crates.io 페이지 상단의 언어 전환이 이제 저장소의 전체 README 대신 이 파일들을 가리키므로, 어느 언어든 동일한 개발자용 요약 문서를 받습니다.
+
 ## [1.1.4] — 2026-09-25
 
 ### 변경됨

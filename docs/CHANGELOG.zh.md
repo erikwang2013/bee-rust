@@ -2,6 +2,12 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.1.5] — 2026-09-25
+
+### 新增
+
+- 另 11 个语言的精简版 crates.io README：`docs/crates-readme.{ja,ko,ru,de,fr,es,pt,hi,ar,bn,id}.md`。crates.io 页面顶部的语言入口改指向这些文件，不再指向完整版仓库 README——各语言读者拿到的都是同一份面向开发者的短文。
+
 ## [1.1.4] — 2026-09-25
 
 ### 变更

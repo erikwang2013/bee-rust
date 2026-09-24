@@ -2,6 +2,11 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.1.5] — 2026-09-25
+
+### Добавлено
+- Сокращённые README для crates.io ещё на 11 языках: `docs/crates-readme.{ja,ko,ru,de,fr,es,pt,hi,ar,bn,id}.md`. Переключатель языков на странице crates.io теперь ведёт на них, а не на полные README репозитория, — на любом языке читатель получает один и тот же короткий документ для разработчика.
+
 ## [1.1.4] — 2026-09-25
 
 ### Изменено

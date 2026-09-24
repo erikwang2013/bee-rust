@@ -2,6 +2,11 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.1.5] — 2026-09-25
+
+### Ditambahkan
+- README crates.io ringkas untuk 11 bahasa lainnya: `docs/crates-readme.{ja,ko,ru,de,fr,es,pt,hi,ar,bn,id}.md`. Pengalih bahasa di halaman crates.io kini menunjuk ke berkas-berkas ini, bukan ke README lengkap di repositori, sehingga setiap bahasa mendapat dokumen singkat yang sama untuk pengembang.
+
 ## [1.1.4] — 2026-09-25
 
 ### Diubah

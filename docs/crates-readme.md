@@ -1,7 +1,7 @@
 <!-- Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz -->
 # BeeRust
 
-[简体中文](https://github.com/erikwang2013/bee-rust/blob/main/README.md) · [English](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.en.md) · [한국어](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.ko.md) · [Русский](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.ru.md) · [Deutsch](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.de.md) · [Français](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.fr.md) · [Español](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.es.md) · [Português](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.pt.md) · [हिन्दी](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.hi.md) · [العربية](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.ar.md) · [বাংলা](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.bn.md) · [Bahasa Indonesia](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.id.md) · [日本語](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.ja.md)
+[简体中文](https://github.com/erikwang2013/bee-rust/blob/main/docs/crates-readme.md) · [English](https://github.com/erikwang2013/bee-rust/blob/main/docs/crates-readme.md) · [한국어](https://github.com/erikwang2013/bee-rust/blob/main/docs/crates-readme.ko.md) · [Русский](https://github.com/erikwang2013/bee-rust/blob/main/docs/crates-readme.ru.md) · [Deutsch](https://github.com/erikwang2013/bee-rust/blob/main/docs/crates-readme.de.md) · [Français](https://github.com/erikwang2013/bee-rust/blob/main/docs/crates-readme.fr.md) · [Español](https://github.com/erikwang2013/bee-rust/blob/main/docs/crates-readme.es.md) · [Português](https://github.com/erikwang2013/bee-rust/blob/main/docs/crates-readme.pt.md) · [हिन्दी](https://github.com/erikwang2013/bee-rust/blob/main/docs/crates-readme.hi.md) · [العربية](https://github.com/erikwang2013/bee-rust/blob/main/docs/crates-readme.ar.md) · [বাংলা](https://github.com/erikwang2013/bee-rust/blob/main/docs/crates-readme.bn.md) · [Bahasa Indonesia](https://github.com/erikwang2013/bee-rust/blob/main/docs/crates-readme.id.md) · [日本語](https://github.com/erikwang2013/bee-rust/blob/main/docs/crates-readme.ja.md)
 
 A production-grade web framework for Rust, with a design philosophy borrowed from Go's Beego and re-expressed through Rust's traits, macros and type system.
 
@@ -17,7 +17,7 @@ Or add it to `Cargo.toml`:
 
 ```toml
 [dependencies]
-bee_rust = "1.1.4"
+bee_rust = "1.1.5"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -74,7 +74,7 @@ A complete runnable project lives in [examples/hello](https://github.com/erikwan
 Minimal core (no ORM, no database drivers):
 
 ```toml
-bee_rust = { version = "1.1.4", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.1.5", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## Sub-crates
@@ -100,7 +100,7 @@ The framework is a set of independently usable crates; `bee_rust` is the single 
 They can also be depended on directly — for example, just an Elasticsearch client:
 
 ```toml
-bee_search = { version = "1.1.4", features = ["elasticsearch"] }
+bee_search = { version = "1.1.5", features = ["elasticsearch"] }
 ```
 
 ## Supported databases
@@ -142,7 +142,7 @@ cargo add bee_rust
 
 ```toml
 [dependencies]
-bee_rust = "1.1.4"
+bee_rust = "1.1.5"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -199,7 +199,7 @@ curl http://localhost:8080/api/v1/health    # OK
 只想要最小核心（不拖 ORM、数据库驱动）：
 
 ```toml
-bee_rust = { version = "1.1.4", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.1.5", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## 子 Crate
@@ -225,7 +225,7 @@ bee_rust = { version = "1.1.4", default-features = false, features = ["router", 
 这些 crate 也可以单独依赖，例如只用一个 ES 客户端：
 
 ```toml
-bee_search = { version = "1.1.4", features = ["elasticsearch"] }
+bee_search = { version = "1.1.5", features = ["elasticsearch"] }
 ```
 
 ## 支持的数据库
