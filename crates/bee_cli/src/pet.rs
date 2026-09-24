@@ -74,7 +74,7 @@ fn detect_mood() -> Result<Mood, String> {
 fn contains_secret(porcelain: &str) -> bool {
     let patterns = [".env", ".pem", "id_rsa", "secret", "credential", "token"];
     porcelain.lines().any(|line| {
-        let name = line.trim_start_matches(' ').splitn(2, ' ').nth(1).unwrap_or(line);
+        let name = line.trim_start_matches(' ').split_once(' ').map(|x| x.1).unwrap_or(line);
         patterns.iter().any(|p| name.contains(p))
     })
 }
@@ -87,7 +87,8 @@ fn is_night() -> bool {
         .and_then(|o| String::from_utf8(o.stdout).ok())
         .and_then(|s| s.trim().parse::<u8>().ok())
         .unwrap_or(12);
-    hour >= 23 || hour < 6
+    // 夜间：23:00–05:59
+    !(6..23).contains(&hour)
 }
 
 fn recent_commit_touched_drivers() -> Result<bool, String> {

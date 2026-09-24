@@ -72,7 +72,7 @@ fn status_line(raw: &str) -> &str {
 async fn health_route_serves_200_ok() {
     let (_server, addr) = start_server().await;
     let raw = raw_request(&addr, "GET", "/api/v1/health").await;
-    assert!(status_line(raw).starts_with("HTTP/1.1 200"), "status: {}", status_line(raw));
+    assert!(status_line(&raw).starts_with("HTTP/1.1 200"), "status: {}", status_line(&raw));
     assert!(raw.contains("OK"), "body missing OK: {raw}");
 }
 
@@ -80,15 +80,15 @@ async fn health_route_serves_200_ok() {
 async fn unknown_path_returns_404() {
     let (_server, addr) = start_server().await;
     let raw = raw_request(&addr, "GET", "/api/v1/nope").await;
-    assert!(status_line(raw).starts_with("HTTP/1.1 404"), "status: {}", status_line(raw));
+    assert!(status_line(&raw).starts_with("HTTP/1.1 404"), "status: {}", status_line(&raw));
 
     let raw = raw_request(&addr, "GET", "/definitely/not/a/route").await;
-    assert!(status_line(raw).starts_with("HTTP/1.1 404"), "status: {}", status_line(raw));
+    assert!(status_line(&raw).starts_with("HTTP/1.1 404"), "status: {}", status_line(&raw));
 }
 
 #[tokio::test]
 async fn wrong_method_on_health_returns_405() {
     let (_server, addr) = start_server().await;
     let raw = raw_request(&addr, "POST", "/api/v1/health").await;
-    assert!(status_line(raw).starts_with("HTTP/1.1 405"), "status: {}", status_line(raw));
+    assert!(status_line(&raw).starts_with("HTTP/1.1 405"), "status: {}", status_line(&raw));
 }

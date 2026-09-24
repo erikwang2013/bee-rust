@@ -72,7 +72,7 @@ fn template_autoescapes_html() {
 
     assert!(out.contains("&lt;script&gt;"), "script tag must be escaped: {out}");
     assert!(!out.contains("<script>"), "raw script tag leaked into output: {out}");
-    assert!(out.contains("&#39;x&#39;"), "quote must be escaped: {out}");
+    assert!(out.contains("&#x27;x&#x27;"), "quote must be escaped: {out}");
 }
 
 #[test]
@@ -119,7 +119,7 @@ fn wait_until_ready(port: u16) {
 /// `PORT` env handling and `axum::serve` exactly as production would.
 fn start_server() -> Server {
     let port = pick_free_port();
-    let child = Command::new(env!("CARGO_BIN_EXE_hello_bee"))
+    let child = Command::new(env!("CARGO_BIN_EXE_hello-bee"))
         .env("PORT", port.to_string())
         .env("RUST_LOG", "error") // keep test output clean
         .stdout(Stdio::null())

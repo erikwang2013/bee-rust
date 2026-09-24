@@ -12,8 +12,7 @@ use axum::body::{Body, to_bytes};
 use axum::extract::{Json, Query};
 use axum::http::{Request, StatusCode};
 use axum::response::Response;
-use bee_router::Router;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tower::ServiceExt;
 
 #[derive(Deserialize)]
@@ -29,7 +28,7 @@ async fn hello(Query(params): Query<HelloParams>) -> String {
     format!("hello {}", params.name.unwrap_or_else(|| "world".into()))
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 struct Submit {
     message: String,
 }
@@ -42,6 +41,7 @@ async fn submit(Json(body): Json<Submit>) -> Json<Submit> {
 fn app() -> axum::Router {
     bee_router::Router::new()
         .ns("/api/v1", |ns| ns.get("/health", health).get("/hello", hello).post("/submit", submit))
+        .build()
 }
 
 async fn call(uri: &str) -> Response {
@@ -160,7 +160,7 @@ mod security_http {
     }
 
     fn secured_app() -> axum::Router {
-        bee_router::Router::new().ns("/api/v1", |ns| ns.get("/search", secured))
+        bee_router::Router::new().ns("/api/v1", |ns| ns.get("/search", secured)).build()
     }
 
     async fn call_secured(uri: &str) -> Response {
