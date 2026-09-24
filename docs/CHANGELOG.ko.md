@@ -2,6 +2,21 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.1.2] — 2026-09-24
+
+### 추가됨
+- `docs/crates-readme.md`: crates.io 페이지 전용 README — 설치, 실행 가능한 예제(`examples/hello`에서 가져옴, 해당 E2E 테스트로 검증), feature 플래그 표, 서브 크레이트 목록
+- `scripts/publish.sh`: 워크스페이스 크레이트를 하나씩 배포하고, 이미 업로드된 것은 건너뛰며, 속도 제한 시 crates.io가 반환한 재시도 시각까지 대기
+
+### 수정됨
+- 테스트 스위트가 컴파일되지 않았음(`cargo test --workspace`가 main에서 실패): `bee_router` 통합 테스트에서 `Submit`에 `Serialize` 누락(이는 `Json` 응답으로 반환됨), 두 헬퍼에 `Router::build()` 누락, 8곳의 `status_line` 호출에 `&` 누락
+- `hello` 예제 테스트가 잘못된 `CARGO_BIN_EXE` 이름을 참조 — 바이너리 타깃은 하이픈을 유지함(`CARGO_BIN_EXE_hello-bee`)
+- `hello` 템플릿 자동 이스케이프 테스트가 `&#39;`를 검증했으나 tera는 `&#x27;`를 출력함. 이스케이프 동작 자체는 정상이었음
+- `bee_cli`의 Clippy `manual_split_once` / `manual_range_contains` lint, `bee_router` 통합 테스트의 미사용 import
+
+### 변경됨
+- 모든 크레이트가 이제 `readme`와 `repository` 메타데이터를 가짐 — 이전에는 crates.io 페이지에 README가 렌더링되지 않았고 6개 크레이트는 `repository`가 아예 없었음
+- `examples/hello`를 `publish = false`로 표시: E2E 테스트 하네스로서 워크스페이스에는 남지만 crates.io에는 더 이상 배포되지 않음
 ## [1.0.6] — 2026-08-07
 
 ### 추가됨

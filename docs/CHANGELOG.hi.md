@@ -2,6 +2,21 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.1.2] — 2026-09-24
+
+### जोड़ा गया
+- `docs/crates-readme.md`: crates.io पृष्ठों के लिए समर्पित README — इंस्टॉल, चलाने योग्य उदाहरण (`examples/hello` से लिया गया, जिसके E2E टेस्ट इसे कवर करते हैं), feature फ़्लैग तालिका और सब-क्रेट सूची
+- `scripts/publish.sh`: वर्कस्पेस के क्रेट एक-एक करके प्रकाशित करता है, पहले से अपलोड किए गए को छोड़ देता है, और रेट लिमिट होने पर crates.io द्वारा लौटाए गए पुनःप्रयास समय तक प्रतीक्षा करता है
+
+### ठीक किया गया
+- टेस्ट सूट कंपाइल नहीं होता था (main पर `cargo test --workspace` विफल): `bee_router` के इंटीग्रेशन टेस्ट में `Submit` पर `Serialize` अनुपस्थित था (यह `Json` प्रतिक्रिया के रूप में लौटाया जाता है), दो हेल्पर पर `Router::build()` अनुपस्थित था, और आठ `status_line` कॉल में `&` अनुपस्थित था
+- `hello` उदाहरण के टेस्ट गलत `CARGO_BIN_EXE` नाम का संदर्भ दे रहे थे — बाइनरी टारगेट अपना हाइफ़न रखता है (`CARGO_BIN_EXE_hello-bee`)
+- `hello` का टेम्पलेट ऑटोएस्केप टेस्ट `&#39;` जाँच रहा था जबकि tera `&#x27;` उत्पन्न करता है; एस्केपिंग व्यवहार स्वयं सही था
+- `bee_cli` में Clippy `manual_split_once` और `manual_range_contains` लिंट; `bee_router` के इंटीग्रेशन टेस्ट में अप्रयुक्त import
+
+### बदला गया
+- अब सभी क्रेट में `readme` और `repository` मेटाडेटा है — पहले किसी भी crates.io पृष्ठ पर README रेंडर नहीं होता था और छह क्रेट में `repository` पूरी तरह अनुपस्थित था
+- `examples/hello` को `publish = false` चिह्नित किया गया: यह E2E टेस्ट हार्नेस के रूप में वर्कस्पेस में रहता है, पर crates.io पर प्रकाशित नहीं होता
 ## [1.0.6] — 2026-08-07
 
 ### जोड़ा गया

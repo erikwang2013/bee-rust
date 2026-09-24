@@ -2,6 +2,21 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.1.2] — 2026-09-24
+
+### Добавлено
+- `docs/crates-readme.md`: отдельный README для страниц на crates.io — установка, рабочий пример (взят из `examples/hello`, покрыт его E2E-тестами), таблица feature-флагов и список подкрейтов
+- `scripts/publish.sh`: публикует крейты воркспейса по одному, пропускает уже загруженные и при ограничении частоты ждёт время повторной попытки, возвращённое crates.io
+
+### Исправлено
+- Набор тестов не компилировался (`cargo test --workspace` падал на main): в интеграционном тесте `bee_router` у `Submit` отсутствовал `Serialize` (он возвращается как `Json`-ответ), у двух хелперов отсутствовал `Router::build()`, в восьми вызовах `status_line` отсутствовал `&`
+- Тесты примера `hello` ссылались на неверное имя `CARGO_BIN_EXE` — цель-бинарник сохраняет дефис (`CARGO_BIN_EXE_hello-bee`)
+- Тест автоэкранирования шаблонов в `hello` проверял `&#39;`, тогда как tera выводит `&#x27;`; само экранирование было корректным
+- Линты Clippy `manual_split_once` и `manual_range_contains` в `bee_cli`; неиспользуемый импорт в интеграционном тесте `bee_router`
+
+### Изменено
+- Все крейты теперь содержат метаданные `readme` и `repository` — ранее ни одна страница на crates.io не отображала README, а у шести крейтов вообще не было `repository`
+- `examples/hello` помечен `publish = false`: остаётся в воркспейсе как основа E2E-тестов, но больше не публикуется на crates.io
 ## [1.0.6] — 2026-08-07
 
 ### Добавлено

@@ -2,6 +2,21 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.1.2] — 2026-09-24
+
+### Neu hinzugefügt
+- `docs/crates-readme.md`: ein eigenes README für die crates.io-Seiten — Installation, ein lauffähiges Beispiel (aus `examples/hello`, durch dessen E2E-Tests abgedeckt), eine Feature-Flag-Tabelle und eine Übersicht der Sub-Crates
+- `scripts/publish.sh`: veröffentlicht die Crates des Workspace einzeln, überspringt bereits hochgeladene und wartet bei Ratenbegrenzung auf die von crates.io zurückgegebene Wiederholungszeit
+
+### Behoben
+- Die Testsuite ließ sich nicht kompilieren (`cargo test --workspace` schlug auf main fehl): Im Integrationstest von `bee_router` fehlte `Serialize` bei `Submit` (wird als `Json`-Antwort zurückgegeben), `Router::build()` bei zwei Hilfsfunktionen und `&` bei acht `status_line`-Aufrufen
+- Die Tests des `hello`-Beispiels verwiesen auf den falschen `CARGO_BIN_EXE`-Namen — das Binary-Target behält seinen Bindestrich (`CARGO_BIN_EXE_hello-bee`)
+- Der Autoescape-Test des `hello`-Templates prüfte auf `&#39;`, während tera `&#x27;` ausgibt; das Escaping-Verhalten selbst war korrekt
+- Clippy-Lints `manual_split_once` und `manual_range_contains` in `bee_cli`; ein ungenutzter Import im Integrationstest von `bee_router`
+
+### Geändert
+- Alle Crates tragen jetzt `readme`- und `repository`-Metadaten — zuvor rendierte keine crates.io-Seite ein README, und sechs Crates fehlte `repository` vollständig
+- `examples/hello` ist mit `publish = false` markiert: bleibt als E2E-Test-Harness im Workspace, wird aber nicht mehr auf crates.io veröffentlicht
 ## [1.0.6] — 2026-08-07
 
 ### Neu hinzugefügt

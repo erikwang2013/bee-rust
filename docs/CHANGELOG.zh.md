@@ -2,6 +2,24 @@
 
 [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.1.2] — 2026-09-24
+
+### 新增
+
+- `docs/crates-readme.md`：crates.io 页面专用 README——安装、可运行示例（取自 `examples/hello`，由其 E2E 测试覆盖）、feature 开关表、子 crate 一览
+- `scripts/publish.sh`：逐个发布工作区 crate，跳过已上传的，并在被限流时按 crates.io 返回的重试时间等待
+
+### 修复
+
+- 测试套件无法编译（`cargo test --workspace` 在 main 上失败）：`bee_router` 集成测试中 `Submit` 缺少 `Serialize`（该结构体作为 `Json` 响应返回）、两个辅助函数缺少 `Router::build()`、8 处 `status_line` 调用缺少 `&`
+- `hello` 示例测试引用了错误的 `CARGO_BIN_EXE` 名称——二进制 target 保留连字符（`CARGO_BIN_EXE_hello-bee`）
+- `hello` 模板自动转义测试断言 `&#39;`，而 tera 实际输出 `&#x27;`；转义行为本身是正确的
+- `bee_cli` 中的 Clippy `manual_split_once` 与 `manual_range_contains` lint；`bee_router` 集成测试中未使用的 import
+
+### 变更
+
+- 所有 crate 现已带有 `readme` 与 `repository` 元数据——此前 crates.io 页面均不渲染 README，且有 6 个 crate 完全缺少 `repository`
+- `examples/hello` 标记 `publish = false`：它作为 E2E 测试载体保留在工作区内，但不再发布到 crates.io
 ## [1.0.6] — 2026-08-07
 
 ### 新增

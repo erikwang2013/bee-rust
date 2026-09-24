@@ -2,6 +2,21 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.1.2] — 2026-09-24
+
+### 追加
+- `docs/crates-readme.md`：crates.io ページ専用の README——インストール、実行可能なサンプル（`examples/hello` から取得、E2E テストでカバー）、feature フラグ表、サブクレート一覧
+- `scripts/publish.sh`：ワークスペースのクレートを 1 つずつ公開し、アップロード済みのものはスキップ、レート制限時は crates.io が返す再試行時刻まで待機
+
+### 修正
+- テストスイートがコンパイルできなかった（`cargo test --workspace` が main で失敗）：`bee_router` の統合テストで `Submit` に `Serialize` が欠落（`Json` レスポンスとして返すため）、2 つのヘルパーに `Router::build()` が欠落、8 箇所の `status_line` 呼び出しに `&` が欠落
+- `hello` サンプルのテストが誤った `CARGO_BIN_EXE` 名を参照——バイナリターゲットはハイフンを保持する（`CARGO_BIN_EXE_hello-bee`）
+- `hello` のテンプレート自動エスケープテストが `&#39;` を検証していたが、tera は `&#x27;` を出力する。エスケープ動作自体は正しかった
+- `bee_cli` の Clippy `manual_split_once` / `manual_range_contains` lint、`bee_router` 統合テストの未使用 import
+
+### 変更
+- すべてのクレートが `readme` と `repository` メタデータを持つように——以前は crates.io ページに README が表示されず、6 つのクレートは `repository` を完全に欠いていた
+- `examples/hello` を `publish = false` に設定：E2E テストハーネスとしてワークスペースに残るが、crates.io には公開されない
 ## [1.0.6] — 2026-08-07
 
 ### 追加

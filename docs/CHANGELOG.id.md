@@ -2,6 +2,21 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.1.2] — 2026-09-24
+
+### Ditambahkan
+- `docs/crates-readme.md`: README khusus untuk halaman crates.io — instalasi, contoh yang bisa dijalankan (diambil dari `examples/hello`, yang dicakup oleh tes E2E-nya), tabel feature flag, dan daftar sub-crate
+- `scripts/publish.sh`: menerbitkan crate workspace satu per satu, melewati yang sudah diunggah, dan saat kena rate limit menunggu waktu coba-ulang yang dikembalikan crates.io
+
+### Diperbaiki
+- Test suite tidak bisa dikompilasi (`cargo test --workspace` gagal di main): pada tes integrasi `bee_router`, `Submit` kehilangan `Serialize` (dikembalikan sebagai respons `Json`), dua helper kehilangan `Router::build()`, dan delapan pemanggilan `status_line` kehilangan `&`
+- Tes contoh `hello` merujuk nama `CARGO_BIN_EXE` yang salah — target biner mempertahankan tanda hubungnya (`CARGO_BIN_EXE_hello-bee`)
+- Tes autoescape template `hello` memeriksa `&#39;` padahal tera menghasilkan `&#x27;`; perilaku escape-nya sendiri sudah benar
+- Lint Clippy `manual_split_once` dan `manual_range_contains` di `bee_cli`; import tak terpakai di tes integrasi `bee_router`
+
+### Diubah
+- Semua crate kini membawa metadata `readme` dan `repository` — sebelumnya tidak ada halaman crates.io yang merender README dan enam crate sama sekali tidak punya `repository`
+- `examples/hello` ditandai `publish = false`: tetap berada di workspace sebagai harness tes E2E tetapi tidak lagi diterbitkan ke crates.io
 ## [1.0.6] — 2026-08-07
 
 ### Ditambahkan

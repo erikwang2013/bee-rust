@@ -2,6 +2,21 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.1.2] — 2026-09-24
+
+### أُضيف
+- `docs/crates-readme.md`: ملف README مخصّص لصفحات crates.io — التثبيت، ومثال قابل للتشغيل (مأخوذ من `examples/hello`، وتغطّيه اختبارات E2E الخاصة به)، وجدول أعلام feature، وفهرس الحزم الفرعية
+- `scripts/publish.sh`: ينشر حزم مساحة العمل واحدة تلو الأخرى، ويتجاوز ما سبق رفعه، وعند تقييد المعدّل ينتظر وقت إعادة المحاولة الذي يعيده crates.io
+
+### أُصلح
+- لم تكن مجموعة الاختبارات قابلة للترجمة (`cargo test --workspace` كان يفشل على main): في اختبار التكامل الخاص بـ `bee_router` كان `Serialize` مفقودًا على `Submit` (يُعاد كاستجابة `Json`)، و`Router::build()` مفقودًا في دالتين مساعدتين، و`&` مفقودًا في ثمانية استدعاءات لـ `status_line`
+- اختبارات مثال `hello` أشارت إلى اسم `CARGO_BIN_EXE` خاطئ — هدف الملف التنفيذي يحتفظ بالشرطة (`CARGO_BIN_EXE_hello-bee`)
+- اختبار التهريب التلقائي للقوالب في `hello` كان يتحقق من `&#39;` بينما tera يُخرج `&#x27;`؛ سلوك التهريب نفسه كان صحيحًا
+- تنبيهات Clippy ‏`manual_split_once` و`manual_range_contains` في `bee_cli`؛ واستيراد غير مستخدم في اختبار التكامل الخاص بـ `bee_router`
+
+### تغيّر
+- جميع الحزم تحمل الآن بيانات `readme` و`repository` الوصفية — سابقًا لم تكن أي صفحة على crates.io تعرض README، وست حزم كانت تفتقر إلى `repository` تمامًا
+- تم تعليم `examples/hello` بـ `publish = false`: يبقى في مساحة العمل كمنصّة اختبارات E2E لكنه لم يعد يُنشر على crates.io
 ## [1.0.6] — 2026-08-07
 
 ### أُضيف
