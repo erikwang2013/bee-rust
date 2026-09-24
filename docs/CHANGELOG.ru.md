@@ -2,6 +2,15 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.1.3] — 2026-09-25
+
+### Добавлено
+- На страницу crates.io (`docs/crates-readme.md`) добавлен переключатель на 13 языков со ссылками на README в репозитории
+
+### Исправлено
+- `docs/api.*`: в 11 переводах отсутствовала ссылка на китайский оригинал (`api.md`)
+- `docs/CHANGELOG.zh.md` и `docs/CONTRIBUTING.zh.md` были единственными файлами в своих наборах без ссылки на себя
+
 ## [1.1.2] — 2026-09-24
 
 ### Добавлено
@@ -17,6 +26,7 @@
 ### Изменено
 - Все крейты теперь содержат метаданные `readme` и `repository` — ранее ни одна страница на crates.io не отображала README, а у шести крейтов вообще не было `repository`
 - `examples/hello` помечен `publish = false`: остаётся в воркспейсе как основа E2E-тестов, но больше не публикуется на crates.io
+
 ## [1.0.6] — 2026-08-07
 
 ### Добавлено

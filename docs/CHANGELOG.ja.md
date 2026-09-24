@@ -2,6 +2,15 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.1.3] — 2026-09-25
+
+### 追加
+- crates.io ページ（`docs/crates-readme.md`）に 13 言語の切り替えリンクを追加（リポジトリ内の各言語 README へ）
+
+### 修正
+- `docs/api.*`：11 の翻訳に中国語原版（`api.md`）へのリンクが欠けていた
+- `docs/CHANGELOG.zh.md` と `docs/CONTRIBUTING.zh.md` は、それぞれのドキュメント群で唯一セルフリンクを持たないファイルだった
+
 ## [1.1.2] — 2026-09-24
 
 ### 追加
@@ -17,6 +26,7 @@
 ### 変更
 - すべてのクレートが `readme` と `repository` メタデータを持つように——以前は crates.io ページに README が表示されず、6 つのクレートは `repository` を完全に欠いていた
 - `examples/hello` を `publish = false` に設定：E2E テストハーネスとしてワークスペースに残るが、crates.io には公開されない
+
 ## [1.0.6] — 2026-08-07
 
 ### 追加

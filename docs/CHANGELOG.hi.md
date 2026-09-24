@@ -2,6 +2,15 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.1.3] — 2026-09-25
+
+### जोड़ा गया
+- crates.io पृष्ठ (`docs/crates-readme.md`) में अब 13 भाषाओं का स्विचर जोड़ा गया है, जो रिपॉज़िटरी के README से जोड़ता है
+
+### ठीक किया गया
+- `docs/api.*`: 11 अनुवादों में चीनी मूल (`api.md`) का लिंक अनुपस्थित था
+- `docs/CHANGELOG.zh.md` और `docs/CONTRIBUTING.zh.md` अपने-अपने समूह में एकमात्र ऐसी फ़ाइलें थीं जिनमें स्व-लिंक नहीं था
+
 ## [1.1.2] — 2026-09-24
 
 ### जोड़ा गया
@@ -17,6 +26,7 @@
 ### बदला गया
 - अब सभी क्रेट में `readme` और `repository` मेटाडेटा है — पहले किसी भी crates.io पृष्ठ पर README रेंडर नहीं होता था और छह क्रेट में `repository` पूरी तरह अनुपस्थित था
 - `examples/hello` को `publish = false` चिह्नित किया गया: यह E2E टेस्ट हार्नेस के रूप में वर्कस्पेस में रहता है, पर crates.io पर प्रकाशित नहीं होता
+
 ## [1.0.6] — 2026-08-07
 
 ### जोड़ा गया

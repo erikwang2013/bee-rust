@@ -2,6 +2,15 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.1.3] — 2026-09-25
+
+### যা যোগ হয়েছে
+- crates.io পৃষ্ঠায় (`docs/crates-readme.md`) এখন 13 ভাষার সুইচার যোগ করা হয়েছে, যা রিপোজিটরির README-গুলোর সঙ্গে যুক্ত
+
+### যা ঠিক করা হয়েছে
+- `docs/api.*`: 11টি অনুবাদে চীনা মূল (`api.md`) এর লিঙ্ক অনুপস্থিত ছিল
+- `docs/CHANGELOG.zh.md` ও `docs/CONTRIBUTING.zh.md` ছিল নিজ নিজ গ্রুপে একমাত্র ফাইল যেগুলোতে স্ব-লিঙ্ক ছিল না
+
 ## [1.1.2] — 2026-09-24
 
 ### যা যোগ হয়েছে
@@ -17,6 +26,7 @@
 ### যা পরিবর্তন করা হয়েছে
 - সব ক্রেটে এখন `readme` ও `repository` মেটাডেটা আছে — আগে কোনো crates.io পৃষ্ঠাতেই README রেন্ডার হত না, এবং ছয়টি ক্রেটে `repository` একেবারেই ছিল না
 - `examples/hello` কে `publish = false` চিহ্নিত করা হয়েছে: এটি E2E টেস্ট হার্নেস হিসেবে ওয়ার্কস্পেসে থাকে, তবে crates.io-তে আর প্রকাশিত হয় না
+
 ## [1.0.6] — 2026-08-07
 
 ### যা যোগ হয়েছে

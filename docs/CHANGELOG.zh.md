@@ -1,6 +1,17 @@
 # 更新日志
 
-[English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
+[简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
+
+## [1.1.3] — 2026-09-25
+
+### 新增
+
+- crates.io 页面（`docs/crates-readme.md`）新增 13 语言入口，指向仓库内的各语言 README
+
+### 修复
+
+- `docs/api.*`：11 个译本缺少指向中文原版 `api.md` 的链接
+- `docs/CHANGELOG.zh.md` 与 `docs/CONTRIBUTING.zh.md` 是各自文档族中唯一没有自链接的文件
 
 ## [1.1.2] — 2026-09-24
 
@@ -20,6 +31,7 @@
 
 - 所有 crate 现已带有 `readme` 与 `repository` 元数据——此前 crates.io 页面均不渲染 README，且有 6 个 crate 完全缺少 `repository`
 - `examples/hello` 标记 `publish = false`：它作为 E2E 测试载体保留在工作区内，但不再发布到 crates.io
+
 ## [1.0.6] — 2026-08-07
 
 ### 新增

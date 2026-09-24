@@ -2,6 +2,15 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.1.3] — 2026-09-25
+
+### 추가됨
+- crates.io 페이지(`docs/crates-readme.md`)에 13개 언어 전환 링크 추가(저장소의 각 언어 README로 연결)
+
+### 수정됨
+- `docs/api.*`: 11개 번역본에 중국어 원본(`api.md`)으로 가는 링크가 누락되어 있었음
+- `docs/CHANGELOG.zh.md`와 `docs/CONTRIBUTING.zh.md`는 각 문서군에서 유일하게 자기 링크가 없는 파일이었음
+
 ## [1.1.2] — 2026-09-24
 
 ### 추가됨
@@ -17,6 +26,7 @@
 ### 변경됨
 - 모든 크레이트가 이제 `readme`와 `repository` 메타데이터를 가짐 — 이전에는 crates.io 페이지에 README가 렌더링되지 않았고 6개 크레이트는 `repository`가 아예 없었음
 - `examples/hello`를 `publish = false`로 표시: E2E 테스트 하네스로서 워크스페이스에는 남지만 crates.io에는 더 이상 배포되지 않음
+
 ## [1.0.6] — 2026-08-07
 
 ### 추가됨

@@ -2,6 +2,15 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.1.3] — 2026-09-25
+
+### Ditambahkan
+- Halaman crates.io (`docs/crates-readme.md`) kini memiliki pemilih 13 bahasa yang menautkan ke README di repositori
+
+### Diperbaiki
+- `docs/api.*`: 11 terjemahan tidak memiliki tautan ke versi asli Tionghoa (`api.md`)
+- `docs/CHANGELOG.zh.md` dan `docs/CONTRIBUTING.zh.md` adalah satu-satunya berkas di kelompoknya yang tanpa tautan ke dirinya sendiri
+
 ## [1.1.2] — 2026-09-24
 
 ### Ditambahkan
@@ -17,6 +26,7 @@
 ### Diubah
 - Semua crate kini membawa metadata `readme` dan `repository` — sebelumnya tidak ada halaman crates.io yang merender README dan enam crate sama sekali tidak punya `repository`
 - `examples/hello` ditandai `publish = false`: tetap berada di workspace sebagai harness tes E2E tetapi tidak lagi diterbitkan ke crates.io
+
 ## [1.0.6] — 2026-08-07
 
 ### Ditambahkan

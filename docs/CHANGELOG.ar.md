@@ -2,6 +2,15 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.1.3] — 2026-09-25
+
+### أُضيف
+- أصبحت صفحة crates.io (`docs/crates-readme.md`) تتضمن مبدّلًا لـ 13 لغة يرتبط بملفات README في المستودع
+
+### أُصلح
+- `docs/api.*`: كانت 11 ترجمة تفتقر إلى رابط الأصل الصيني (`api.md`)
+- كان `docs/CHANGELOG.zh.md` و`docs/CONTRIBUTING.zh.md` الملفين الوحيدين في مجموعتيهما بدون رابط ذاتي
+
 ## [1.1.2] — 2026-09-24
 
 ### أُضيف
@@ -17,6 +26,7 @@
 ### تغيّر
 - جميع الحزم تحمل الآن بيانات `readme` و`repository` الوصفية — سابقًا لم تكن أي صفحة على crates.io تعرض README، وست حزم كانت تفتقر إلى `repository` تمامًا
 - تم تعليم `examples/hello` بـ `publish = false`: يبقى في مساحة العمل كمنصّة اختبارات E2E لكنه لم يعد يُنشر على crates.io
+
 ## [1.0.6] — 2026-08-07
 
 ### أُضيف

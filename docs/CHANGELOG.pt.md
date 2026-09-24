@@ -2,6 +2,15 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.1.3] — 2026-09-25
+
+### Adicionado
+- A página do crates.io (`docs/crates-readme.md`) agora traz um seletor de 13 idiomas que aponta para os READMEs do repositório
+
+### Corrigido
+- `docs/api.*`: 11 traduções não tinham link para o original em chinês (`api.md`)
+- `docs/CHANGELOG.zh.md` e `docs/CONTRIBUTING.zh.md` eram os únicos arquivos da sua família sem link para si mesmos
+
 ## [1.1.2] — 2026-09-24
 
 ### Adicionado
@@ -17,6 +26,7 @@
 ### Alterado
 - Todos os crates agora trazem metadados `readme` e `repository` — antes nenhuma página do crates.io renderizava um README e seis crates não tinham `repository`
 - `examples/hello` está marcado com `publish = false`: permanece no workspace como harness de testes E2E, mas já não é publicado no crates.io
+
 ## [1.0.6] — 2026-08-07
 
 ### Adicionado

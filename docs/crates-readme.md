@@ -1,6 +1,8 @@
 <!-- Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz -->
 # BeeRust
 
+[简体中文](https://github.com/erikwang2013/bee-rust/blob/main/README.md) · [English](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.en.md) · [한국어](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.ko.md) · [Русский](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.ru.md) · [Deutsch](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.de.md) · [Français](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.fr.md) · [Español](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.es.md) · [Português](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.pt.md) · [हिन्दी](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.hi.md) · [العربية](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.ar.md) · [বাংলা](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.bn.md) · [Bahasa Indonesia](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.id.md) · [日本語](https://github.com/erikwang2013/bee-rust/blob/main/docs/README.ja.md)
+
 Rust 生产级 Web 框架，设计哲学源自 Go 的 Beego，用 Rust 惯用的 trait / macro / 类型系统重新表达。
 
 MVC 控制器 · 命名空间路由 · 过滤器链 · ORM · 多存储引擎统一 trait 抽象
@@ -17,7 +19,7 @@ cargo add bee_rust
 
 ```toml
 [dependencies]
-bee_rust = "1.1.2"
+bee_rust = "1.1.3"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -74,7 +76,7 @@ curl http://localhost:8080/api/v1/health    # OK
 只想要最小核心（不拖 ORM、数据库驱动）：
 
 ```toml
-bee_rust = { version = "1.1.2", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.1.3", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## 子 Crate
@@ -100,7 +102,7 @@ bee_rust = { version = "1.1.2", default-features = false, features = ["router", 
 这些 crate 也可以单独依赖，例如只用一个 ES 客户端：
 
 ```toml
-bee_search = { version = "1.1.2", features = ["elasticsearch"] }
+bee_search = { version = "1.1.3", features = ["elasticsearch"] }
 ```
 
 ## 支持的数据库
