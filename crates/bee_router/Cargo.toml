@@ -5,6 +5,8 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 description.workspace = true
+readme.workspace = true
+repository.workspace = true
 
 [dependencies]
 axum = { workspace = true }
@@ -16,11 +18,11 @@ serde_json = { workspace = true }
 thiserror.workspace = true
 tracing = { workspace = true }
 http = "1"
-bee_config = { version = "1.1.1", path = "../bee_config" }
-bee_logs = { version = "1.1.1", path = "../bee_logs" }
-bee_template = { version = "1.1.1", path = "../bee_template" }
-bee_session = { version = "1.1.1", path = "../bee_session" }
-bee_cache = { version = "1.1.1", path = "../bee_cache" }
+bee_config = { version = "1.1.2", path = "../bee_config" }
+bee_logs = { version = "1.1.2", path = "../bee_logs" }
+bee_template = { version = "1.1.2", path = "../bee_template" }
+bee_session = { version = "1.1.2", path = "../bee_session" }
+bee_cache = { version = "1.1.2", path = "../bee_cache" }
 security-rust = { workspace = true, optional = true }
 
 [features]
