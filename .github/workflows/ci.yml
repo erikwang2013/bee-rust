@@ -36,6 +36,10 @@ jobs:
         run: cargo build -p bee_orm --features postgres-tls
 
       - name: Test
+        # BEE_CLI_E2E turns on bee_cli's migrate end-to-end test (it builds a
+        # scratch crate, ~35s, offline); env-gated so plain local runs skip it.
+        env:
+          BEE_CLI_E2E: "1"
         run: cargo test --workspace
 
       - name: Test with all features

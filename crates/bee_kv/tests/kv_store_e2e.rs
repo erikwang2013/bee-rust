@@ -8,6 +8,11 @@
 //! implementations are held to the same observable behavior — that parity is
 //! the point of the trait.
 
+// File-level gate: with every feature off both tests vanish, which would
+// leave `exercise` (and the imports) as dead code under CI's bare
+// `cargo clippy --all-targets -- -D warnings` (no features).
+#![cfg(any(feature = "redis", feature = "memcached"))]
+
 use std::time::Duration;
 
 use bee_kv::KvStore;
@@ -15,6 +20,13 @@ use bee_kv::KvStore;
 /// Every semantic the trait promises, exercised once per backend.
 async fn exercise(store: &dyn KvStore, tag: &str) {
     let key = |name: &str| format!("bee_kv:e2e:{tag}:{name}");
+
+    // Hygiene: a failed earlier run can leave the counter (or another key)
+    // behind, so start from a known state. Deleting a missing key is not an
+    // error on either backend.
+    for name in ["n", "m1", "m2", "long"] {
+        store.del(&key(name)).await.unwrap();
+    }
 
     // Round trip, present and missing.
     store.set(&key("a"), "value").await.unwrap();

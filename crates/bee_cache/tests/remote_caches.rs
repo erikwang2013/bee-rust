@@ -17,6 +17,11 @@ use bee_cache::{Cache, CacheError};
 async fn exercise(cache: &dyn Cache, tag: &str) {
     let key = |name: &str| format!("bee_cache:e2e:{tag}:{name}");
 
+    // Hygiene: a failed earlier run can leave the counter behind — reset it
+    // so the first `incr` sees a missing key. Deleting a missing key is an
+    // error on this trait, hence the ignored result.
+    let _ = cache.delete(&key("n")).await;
+
     // Round trip, byte-for-byte: the payload is not valid UTF-8.
     let blob = vec![0xff, 0x00, 0xfe, 0x80, b'h', b'i'];
     cache.set(&key("blob"), blob.clone(), None).await.unwrap();

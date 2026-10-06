@@ -15,15 +15,14 @@
 //! timestamp columns do not run.
 //!
 //! ```no_run
-//! # async fn demo() -> Result<(), bee_orm::OrmError> {
-//! # use bee_orm::{Model, pool::sqlite::Pool};
+//! # async fn demo(pool: &impl bee_orm::Db) -> Result<(), bee_orm::OrmError> {
+//! # use bee_orm::Model;
 //! # #[derive(Model, Clone)] struct User { id: i64 }
 //! # #[derive(Model, Clone)] struct Tag { id: i64 }
-//! # let pool = Pool::connect("app.db", 4)?;
 //! let user = User { id: 1 };
 //! let tag = Tag { id: 7 };
-//! bee_orm::m2m::attach(&pool, &user, &tag).await?;
-//! let tags: Vec<Tag> = bee_orm::m2m::related(&pool, &user).await?;
+//! bee_orm::m2m::attach(pool, &user, &tag).await?;
+//! let tags: Vec<Tag> = bee_orm::m2m::related(pool, &user).await?;
 //! # Ok(())
 //! # }
 //! ```
