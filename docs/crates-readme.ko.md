@@ -17,7 +17,7 @@ cargo add bee_rust
 
 ```toml
 [dependencies]
-bee_rust = "1.2.1"
+bee_rust = "1.2.2"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -76,7 +76,7 @@ curl http://localhost:8080/api/v1/health    # OK
 최소 구성(ORM과 데이터베이스 드라이버 제외)：
 
 ```toml
-bee_rust = { version = "1.2.1", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.2.2", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## 서브 크레이트
@@ -102,7 +102,7 @@ bee_rust = { version = "1.2.1", default-features = false, features = ["router", 
 이들은 개별적으로 의존할 수도 있습니다. 예를 들어 Elasticsearch 클라이언트만 쓰는 경우：
 
 ```toml
-bee_search = { version = "1.2.1", features = ["elasticsearch"] }
+bee_search = { version = "1.2.2", features = ["elasticsearch"] }
 ```
 
 ## 지원 데이터베이스

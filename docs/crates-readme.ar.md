@@ -17,7 +17,7 @@ cargo add bee_rust
 
 ```toml
 [dependencies]
-bee_rust = "1.2.1"
+bee_rust = "1.2.2"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -76,7 +76,7 @@ curl http://localhost:8080/api/v1/health    # OK
 النواة الدنيا (بدون ORM أو مشغّلات قواعد البيانات)：
 
 ```toml
-bee_rust = { version = "1.2.1", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.2.2", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## الحزم الفرعية
@@ -102,7 +102,7 @@ bee_rust = { version = "1.2.1", default-features = false, features = ["router", 
 يمكن الاعتماد عليها منفردة أيضًا — مثلًا عميل Elasticsearch فقط：
 
 ```toml
-bee_search = { version = "1.2.1", features = ["elasticsearch"] }
+bee_search = { version = "1.2.2", features = ["elasticsearch"] }
 ```
 
 ## قواعد البيانات المدعومة

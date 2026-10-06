@@ -17,7 +17,7 @@ Ou adicione ao `Cargo.toml`：
 
 ```toml
 [dependencies]
-bee_rust = "1.2.1"
+bee_rust = "1.2.2"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -76,7 +76,7 @@ Há um projeto totalmente executável em [examples/hello](https://github.com/eri
 Núcleo mínimo (sem ORM nem drivers de banco)：
 
 ```toml
-bee_rust = { version = "1.2.1", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.2.2", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## Sub-crates
@@ -102,7 +102,7 @@ O framework é um conjunto de crates usáveis de forma independente; `bee_rust` 
 Eles também podem ser usados separadamente — por exemplo, apenas um cliente Elasticsearch：
 
 ```toml
-bee_search = { version = "1.2.1", features = ["elasticsearch"] }
+bee_search = { version = "1.2.2", features = ["elasticsearch"] }
 ```
 
 ## Bancos de dados suportados

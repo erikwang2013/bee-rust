@@ -17,7 +17,7 @@ Oder in die `Cargo.toml` eintragen：
 
 ```toml
 [dependencies]
-bee_rust = "1.2.1"
+bee_rust = "1.2.2"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -76,7 +76,7 @@ Ein vollständig lauffähiges Projekt liegt in [examples/hello](https://github.c
 Minimaler Kern (ohne ORM und Datenbanktreiber)：
 
 ```toml
-bee_rust = { version = "1.2.1", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.2.2", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## Sub-Crates
@@ -102,7 +102,7 @@ Das Framework besteht aus unabhängig nutzbaren Crates; `bee_rust` ist der eine 
 Sie lassen sich auch einzeln einbinden — etwa nur ein Elasticsearch-Client：
 
 ```toml
-bee_search = { version = "1.2.1", features = ["elasticsearch"] }
+bee_search = { version = "1.2.2", features = ["elasticsearch"] }
 ```
 
 ## Unterstützte Datenbanken
