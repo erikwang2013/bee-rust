@@ -12,12 +12,14 @@
 ### 컨트롤러 정의
 
 ```rust
+use async_trait::async_trait;  // Cargo.toml에 async-trait = "0.1" 추가
+use bee_rust::bee_router::context::RouterError;
 use bee_rust::prelude::*;
 
 // 컨트롤러 정의
 struct UserController;
 
-#[bee_router::async_trait]
+#[async_trait]
 impl Controller for UserController {
     async fn handle(&self, ctx: &mut Context) -> Result<(), RouterError> {
         ctx.json(&serde_json::json!({"users": []}))
@@ -28,12 +30,53 @@ impl Controller for UserController {
 ### 라우팅 등록
 
 ```rust
+// handler는 axum handler——상태가 없으면 일반 async fn
+async fn list_users() -> &'static str { "[]" }
+async fn create_user() -> &'static str { "created" }
+
 // 라우팅 등록
 let router = Router::new()
     .ns("/api/v1", |ns| {
-        ns.get("/users")
-          .post("/users");
+        ns.get("/users", list_users)
+          .post("/users", create_user);
     });
+```
+
+> 경로 문법은 axum 0.8 기준: 동적 세그먼트는 `{name}`(예: `/users/{id}`); `:name`은 build 시 panic(실측). `ns` 접두사는 그룹 내 경로와 그대로 이어 붙습니다: `ns("/api/v1", …)` + `/users` → `/api/v1/users`; 빈 접두사(`ns("", …)`)도 유효하며 그룹 내 경로가 곧 전체 경로입니다.
+
+### 상태가 있는 handler
+
+handler는 axum handler입니다: 공유 상태는 `State`로 주입하고 `Router::with_state`로 조립합니다(`axum`은 직접 의존이어야 하며 CLI 스캐폴드의 Cargo.toml에 이미 포함). 상태 없는 라우트는 `build()`; handler가 `State`를 받으면 `axum::serve` 전에 `with_state`가 필요합니다. 대표적인 `Pool + Cache` 형태:
+
+```rust
+use std::sync::Arc;
+use axum::extract::State;
+use bee_rust::bee_cache::MemoryCache;
+use bee_rust::bee_orm::pool::sqlite::Pool;
+use bee_rust::prelude::*;
+
+#[derive(Model)]
+#[bee(crate = "bee_rust::bee_orm", table = "users")]  // bee_rust만 의존할 때의 표기
+struct User {
+    #[bee(pk, auto)]
+    id: i64,
+    name: String,
+}
+
+#[derive(Clone)]
+struct AppState {
+    pool: Pool,
+    cache: Arc<dyn Cache>,
+}
+
+async fn list_users(State(state): State<AppState>) -> Result<String, String> {
+    let users = User::query().all(&state.pool).await.map_err(|e| e.to_string())?;  // 쿼리 1회
+    Ok(format!("{} users", users.len()))
+}
+
+let app = Router::new()
+    .ns("/api/v1", |ns| ns.get("/users", list_users))
+    .with_state(AppState { pool, cache: Arc::new(MemoryCache::new()) });
 ```
 
 ### Context API
@@ -61,6 +104,8 @@ bee_rust = { features = ["security"] }
 ```
 
 ## ORM (bee_orm)
+
+> `bee_rust`만 의존할 때: 모델에 `#[bee(crate = "bee_rust::bee_orm")]`를 붙이거나(권장), 모듈 상단에 `use bee_rust::bee_orm;`——전개는 기본적으로 `bee_orm::…` 경로를 쓰므로 둘 중 하나면 해석됩니다. 나머지 `bee_orm::` 경로는 `bee_rust::bee_orm::`로 바꿔 읽으세요(아래 예시는 `bee_orm` 직접 의존 기준).
 
 ```rust
 use bee_orm::pool::sqlite::Pool;
@@ -102,7 +147,7 @@ async fn demo() -> Result<(), bee_orm::OrmError> {
     migrate::sync::<User, _>(&pool).await?;
     migrate::sync::<Post, _>(&pool).await?;
 
-    // INSERT — `auto` 기본 키는 데이터베이스가 할당
+    // INSERT——insert()는 영향받은 행 수를 반환
     let user = User { id: 0, name: "alice".into(), age: Some(30), active: true, created_at: 0, deleted: false, cache: vec![] };
     user.insert(&pool).await?;
 
@@ -141,6 +186,8 @@ async fn demo() -> Result<(), bee_orm::OrmError> {
 }
 ```
 
+> 쓰기 두 형태: `insert()`는 영향받은 행 수(`u64`)를, `create()`는 삽입 후 행을 되읽어 `auto` 기본 키·기본값이 채워진 인스턴스를 반환합니다(되읽기 실패 시 `NotFound`)——키가 필요하면 `create()`(아래 m2m 예시).
+
 > 마이그레이션 사용 가능: `bee_orm::migrate`(`create_table` / `add_missing_columns` / `sync`)가 방언별 DDL을 생성합니다 — 테이블 생성과 누락 컬럼 추가만 하고, 삭제나 변경은 하지 않습니다. 관계 읽기는 `belongs_to`, has_many(`children*`), many-to-many(`m2m`)를 지원합니다. `#[bee(fk = …)]`는 외래 키 DDL을 생성합니다: postgres와 sqlite(bundled 빌드)는 강제하고, mysql은 테이블 수준 외래 키를 opt-in으로 켤 수 있습니다(아래).
 
 ### 다대다(`m2m`)
@@ -162,11 +209,9 @@ struct User {
 migrate::sync::<Tag, _>(&pool).await?;       // 대상 모델 먼저
 migrate::sync::<User, _>(&pool).await?;      // 선언 모델이 조인 테이블 생성
 
-// `auto` 키는 데이터베이스가 할당: 관계 조작 전에 인스턴스를 다시 읽으세요
-User { id: 0, name: "alice".into() }.insert(&pool).await?;
-let user = User::query().filter_eq("name", "alice")?.one(&pool).await?.expect("inserted");
-Tag { id: 0, name: "rust".into() }.insert(&pool).await?;
-let tag = Tag::query().filter_eq("name", "rust")?.one(&pool).await?.expect("inserted");
+// create()는 삽입 후 인스턴스를 되읽음(auto pk 채워짐)——바로 관계 조작 가능
+let user = User { id: 0, name: "alice".into() }.create(&pool).await?;
+let tag = Tag { id: 0, name: "rust".into() }.create(&pool).await?;
 
 m2m::attach::<User, Tag, _>(&pool, &user, &tag).await?;   // 중복 attach -> 복합 PK 오류
 let tags = m2m::related::<User, Tag, _>(&pool, &user).await?;

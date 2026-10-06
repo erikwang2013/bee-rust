@@ -12,12 +12,14 @@ Este documento es la referencia de la API del framework Beerust: el uso de cada 
 ### Definir un controlador
 
 ```rust
+use async_trait::async_trait;  // Cargo.toml: async-trait = "0.1"
+use bee_rust::bee_router::context::RouterError;
 use bee_rust::prelude::*;
 
 // Definir el controlador
 struct UserController;
 
-#[bee_router::async_trait]
+#[async_trait]
 impl Controller for UserController {
     async fn handle(&self, ctx: &mut Context) -> Result<(), RouterError> {
         ctx.json(&serde_json::json!({"users": []}))
@@ -28,12 +30,53 @@ impl Controller for UserController {
 ### Registro de rutas
 
 ```rust
+// los handlers son handlers de axum — async fns simples sin estado
+async fn list_users() -> &'static str { "[]" }
+async fn create_user() -> &'static str { "created" }
+
 // Registro de rutas
 let router = Router::new()
     .ns("/api/v1", |ns| {
-        ns.get("/users")
-          .post("/users");
+        ns.get("/users", list_users)
+          .post("/users", create_user);
     });
+```
+
+> Sintaxis de rutas igual que axum 0.8: los segmentos dinámicos se escriben `{name}` (p. ej. `/users/{id}`); `:name` entra en pánico al construir el router (verificado). El prefijo de `ns` se concatena tal cual con la ruta del grupo: `ns("/api/v1", …)` + `/users` → `/api/v1/users`; un prefijo vacío (`ns("", …)`) es válido — la ruta del grupo es entonces la ruta completa.
+
+### Handlers con estado
+
+Los handlers son handlers de axum: el estado compartido se inyecta con `State` y se conecta con `Router::with_state` (`axum` debe ser dependencia directa — el Cargo.toml que genera el scaffold del CLI ya la incluye). Las rutas sin estado usan `build()`; en cuanto un handler toma `State`, hace falta `with_state` antes de `axum::serve`. La forma típica `Pool + Cache`:
+
+```rust
+use std::sync::Arc;
+use axum::extract::State;
+use bee_rust::bee_cache::MemoryCache;
+use bee_rust::bee_orm::pool::sqlite::Pool;
+use bee_rust::prelude::*;
+
+#[derive(Model)]
+#[bee(crate = "bee_rust::bee_orm", table = "users")]  // escritura con solo bee_rust
+struct User {
+    #[bee(pk, auto)]
+    id: i64,
+    name: String,
+}
+
+#[derive(Clone)]
+struct AppState {
+    pool: Pool,
+    cache: Arc<dyn Cache>,
+}
+
+async fn list_users(State(state): State<AppState>) -> Result<String, String> {
+    let users = User::query().all(&state.pool).await.map_err(|e| e.to_string())?;  // una consulta
+    Ok(format!("{} users", users.len()))
+}
+
+let app = Router::new()
+    .ns("/api/v1", |ns| ns.get("/users", list_users))
+    .with_state(AppState { pool, cache: Arc::new(MemoryCache::new()) });
 ```
 
 ### API de Context
@@ -61,6 +104,8 @@ bee_rust = { features = ["security"] }
 ```
 
 ## ORM (bee_orm)
+
+> Con solo `bee_rust`: añade `#[bee(crate = "bee_rust::bee_orm")]` al modelo (preferido), o `use bee_rust::bee_orm;` al inicio del módulo — la expansión emite rutas `bee_orm::…` y cualquiera de las dos las resuelve; el resto de rutas `bee_orm::` pasan a `bee_rust::bee_orm::` (los ejemplos de abajo están escritos para dependencia directa de `bee_orm`).
 
 ```rust
 use bee_orm::pool::sqlite::Pool;
@@ -102,7 +147,7 @@ async fn demo() -> Result<(), bee_orm::OrmError> {
     migrate::sync::<User, _>(&pool).await?;
     migrate::sync::<Post, _>(&pool).await?;
 
-    // INSERT — la clave primaria `auto` la asigna la base de datos
+    // INSERT — insert() devuelve las filas afectadas
     let user = User { id: 0, name: "alice".into(), age: Some(30), active: true, created_at: 0, deleted: false, cache: vec![] };
     user.insert(&pool).await?;
 
@@ -141,6 +186,8 @@ async fn demo() -> Result<(), bee_orm::OrmError> {
 }
 ```
 
+> Dos formas de escritura: `insert()` devuelve filas afectadas (`u64`); `create()` inserta y relee la fila, devolviendo la instancia con la clave `auto` / los valores por defecto ya rellenos (`NotFound` si no se puede releer) — usa `create()` siempre que necesites la clave (ver el ejemplo m2m abajo).
+
 > Las migraciones ya están disponibles: `bee_orm::migrate` (`create_table` / `add_missing_columns` / `sync`) genera el DDL según el dialecto — crea tablas y añade columnas faltantes, nunca elimina ni modifica. Las lecturas de relaciones cubren `belongs_to`, has_many (`children*`) y many-to-many (`m2m`). `#[bee(fk = …)]` emite DDL de clave foránea: postgres y sqlite (build bundled) hacen cumplir la referencia, y mysql puede activar claves foráneas a nivel de tabla con opt-in (ver abajo).
 
 ### Many-to-many (`m2m`)
@@ -162,11 +209,9 @@ struct User {
 migrate::sync::<Tag, _>(&pool).await?;       // primero el modelo destino
 migrate::sync::<User, _>(&pool).await?;      // el declarante crea la tabla puente
 
-// La base de datos asigna los ids `auto`: relee la instancia antes de tocar relaciones
-User { id: 0, name: "alice".into() }.insert(&pool).await?;
-let user = User::query().filter_eq("name", "alice")?.one(&pool).await?.expect("inserted");
-Tag { id: 0, name: "rust".into() }.insert(&pool).await?;
-let tag = Tag::query().filter_eq("name", "rust")?.one(&pool).await?.expect("inserted");
+// create() inserta y relee la instancia (pk auto rellena), lista para relaciones
+let user = User { id: 0, name: "alice".into() }.create(&pool).await?;
+let tag = Tag { id: 0, name: "rust".into() }.create(&pool).await?;
 
 m2m::attach::<User, Tag, _>(&pool, &user, &tag).await?;   // attach duplicado -> error de PK compuesta
 let tags = m2m::related::<User, Tag, _>(&pool, &user).await?;

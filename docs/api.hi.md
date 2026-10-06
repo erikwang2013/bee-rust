@@ -12,12 +12,14 @@
 ### कंट्रोलर परिभाषित करना
 
 ```rust
+use async_trait::async_trait;  // Cargo.toml में: async-trait = "0.1"
+use bee_rust::bee_router::context::RouterError;
 use bee_rust::prelude::*;
 
 // कंट्रोलर परिभाषित करें
 struct UserController;
 
-#[bee_router::async_trait]
+#[async_trait]
 impl Controller for UserController {
     async fn handle(&self, ctx: &mut Context) -> Result<(), RouterError> {
         ctx.json(&serde_json::json!({"users": []}))
@@ -28,12 +30,53 @@ impl Controller for UserController {
 ### रूट रजिस्ट्रेशन
 
 ```rust
+// handler ही axum handler हैं — स्टेटलेस में साधारण async fn
+async fn list_users() -> &'static str { "[]" }
+async fn create_user() -> &'static str { "created" }
+
 // रूट रजिस्ट्रेशन
 let router = Router::new()
     .ns("/api/v1", |ns| {
-        ns.get("/users")
-          .post("/users");
+        ns.get("/users", list_users)
+          .post("/users", create_user);
     });
+```
+
+> पाथ सिंटैक्स axum 0.8 जैसा: डायनैमिक सेगमेंट `{name}` (जैसे `/users/{id}`); `:name` build पर panic करता है (परीक्षित)। `ns` प्रीफ़िक्स समूह-पाथ से सीधे जुड़ता है: `ns("/api/v1", …)` + `/users` → `/api/v1/users`; खाली प्रीफ़िक्स (`ns("", …)`) भी वैध — तब समूह-पाथ ही पूरा पाथ है।
+
+### स्टेट वाले handler
+
+handler axum handler ही हैं: साझा स्टेट `State` से इंजेक्ट और `Router::with_state` से जुड़ती है (`axum` सीधी निर्भरता होनी चाहिए — CLI स्कैफ़ोल्ड की Cargo.toml में यह पहले से है)। स्टेटलेस रूट `build()`; handler जैसे ही `State` ले, `axum::serve` से पहले `with_state` ज़रूरी। ठेठ `Pool + Cache` रूप:
+
+```rust
+use std::sync::Arc;
+use axum::extract::State;
+use bee_rust::bee_cache::MemoryCache;
+use bee_rust::bee_orm::pool::sqlite::Pool;
+use bee_rust::prelude::*;
+
+#[derive(Model)]
+#[bee(crate = "bee_rust::bee_orm", table = "users")]  // केवल bee_rust पर निर्भरता की लिपि
+struct User {
+    #[bee(pk, auto)]
+    id: i64,
+    name: String,
+}
+
+#[derive(Clone)]
+struct AppState {
+    pool: Pool,
+    cache: Arc<dyn Cache>,
+}
+
+async fn list_users(State(state): State<AppState>) -> Result<String, String> {
+    let users = User::query().all(&state.pool).await.map_err(|e| e.to_string())?;  // एक क्वेरी
+    Ok(format!("{} users", users.len()))
+}
+
+let app = Router::new()
+    .ns("/api/v1", |ns| ns.get("/users", list_users))
+    .with_state(AppState { pool, cache: Arc::new(MemoryCache::new()) });
 ```
 
 ### Context API
@@ -61,6 +104,8 @@ bee_rust = { features = ["security"] }
 ```
 
 ## ORM (bee_orm)
+
+> केवल `bee_rust` पर निर्भर हों: मॉडल पर `#[bee(crate = "bee_rust::bee_orm")]` लगाएँ (पसंदीदा), या मॉड्यूल के शीर्ष पर `use bee_rust::bee_orm;` — विस्तार डिफ़ॉल्ट रूप से `bee_orm::…` पथ लिखता है, दोनों में से कोई एक उन्हें हल कर देता है; बाकी `bee_orm::` पथ `bee_rust::bee_orm::` हो जाते हैं (नीचे के उदाहरण सीधी `bee_orm` निर्भरता के हैं)।
 
 ```rust
 use bee_orm::pool::sqlite::Pool;
@@ -102,7 +147,7 @@ async fn demo() -> Result<(), bee_orm::OrmError> {
     migrate::sync::<User, _>(&pool).await?;
     migrate::sync::<Post, _>(&pool).await?;
 
-    // INSERT — `auto` प्राथमिक कुंजी डेटाबेस असाइन करता है
+    // INSERT — insert() प्रभावित पंक्तियाँ लौटाता है
     let user = User { id: 0, name: "alice".into(), age: Some(30), active: true, created_at: 0, deleted: false, cache: vec![] };
     user.insert(&pool).await?;
 
@@ -141,6 +186,8 @@ async fn demo() -> Result<(), bee_orm::OrmError> {
 }
 ```
 
+> लिखने के दो रूप: `insert()` प्रभावित पंक्तियाँ (`u64`) लौटाता है; `create()` सम्मिलित करके पंक्ति दोबारा पढ़ता है और `auto` प्राइमरी कुंजी / डिफ़ॉल्ट भरा इंस्टेंस लौटाता है (दोबारा न पढ़ पाने पर `NotFound`) — कुंजी चाहिए तो सीधे `create()` (नीचे m2m उदाहरण)।
+
 > माइग्रेशन अब उपलब्ध हैं: `bee_orm::migrate` (`create_table` / `add_missing_columns` / `sync`) डायलेक्ट के अनुसार DDL बनाता है — तालिकाएँ बनाता और छूटे कॉलम जोड़ता है, कभी हटाता या बदलता नहीं। संबंध पढ़ने के लिए `belongs_to`, has_many (`children*`) और many-to-many (`m2m`) उपलब्ध हैं। `#[bee(fk = …)]` FK DDL बनाता है: postgres और sqlite (bundled बिल्ड) इसे लागू करते हैं, और mysql टेबल-स्तरीय फ़ॉरेन की opt-in से चालू कर सकता है (नीचे)।
 
 ### अनेक-से-अनेक (`m2m`)
@@ -162,11 +209,9 @@ struct User {
 migrate::sync::<Tag, _>(&pool).await?;       // पहले लक्ष्य मॉडल
 migrate::sync::<User, _>(&pool).await?;      // घोषक मॉडल join टेबल बनाता है
 
-// `auto` कुंजियाँ डेटाबेस असाइन करता है: रिलेशन छूने से पहले इंस्टेंस दोबारा पढ़ें
-User { id: 0, name: "alice".into() }.insert(&pool).await?;
-let user = User::query().filter_eq("name", "alice")?.one(&pool).await?.expect("inserted");
-Tag { id: 0, name: "rust".into() }.insert(&pool).await?;
-let tag = Tag::query().filter_eq("name", "rust")?.one(&pool).await?.expect("inserted");
+// create() सम्मिलित कर इंस्टेंस दोबारा पढ़ता है (auto pk भरी) — सीधे रिलेशन के लिए तैयार
+let user = User { id: 0, name: "alice".into() }.create(&pool).await?;
+let tag = Tag { id: 0, name: "rust".into() }.create(&pool).await?;
 
 m2m::attach::<User, Tag, _>(&pool, &user, &tag).await?;   // दोहरा attach -> समग्र PK त्रुटि
 let tags = m2m::related::<User, Tag, _>(&pool, &user).await?;

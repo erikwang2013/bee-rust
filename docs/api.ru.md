@@ -12,12 +12,14 @@
 ### Определение контроллера
 
 ```rust
+use async_trait::async_trait;  // Cargo.toml: async-trait = "0.1"
+use bee_rust::bee_router::context::RouterError;
 use bee_rust::prelude::*;
 
 // определяем контроллер
 struct UserController;
 
-#[bee_router::async_trait]
+#[async_trait]
 impl Controller for UserController {
     async fn handle(&self, ctx: &mut Context) -> Result<(), RouterError> {
         ctx.json(&serde_json::json!({"users": []}))
@@ -28,12 +30,53 @@ impl Controller for UserController {
 ### Регистрация маршрутов
 
 ```rust
+// обработчики — это axum-handlers: без состояния просто async fn
+async fn list_users() -> &'static str { "[]" }
+async fn create_user() -> &'static str { "created" }
+
 // регистрируем маршруты
 let router = Router::new()
     .ns("/api/v1", |ns| {
-        ns.get("/users")
-          .post("/users");
+        ns.get("/users", list_users)
+          .post("/users", create_user);
     });
+```
+
+> Синтаксис путей как в axum 0.8: динамические сегменты пишутся `{name}` (например, `/users/{id}`); `:name` паникует при сборке роутера (проверено). Префикс `ns` конкатенируется с путём группы напрямую: `ns("/api/v1", …)` + `/users` → `/api/v1/users`; пустой префикс (`ns("", …)`) допустим — тогда путь в группе и есть полный путь.
+
+### Обработчики с состоянием
+
+Обработчики — это axum-handlers: общее состояние внедряется через `State` и связывается `Router::with_state` (`axum` должен быть прямой зависимостью — в Cargo.toml из CLI-скаффолда он уже есть). Роуты без состояния используют `build()`; как только handler берёт `State`, перед `axum::serve` нужен `with_state`. Типичная форма `Pool + Cache`:
+
+```rust
+use std::sync::Arc;
+use axum::extract::State;
+use bee_rust::bee_cache::MemoryCache;
+use bee_rust::bee_orm::pool::sqlite::Pool;
+use bee_rust::prelude::*;
+
+#[derive(Model)]
+#[bee(crate = "bee_rust::bee_orm", table = "users")]  // вариант при зависимости только от bee_rust
+struct User {
+    #[bee(pk, auto)]
+    id: i64,
+    name: String,
+}
+
+#[derive(Clone)]
+struct AppState {
+    pool: Pool,
+    cache: Arc<dyn Cache>,
+}
+
+async fn list_users(State(state): State<AppState>) -> Result<String, String> {
+    let users = User::query().all(&state.pool).await.map_err(|e| e.to_string())?;  // один запрос
+    Ok(format!("{} users", users.len()))
+}
+
+let app = Router::new()
+    .ns("/api/v1", |ns| ns.get("/users", list_users))
+    .with_state(AppState { pool, cache: Arc::new(MemoryCache::new()) });
 ```
 
 ### Context API
@@ -61,6 +104,8 @@ bee_rust = { features = ["security"] }
 ```
 
 ## ORM (bee_orm)
+
+> Если зависимость только `bee_rust`: добавьте модели `#[bee(crate = "bee_rust::bee_orm")]` (предпочтительно) либо `use bee_rust::bee_orm;` в начале модуля — раскрытие порождает пути `bee_orm::…`, и любого из двух достаточно; остальные пути `bee_orm::` заменяются на `bee_rust::bee_orm::` (примеры ниже написаны для прямой зависимости от `bee_orm`).
 
 ```rust
 use bee_orm::pool::sqlite::Pool;
@@ -102,7 +147,7 @@ async fn demo() -> Result<(), bee_orm::OrmError> {
     migrate::sync::<User, _>(&pool).await?;
     migrate::sync::<Post, _>(&pool).await?;
 
-    // INSERT — первичный ключ `auto` назначает база данных
+    // INSERT — insert() возвращает число затронутых строк
     let user = User { id: 0, name: "alice".into(), age: Some(30), active: true, created_at: 0, deleted: false, cache: vec![] };
     user.insert(&pool).await?;
 
@@ -141,6 +186,8 @@ async fn demo() -> Result<(), bee_orm::OrmError> {
 }
 ```
 
+> Две формы записи: `insert()` возвращает число затронутых строк (`u64`); `create()` вставляет и перечитывает строку, возвращая экземпляр с заполненным `auto`-ключом / значениями по умолчанию (`NotFound`, если строку перечитать не удалось) — берите `create()`, когда нужен ключ (см. пример m2m ниже).
+
 > Миграции доступны: `bee_orm::migrate` (`create_table` / `add_missing_columns` / `sync`) генерирует DDL под каждый диалект — создаёт таблицы и добавляет недостающие колонки, никогда не удаляя и не изменяя их. Чтение связей покрывает `belongs_to`, has_many (`children*`) и many-to-many (`m2m`). `#[bee(fk = …)]` генерирует DDL внешнего ключа: postgres и sqlite (bundled-сборка) обеспечивают соблюдение ссылки, а mysql может включить внешние ключи на уровне таблицы через opt-in (ниже).
 
 ### Many-to-many (`m2m`)
@@ -162,11 +209,9 @@ struct User {
 migrate::sync::<Tag, _>(&pool).await?;       // сначала целевая модель
 migrate::sync::<User, _>(&pool).await?;      // объявляющая модель создаёт таблицу связей
 
-// `auto`-ключи назначает база: перед работой со связями перечитайте экземпляр
-User { id: 0, name: "alice".into() }.insert(&pool).await?;
-let user = User::query().filter_eq("name", "alice")?.one(&pool).await?.expect("inserted");
-Tag { id: 0, name: "rust".into() }.insert(&pool).await?;
-let tag = Tag::query().filter_eq("name", "rust")?.one(&pool).await?.expect("inserted");
+// create() вставляет и перечитывает экземпляр (auto-pk заполнен) — можно работать со связями
+let user = User { id: 0, name: "alice".into() }.create(&pool).await?;
+let tag = Tag { id: 0, name: "rust".into() }.create(&pool).await?;
 
 m2m::attach::<User, Tag, _>(&pool, &user, &tag).await?;   // повторный attach -> ошибка составного PK
 let tags = m2m::related::<User, Tag, _>(&pool, &user).await?;

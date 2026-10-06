@@ -2,6 +2,13 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.2] — 2026-10-06
+
+### Añadido
+- `bee_orm`: `Model::create() -> Result<Self>` — inserta y devuelve la instancia completa, con la clave primaria asignada por la base de datos ya rellena (`INSERT … RETURNING *` en sqlite / postgres, `LAST_INSERT_ID()` + relectura en mysql); `insert()` no cambia y sigue devolviendo filas afectadas
+- `bee_orm`: el atributo `#[bee(crate = "…")]` — indica a la derive la ruta del crate ORM (p. ej. `#[bee(crate = "bee_rust::bee_orm")]` cuando solo el metacrate `bee_rust` es dependencia); omitirlo mantiene la expansión byte a byte idéntica
+- configuración de build de docs.rs completada para los ocho crates con módulos públicos tras feature (`all-features = true`) — la documentación de features de backend y la tabla de atributos del derive eran invisibles en docs.rs
+
 ## [1.2.1] — 2026-10-06
 
 ### Añadido

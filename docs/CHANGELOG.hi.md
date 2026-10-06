@@ -2,6 +2,13 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.2] — 2026-10-06
+
+### जोड़ा गया
+- `bee_orm`: `Model::create() -> Result<Self>` — इंसर्ट करके पूरा इंस्टेंस लौटाता है, डेटाबेस द्वारा दी गई प्राइमरी कुंजी सहित (sqlite / postgres में `INSERT … RETURNING *`, mysql में `LAST_INSERT_ID()` + दोबारा पढ़ना); `insert()` अपरिवर्तित है और प्रभावित पंक्तियाँ लौटाता रहता है
+- `bee_orm`: `#[bee(crate = "…")]` विशेषता — derive के लिए ORM क्रेट का पथ निर्दिष्ट करें (केवल `bee_rust` मेटा-क्रेट पर निर्भर हों तो `#[bee(crate = "bee_rust::bee_orm")]`); न देने पर विस्तार बाइट-दर-बाइट वही रहता है
+- feature-नियंत्रित सार्वजनिक मॉड्यूल वाले आठ crates में docs.rs बिल्ड कॉन्फ़िगरेशन पूरा किया (`all-features = true`) — बैकएंड feature के दस्तावेज़ पृष्ठ और derive विशेषता सारणी docs.rs पर पहले नहीं दिखती थीं
+
 ## [1.2.1] — 2026-10-06
 
 ### जोड़ा गया

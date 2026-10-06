@@ -2,6 +2,13 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.2] — 2026-10-06
+
+### Добавлено
+- `bee_orm`: `Model::create() -> Result<Self>` — вставляет и возвращает полный экземпляр, включая назначенный базой первичный ключ (`INSERT … RETURNING *` в sqlite / postgres, `LAST_INSERT_ID()` + перечитывание в mysql); поведение `insert()` не изменилось — по-прежнему возвращает число затронутых строк
+- `bee_orm`: атрибут `#[bee(crate = "…")]` — задаёт путь к крейту ORM для раскрытия derive (например, `#[bee(crate = "bee_rust::bee_orm")]`, когда зависимость — только метакрейт `bee_rust`); без атрибута раскрытие остаётся побайтово прежним
+- конфигурация сборки docs.rs дополнена для восьми крейтов с публичными модулями под feature (`all-features = true`) — документация backend-feature и таблица атрибутов derive ранее не отображались на docs.rs
+
 ## [1.2.1] — 2026-10-06
 
 ### Добавлено

@@ -2,6 +2,13 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.2] — 2026-10-06
+
+### 추가됨
+- `bee_orm`: `Model::create() -> Result<Self>` — 삽입 후 데이터베이스가 할당한 기본 키가 채워진 완전한 인스턴스를 반환(sqlite / postgres는 `INSERT … RETURNING *`, mysql은 `LAST_INSERT_ID()` + 재조회); `insert()`는 그대로이며 영향받은 행 수를 반환
+- `bee_orm`: `#[bee(crate = "…")]` 속성 — derive가 사용할 ORM 크레이트 경로를 지정(`bee_rust` 메타 크레이트만 의존할 때 `#[bee(crate = "bee_rust::bee_orm")]`); 생략 시 전개는 바이트 단위로 동일
+- feature로 공개 모듈이 갈리는 8개 크레이트에 docs.rs 빌드 설정(`all-features = true`) 보강 — 백엔드 feature 문서 페이지와 derive 속성 표가 docs.rs에서 보이지 않던 문제 해결
+
 ## [1.2.1] — 2026-10-06
 
 ### 추가됨

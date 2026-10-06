@@ -12,12 +12,14 @@
 ### 定义控制器
 
 ```rust
+use async_trait::async_trait;  // Cargo.toml：async-trait = "0.1"
+use bee_rust::bee_router::context::RouterError;
 use bee_rust::prelude::*;
 
 // 定义控制器
 struct UserController;
 
-#[bee_router::async_trait]
+#[async_trait]
 impl Controller for UserController {
     async fn handle(&self, ctx: &mut Context) -> Result<(), RouterError> {
         ctx.json(&serde_json::json!({"users": []}))
@@ -28,12 +30,53 @@ impl Controller for UserController {
 ### 路由注册
 
 ```rust
+// handler 即 axum handler——无状态时就是普通 async fn
+async fn list_users() -> &'static str { "[]" }
+async fn create_user() -> &'static str { "created" }
+
 // 路由注册
 let router = Router::new()
     .ns("/api/v1", |ns| {
-        ns.get("/users")
-          .post("/users");
+        ns.get("/users", list_users)
+          .post("/users", create_user);
     });
+```
+
+> 路径语法同 axum 0.8：动态段写 `{name}`（如 `/users/{id}`）；`:name` 会在 build 时 panic（实测）。`ns` 前缀与组内路径直接拼接：`ns("/api/v1", …)` + `/users` → `/api/v1/users`；空前缀 `ns("", …)` 合法，组内路径即完整路径。
+
+### 带状态的 handler
+
+handler 就是 axum handler：共享状态经 `State` 注入、`Router::with_state` 装配（`axum` 需为直接依赖，CLI 脚手架生成的 Cargo.toml 已含）。无状态路由用 `build()`；handler 一旦取 `State`，必须 `with_state` 才能交给 `axum::serve`。典型的 `Pool + Cache` 形态：
+
+```rust
+use std::sync::Arc;
+use axum::extract::State;
+use bee_rust::bee_cache::MemoryCache;
+use bee_rust::bee_orm::pool::sqlite::Pool;
+use bee_rust::prelude::*;
+
+#[derive(Model)]
+#[bee(crate = "bee_rust::bee_orm", table = "users")]  // 只依赖 bee_rust 时的写法
+struct User {
+    #[bee(pk, auto)]
+    id: i64,
+    name: String,
+}
+
+#[derive(Clone)]
+struct AppState {
+    pool: Pool,
+    cache: Arc<dyn Cache>,
+}
+
+async fn list_users(State(state): State<AppState>) -> Result<String, String> {
+    let users = User::query().all(&state.pool).await.map_err(|e| e.to_string())?;  // 一次查询
+    Ok(format!("{} users", users.len()))
+}
+
+let app = Router::new()
+    .ns("/api/v1", |ns| ns.get("/users", list_users))
+    .with_state(AppState { pool, cache: Arc::new(MemoryCache::new()) });
 ```
 
 ### Context API
@@ -61,6 +104,8 @@ bee_rust = { features = ["security"] }
 ```
 
 ## ORM（bee_orm）
+
+> 只依赖 `bee_rust` 时：给模型加 `#[bee(crate = "bee_rust::bee_orm")]`（首选），或在模块顶部 `use bee_rust::bee_orm;`——派生展开默认写 `bee_orm::…` 路径，有其一即可解析；其余 `bee_orm::` 路径改走 `bee_rust::bee_orm::`（下文示例按直接依赖 `bee_orm` 书写）。
 
 ```rust
 use bee_orm::pool::sqlite::Pool;
@@ -102,7 +147,7 @@ async fn demo() -> Result<(), bee_orm::OrmError> {
     migrate::sync::<User, _>(&pool).await?;
     migrate::sync::<Post, _>(&pool).await?;
 
-    // 插入——auto 主键由数据库分配
+    // 插入——insert() 返回受影响行数
     let user = User { id: 0, name: "alice".into(), age: Some(30), active: true, created_at: 0, deleted: false, cache: vec![] };
     user.insert(&pool).await?;
 
@@ -141,6 +186,8 @@ async fn demo() -> Result<(), bee_orm::OrmError> {
 }
 ```
 
+> 写入两式：`insert()` 返回受影响行数（`u64`）；`create()` 插入并回读，返回填充了 auto 主键 / 默认值的实例（读不回时报 `NotFound`）——需要主键时直接用 `create()`（见下方 m2m 示例）。
+
 > 迁移可用：`bee_orm::migrate`（`create_table` / `add_missing_columns` / `sync`）按方言生成 DDL，只建表与补列，绝不删改。关系读取覆盖 `belongs_to`、has_many（`children*`）与多对多（`m2m`）；`#[bee(fk = …)]` 生成 FK DDL：postgres 与 sqlite（bundled 构建）强制外键，mysql 可用表级外键 opt-in 开启（见下）。
 
 ### 多对多（`m2m`）
@@ -162,11 +209,9 @@ struct User {
 migrate::sync::<Tag, _>(&pool).await?;       // 目标模型先建
 migrate::sync::<User, _>(&pool).await?;      // 声明方创建 join 表
 
-// auto 主键由数据库分配：插入后查询取回实例，再读写关联
-User { id: 0, name: "alice".into() }.insert(&pool).await?;
-let user = User::query().filter_eq("name", "alice")?.one(&pool).await?.expect("inserted");
-Tag { id: 0, name: "rust".into() }.insert(&pool).await?;
-let tag = Tag::query().filter_eq("name", "rust")?.one(&pool).await?.expect("inserted");
+// create() 插入并回读实例（auto 主键已填充），直接读写关联
+let user = User { id: 0, name: "alice".into() }.create(&pool).await?;
+let tag = Tag { id: 0, name: "rust".into() }.create(&pool).await?;
 
 m2m::attach::<User, Tag, _>(&pool, &user, &tag).await?;   // 重复 attach → 复合主键错误
 let tags = m2m::related::<User, Tag, _>(&pool, &user).await?;

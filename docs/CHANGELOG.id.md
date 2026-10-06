@@ -2,6 +2,13 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.2] — 2026-10-06
+
+### Ditambahkan
+- `bee_orm`: `Model::create() -> Result<Self>` — menyisipkan dan mengembalikan instance utuh, lengkap dengan primary key yang ditetapkan basis data (`INSERT … RETURNING *` di sqlite / postgres, `LAST_INSERT_ID()` + baca ulang di mysql); `insert()` tetap sama dan tetap mengembalikan jumlah baris terpengaruh
+- `bee_orm`: atribut `#[bee(crate = "…")]` — menunjuk derive ke jalur crate ORM (mis. `#[bee(crate = "bee_rust::bee_orm")]` saat hanya metacrate `bee_rust` yang menjadi dependensi); tanpa atribut ini ekspansinya identik byte per byte
+- konfigurasi build docs.rs dilengkapi untuk delapan crate dengan modul publik di balik feature (`all-features = true`) — halaman dokumen feature backend dan tabel atribut derive sebelumnya tidak terlihat di docs.rs
+
 ## [1.2.1] — 2026-10-06
 
 ### Ditambahkan

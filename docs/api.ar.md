@@ -12,12 +12,14 @@
 ### تعريف متحكم
 
 ```rust
+use async_trait::async_trait;  // في Cargo.toml: async-trait = "0.1"
+use bee_rust::bee_router::context::RouterError;
 use bee_rust::prelude::*;
 
 // تعريف متحكم
 struct UserController;
 
-#[bee_router::async_trait]
+#[async_trait]
 impl Controller for UserController {
     async fn handle(&self, ctx: &mut Context) -> Result<(), RouterError> {
         ctx.json(&serde_json::json!({"users": []}))
@@ -28,12 +30,53 @@ impl Controller for UserController {
 ### تسجيل المسارات
 
 ```rust
+// المعالجات هي معالجات axum — دوال async عادية بدون حالة
+async fn list_users() -> &'static str { "[]" }
+async fn create_user() -> &'static str { "created" }
+
 // تسجيل المسارات
 let router = Router::new()
     .ns("/api/v1", |ns| {
-        ns.get("/users")
-          .post("/users");
+        ns.get("/users", list_users)
+          .post("/users", create_user);
     });
+```
+
+> صيغة المسار كما في axum 0.8: المقاطع الديناميكية تُكتب `{name}` (مثل `/users/{id}`)؛ و`:name` يُسبب panic عند البناء (مُختبر). يُدمج بادئة `ns` مع مسار المجموعة مباشرة: `ns("/api/v1", …)` + `/users` → `/api/v1/users`؛ والبادئة الفارغة (`ns("", …)`) صحيحة — فيصبح مسار المجموعة هو المسار الكامل.
+
+### معالجات ذات حالة
+
+المعالجات هي معالجات axum: تُحقن الحالة المشتركة عبر `State` وتُربط بـ`Router::with_state` (`axum` يجب أن تكون اعتمادًا مباشرًا — وهي موجودة في Cargo.toml الذي يولّده سكافولد CLI). المسارات بلا حالة تستخدم `build()`؛ وما إن يأخذ المعالج `State` حتى يلزم `with_state` قبل `axum::serve`. الشكل النموذجي `Pool + Cache`:
+
+```rust
+use std::sync::Arc;
+use axum::extract::State;
+use bee_rust::bee_cache::MemoryCache;
+use bee_rust::bee_orm::pool::sqlite::Pool;
+use bee_rust::prelude::*;
+
+#[derive(Model)]
+#[bee(crate = "bee_rust::bee_orm", table = "users")]  // الصيغة عند الاعتماد على bee_rust وحده
+struct User {
+    #[bee(pk, auto)]
+    id: i64,
+    name: String,
+}
+
+#[derive(Clone)]
+struct AppState {
+    pool: Pool,
+    cache: Arc<dyn Cache>,
+}
+
+async fn list_users(State(state): State<AppState>) -> Result<String, String> {
+    let users = User::query().all(&state.pool).await.map_err(|e| e.to_string())?;  // استعلام واحد
+    Ok(format!("{} users", users.len()))
+}
+
+let app = Router::new()
+    .ns("/api/v1", |ns| ns.get("/users", list_users))
+    .with_state(AppState { pool, cache: Arc::new(MemoryCache::new()) });
 ```
 
 ### Context API
@@ -61,6 +104,8 @@ bee_rust = { features = ["security"] }
 ```
 
 ## ORM (bee_orm)
+
+> عند الاعتماد على `bee_rust` وحده: أضف `#[bee(crate = "bee_rust::bee_orm")]` إلى النموذج (المفضل)، أو `use bee_rust::bee_orm;` في أعلى الوحدة — فالتوسيع يولّد مسارات `bee_orm::…` وأحدهما يكفي لحلها؛ وبقية مسارات `bee_orm::` تصير `bee_rust::bee_orm::` (الأمثلة أدناه مكتوبة لاعتماد مباشر على `bee_orm`).
 
 ```rust
 use bee_orm::pool::sqlite::Pool;
@@ -102,7 +147,7 @@ async fn demo() -> Result<(), bee_orm::OrmError> {
     migrate::sync::<User, _>(&pool).await?;
     migrate::sync::<Post, _>(&pool).await?;
 
-    // INSERT — المفتاح الأساسي `auto` تُسنِده قاعدة البيانات
+    // INSERT — يعيد insert() عدد الصفوف المتأثرة
     let user = User { id: 0, name: "alice".into(), age: Some(30), active: true, created_at: 0, deleted: false, cache: vec![] };
     user.insert(&pool).await?;
 
@@ -141,6 +186,8 @@ async fn demo() -> Result<(), bee_orm::OrmError> {
 }
 ```
 
+> صيغتان للكتابة: `insert()` يعيد عدد الصفوف المتأثرة (`u64`)، و`create()` يُدرج ثم يعيد قراءة الصف فيعيد النسخة مع مفتاح `auto` / القيم الافتراضية (`NotFound` إذا تعذّرت إعادة القراءة) — استخدم `create()` متى احتجت المفتاح (انظر مثال m2m أدناه).
+
 > الترحيلات متاحة الآن: تولّد `bee_orm::migrate` (`create_table` / `add_missing_columns` / `sync`) عبارات DDL حسب اللهجة — إنشاء الجداول وإضافة الأعمدة الناقصة فقط، دون حذف أو تعديل. قراءة العلاقات تشمل `belongs_to` وhas_many (`children*`) وmany-to-many (`m2m`). ينتج `#[bee(fk = …)]` تعريف مفتاح أجنبي: postgres وsqlite (بناء bundled) يفرضان المرجع، ويمكن لـmysql تفعيل مفاتيح أجنبية على مستوى الجدول عبر opt-in (أدناه).
 
 ### متعدد إلى متعدد (`m2m`)
@@ -162,11 +209,9 @@ struct User {
 migrate::sync::<Tag, _>(&pool).await?;       // نموذج الهدف أولاً
 migrate::sync::<User, _>(&pool).await?;      // النموذج المعلن ينشئ جدول الربط
 
-// مفاتيح `auto` تعيّنها قاعدة البيانات: أعد قراءة النسخة قبل لمس العلاقات
-User { id: 0, name: "alice".into() }.insert(&pool).await?;
-let user = User::query().filter_eq("name", "alice")?.one(&pool).await?.expect("inserted");
-Tag { id: 0, name: "rust".into() }.insert(&pool).await?;
-let tag = Tag::query().filter_eq("name", "rust")?.one(&pool).await?.expect("inserted");
+// create() يُدرج ويعيد قراءة النسخة (مفتاح auto معبأ) — جاهزة للعلاقات
+let user = User { id: 0, name: "alice".into() }.create(&pool).await?;
+let tag = Tag { id: 0, name: "rust".into() }.create(&pool).await?;
 
 m2m::attach::<User, Tag, _>(&pool, &user, &tag).await?;   // attach مكرر -> خطأ المفتاح المركب
 let tags = m2m::related::<User, Tag, _>(&pool, &user).await?;

@@ -2,6 +2,13 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.2] — 2026-10-06
+
+### 追加
+- `bee_orm`：`Model::create() -> Result<Self>`——挿入して完全なインスタンスを返す（データベースが割り当てた主キー入り。sqlite / postgres は `INSERT … RETURNING *`、mysql は `LAST_INSERT_ID()` + 読み直し）；`insert()` は変更なしで影響行数を返す
+- `bee_orm`：`#[bee(crate = "…")]` 属性——derive が使う ORM クレートのパスを指定（`bee_rust` メタクレートだけに依存する場合は `#[bee(crate = "bee_rust::bee_orm")]`）。省略時の展開はバイト単位で不変
+- feature で公開モジュールが切り替わる 8 つのクレートに docs.rs ビルド設定（`all-features = true`）を追加——バックエンド feature のドキュメントページと derive 属性表は docs.rs 上で見えていませんでした
+
 ## [1.2.1] — 2026-10-06
 
 ### 追加

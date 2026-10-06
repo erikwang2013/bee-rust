@@ -2,6 +2,13 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.2] — 2026-10-06
+
+### 新增
+- `bee_orm`：`Model::create() -> Result<Self>`——插入并返回完整实例，数据库分配的 auto 主键已填充（sqlite / postgres 走 `INSERT … RETURNING *`，mysql 走 `LAST_INSERT_ID()` + 回查）；`insert()` 语义不变，仍返回受影响行数
+- `bee_orm`：`#[bee(crate = "…")]` 属性——指定派生展开所用的 ORM 路径（只依赖 `bee_rust` 元 crate 时写 `#[bee(crate = "bee_rust::bee_orm")]`）；省略时展开逐字节不变
+- 8 个带 feature 门控公共模块的 crate 补齐 docs.rs 构建配置（`all-features = true`）——后端 feature 的文档页与 derive 属性表此前在 docs.rs 上不可见
+
 ## [1.2.1] — 2026-10-06
 
 ### 新增

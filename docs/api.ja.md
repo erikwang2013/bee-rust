@@ -12,12 +12,14 @@ README に戻る：[README](README.ja.md)。
 ### コントローラの定義
 
 ```rust
+use async_trait::async_trait;  // Cargo.toml に async-trait = "0.1" を追加
+use bee_rust::bee_router::context::RouterError;
 use bee_rust::prelude::*;
 
 // コントローラを定義
 struct UserController;
 
-#[bee_router::async_trait]
+#[async_trait]
 impl Controller for UserController {
     async fn handle(&self, ctx: &mut Context) -> Result<(), RouterError> {
         ctx.json(&serde_json::json!({"users": []}))
@@ -28,12 +30,53 @@ impl Controller for UserController {
 ### ルートの登録
 
 ```rust
+// handler は axum handler——ステートなしなら通常の async fn
+async fn list_users() -> &'static str { "[]" }
+async fn create_user() -> &'static str { "created" }
+
 // ルートの登録
 let router = Router::new()
     .ns("/api/v1", |ns| {
-        ns.get("/users")
-          .post("/users");
+        ns.get("/users", list_users)
+          .post("/users", create_user);
     });
+```
+
+> パス構文は axum 0.8 準拠：動的セグメントは `{name}`（例：`/users/{id}`）。`:name` は build 時に panic（実測）。`ns` プレフィックスはグループ内パスとそのまま連結：`ns("/api/v1", …)` + `/users` → `/api/v1/users`。空プレフィックス（`ns("", …)`）も有効で、グループ内パスがそのまま全体パスになります。
+
+### ステート付き handler
+
+handler は axum handler です：共有ステートは `State` で注入し `Router::with_state` で組み立てます（`axum` は直接依存が必要——CLI スキャフォールドの Cargo.toml には含まれます）。ステートなしのルートは `build()`；handler が `State` を取る場合は `axum::serve` の前に必ず `with_state`。典型的な `Pool + Cache` の形：
+
+```rust
+use std::sync::Arc;
+use axum::extract::State;
+use bee_rust::bee_cache::MemoryCache;
+use bee_rust::bee_orm::pool::sqlite::Pool;
+use bee_rust::prelude::*;
+
+#[derive(Model)]
+#[bee(crate = "bee_rust::bee_orm", table = "users")]  // bee_rust のみに依存する場合の書き方
+struct User {
+    #[bee(pk, auto)]
+    id: i64,
+    name: String,
+}
+
+#[derive(Clone)]
+struct AppState {
+    pool: Pool,
+    cache: Arc<dyn Cache>,
+}
+
+async fn list_users(State(state): State<AppState>) -> Result<String, String> {
+    let users = User::query().all(&state.pool).await.map_err(|e| e.to_string())?;  // クエリ 1 回
+    Ok(format!("{} users", users.len()))
+}
+
+let app = Router::new()
+    .ns("/api/v1", |ns| ns.get("/users", list_users))
+    .with_state(AppState { pool, cache: Arc::new(MemoryCache::new()) });
 ```
 
 ### Context API
@@ -61,6 +104,8 @@ bee_rust = { features = ["security"] }
 ```
 
 ## ORM（bee_orm）
+
+> `bee_rust` のみに依存する場合：モデルに `#[bee(crate = "bee_rust::bee_orm")]` を付ける（推奨）か、モジュール先頭で `use bee_rust::bee_orm;`——展開は既定で `bee_orm::…` パスを出力するため、どちらかで解決できます。他の `bee_orm::` パスは `bee_rust::bee_orm::` に置き換え（以下は `bee_orm` 直接依存の書き方）。
 
 ```rust
 use bee_orm::pool::sqlite::Pool;
@@ -102,7 +147,7 @@ async fn demo() -> Result<(), bee_orm::OrmError> {
     migrate::sync::<User, _>(&pool).await?;
     migrate::sync::<Post, _>(&pool).await?;
 
-    // INSERT — `auto` 主キーはデータベースが採番
+    // INSERT——insert() は影響行数を返す
     let user = User { id: 0, name: "alice".into(), age: Some(30), active: true, created_at: 0, deleted: false, cache: vec![] };
     user.insert(&pool).await?;
 
@@ -141,6 +186,8 @@ async fn demo() -> Result<(), bee_orm::OrmError> {
 }
 ```
 
+> 書き込みは 2 形態：`insert()` は影響行数（`u64`）を返し、`create()` は挿入して行を読み直し、`auto` 主キー / 既定値が入ったインスタンスを返します（読み直せない場合は `NotFound`）——主キーが必要な場面は `create()` を（下の m2m 例）。
+
 > マイグレーションが利用可能に：`bee_orm::migrate`（`create_table` / `add_missing_columns` / `sync`）が方言ごとの DDL を生成——テーブル作成と不足カラムの追加のみで、削除・変更は行いません。リレーション読み取りは `belongs_to`、has_many（`children*`）、many-to-many（`m2m`）に対応。`#[bee(fk = …)]` は外部キー DDL を生成します：postgres と sqlite（bundled ビルド）は強制、mysql はテーブルレベルの外部キーを opt-in で有効化できます（下記）。
 
 ### 多対多（`m2m`）
@@ -162,11 +209,9 @@ struct User {
 migrate::sync::<Tag, _>(&pool).await?;       // まず対象モデル
 migrate::sync::<User, _>(&pool).await?;      // 宣言側が join テーブルを作成
 
-// `auto` 主キーはデータベースが割り当て：リレーション操作の前にインスタンスを読み直す
-User { id: 0, name: "alice".into() }.insert(&pool).await?;
-let user = User::query().filter_eq("name", "alice")?.one(&pool).await?.expect("inserted");
-Tag { id: 0, name: "rust".into() }.insert(&pool).await?;
-let tag = Tag::query().filter_eq("name", "rust")?.one(&pool).await?.expect("inserted");
+// create() は挿入してインスタンスを読み直す（auto 主キー入り）——そのままリレーション操作へ
+let user = User { id: 0, name: "alice".into() }.create(&pool).await?;
+let tag = Tag { id: 0, name: "rust".into() }.create(&pool).await?;
 
 m2m::attach::<User, Tag, _>(&pool, &user, &tag).await?;   // attach 重複 -> 複合主キーエラー
 let tags = m2m::related::<User, Tag, _>(&pool, &user).await?;

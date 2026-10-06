@@ -12,12 +12,14 @@ Dokumen ini adalah referensi API framework Beerust: penggunaan, contoh kode, dan
 ### Mendefinisikan Controller
 
 ```rust
+use async_trait::async_trait;  // di Cargo.toml: async-trait = "0.1"
+use bee_rust::bee_router::context::RouterError;
 use bee_rust::prelude::*;
 
 // Mendefinisikan controller
 struct UserController;
 
-#[bee_router::async_trait]
+#[async_trait]
 impl Controller for UserController {
     async fn handle(&self, ctx: &mut Context) -> Result<(), RouterError> {
         ctx.json(&serde_json::json!({"users": []}))
@@ -28,12 +30,53 @@ impl Controller for UserController {
 ### Registrasi Rute
 
 ```rust
+// handler adalah handler axum — async fn biasa saat tanpa state
+async fn list_users() -> &'static str { "[]" }
+async fn create_user() -> &'static str { "created" }
+
 // Registrasi rute
 let router = Router::new()
     .ns("/api/v1", |ns| {
-        ns.get("/users")
-          .post("/users");
+        ns.get("/users", list_users)
+          .post("/users", create_user);
     });
+```
+
+> Sintaks path mengikuti axum 0.8: segmen dinamis ditulis `{name}` (mis. `/users/{id}`); `:name` panic saat build (teruji). Prefiks `ns` digabung apa adanya dengan path di grup: `ns("/api/v1", …)` + `/users` → `/api/v1/users`; prefiks kosong (`ns("", …)`) sah — path dalam grup menjadi path lengkap.
+
+### Handler dengan state
+
+Handler adalah handler axum: state bersama disuntik lewat `State` dan dirakit dengan `Router::with_state` (`axum` harus dependensi langsung — Cargo.toml hasil scaffold CLI sudah memuatnya). Rute tanpa state memakai `build()`; begitu handler memakai `State`, `with_state` wajib sebelum `axum::serve`. Bentuk `Pool + Cache` yang lazim:
+
+```rust
+use std::sync::Arc;
+use axum::extract::State;
+use bee_rust::bee_cache::MemoryCache;
+use bee_rust::bee_orm::pool::sqlite::Pool;
+use bee_rust::prelude::*;
+
+#[derive(Model)]
+#[bee(crate = "bee_rust::bee_orm", table = "users")]  // penulisan saat hanya bergantung pada bee_rust
+struct User {
+    #[bee(pk, auto)]
+    id: i64,
+    name: String,
+}
+
+#[derive(Clone)]
+struct AppState {
+    pool: Pool,
+    cache: Arc<dyn Cache>,
+}
+
+async fn list_users(State(state): State<AppState>) -> Result<String, String> {
+    let users = User::query().all(&state.pool).await.map_err(|e| e.to_string())?;  // satu query
+    Ok(format!("{} users", users.len()))
+}
+
+let app = Router::new()
+    .ns("/api/v1", |ns| ns.get("/users", list_users))
+    .with_state(AppState { pool, cache: Arc::new(MemoryCache::new()) });
 ```
 
 ### Context API
@@ -61,6 +104,8 @@ bee_rust = { features = ["security"] }
 ```
 
 ## ORM (bee_orm)
+
+> Bila hanya bergantung pada `bee_rust`: tambahkan `#[bee(crate = "bee_rust::bee_orm")]` pada model (disarankan), atau `use bee_rust::bee_orm;` di awal modul — ekspansi menulis path `bee_orm::…` secara bawaan dan salah satu dari keduanya membuatnya resolve; path `bee_orm::` lainnya menjadi `bee_rust::bee_orm::` (contoh di bawah ditulis untuk dependensi langsung `bee_orm`).
 
 ```rust
 use bee_orm::pool::sqlite::Pool;
@@ -102,7 +147,7 @@ async fn demo() -> Result<(), bee_orm::OrmError> {
     migrate::sync::<User, _>(&pool).await?;
     migrate::sync::<Post, _>(&pool).await?;
 
-    // INSERT — kunci primer `auto` ditetapkan basis data
+    // INSERT — insert() mengembalikan jumlah baris terpengaruh
     let user = User { id: 0, name: "alice".into(), age: Some(30), active: true, created_at: 0, deleted: false, cache: vec![] };
     user.insert(&pool).await?;
 
@@ -141,6 +186,8 @@ async fn demo() -> Result<(), bee_orm::OrmError> {
 }
 ```
 
+> Dua bentuk tulis: `insert()` mengembalikan baris terpengaruh (`u64`); `create()` menyisipkan lalu membaca ulang baris dan mengembalikan instance dengan primary key `auto` / nilai bawaan terisi (`NotFound` bila gagal dibaca ulang) — pakai `create()` begitu butuh primary key (lihat contoh m2m di bawah).
+
 > Migrasi kini tersedia: `bee_orm::migrate` (`create_table` / `add_missing_columns` / `sync`) menghasilkan DDL sesuai dialek — membuat tabel dan menambah kolom yang belum ada, tidak pernah menghapus atau mengubah. Pembacaan relasi mencakup `belongs_to`, has_many (`children*`), dan many-to-many (`m2m`). `#[bee(fk = …)]` menghasilkan DDL kunci asing: postgres dan sqlite (build bundled) menegakkan referensi, dan mysql dapat mengaktifkan kunci asing tingkat tabel lewat opt-in (di bawah).
 
 ### Banyak-ke-banyak (`m2m`)
@@ -162,11 +209,9 @@ struct User {
 migrate::sync::<Tag, _>(&pool).await?;       // model target dulu
 migrate::sync::<User, _>(&pool).await?;      // model pendeklarasi membuat tabel join
 
-// kunci `auto` ditetapkan basis data: baca ulang instance sebelum menyentuh relasi
-User { id: 0, name: "alice".into() }.insert(&pool).await?;
-let user = User::query().filter_eq("name", "alice")?.one(&pool).await?.expect("inserted");
-Tag { id: 0, name: "rust".into() }.insert(&pool).await?;
-let tag = Tag::query().filter_eq("name", "rust")?.one(&pool).await?.expect("inserted");
+// create() menyisipkan dan membaca ulang instance (pk auto terisi) — siap untuk relasi
+let user = User { id: 0, name: "alice".into() }.create(&pool).await?;
+let tag = Tag { id: 0, name: "rust".into() }.create(&pool).await?;
 
 m2m::attach::<User, Tag, _>(&pool, &user, &tag).await?;   // attach duplikat -> error PK komposit
 let tags = m2m::related::<User, Tag, _>(&pool, &user).await?;

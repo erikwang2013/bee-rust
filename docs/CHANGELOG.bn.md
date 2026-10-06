@@ -2,6 +2,13 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.2] — 2026-10-06
+
+### যা যোগ হয়েছে
+- `bee_orm`: `Model::create() -> Result<Self>` — ইনসার্ট করে সম্পূর্ণ ইনস্ট্যান্স ফেরত দেয়, ডেটাবেস-নির্ধারিত প্রাইমারি কী সহ (sqlite / postgres-এ `INSERT … RETURNING *`, mysql-এ `LAST_INSERT_ID()` + পুনঃপাঠ); `insert()` আগের মতোই, প্রভাবিত সারি ফেরত দেয়
+- `bee_orm`: `#[bee(crate = "…")]` অ্যাট্রিবিউট — derive-এর ORM ক্রেট পাথ নির্দিষ্ট করে (শুধু `bee_rust` মেটা-ক্রেটে নির্ভর করলে `#[bee(crate = "bee_rust::bee_orm")]`); বাদ দিলে এক্সপ্যানশন বাইট-ধরে অপরিবর্তিত
+- feature-নিয়ন্ত্রিত পাবলিক মডিউলওয়ালা আটটি ক্রেটে docs.rs বিল্ড কনফিগ পূরণ (`all-features = true`) — ব্যাকএন্ড feature-এর ডক পেজ ও derive অ্যাট্রিবিউট টেবিল docs.rs-এ আগে দেখা যেত না
+
 ## [1.2.1] — 2026-10-06
 
 ### যা যোগ হয়েছে

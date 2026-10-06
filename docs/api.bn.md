@@ -12,12 +12,14 @@
 ### কন্ট্রোলার সংজ্ঞায়িত করা
 
 ```rust
+use async_trait::async_trait;  // Cargo.toml-এ: async-trait = "0.1"
+use bee_rust::bee_router::context::RouterError;
 use bee_rust::prelude::*;
 
 // কন্ট্রোলার সংজ্ঞায়িত করা
 struct UserController;
 
-#[bee_router::async_trait]
+#[async_trait]
 impl Controller for UserController {
     async fn handle(&self, ctx: &mut Context) -> Result<(), RouterError> {
         ctx.json(&serde_json::json!({"users": []}))
@@ -28,12 +30,53 @@ impl Controller for UserController {
 ### রাউট রেজিস্ট্রেশন
 
 ```rust
+// handler হলো axum handler — স্টেটলেস হলে সাধারণ async fn
+async fn list_users() -> &'static str { "[]" }
+async fn create_user() -> &'static str { "created" }
+
 // রাউট রেজিস্ট্রেশন
 let router = Router::new()
     .ns("/api/v1", |ns| {
-        ns.get("/users")
-          .post("/users");
+        ns.get("/users", list_users)
+          .post("/users", create_user);
     });
+```
+
+> পাথ সিনট্যাক্স axum 0.8-এর মতো: ডায়নামিক সেগমেন্ট `{name}` (যেমন `/users/{id}`); `:name` build-এ panic করে (পরীক্ষিত)। `ns` প্রিফিক্স গ্রুপ-পাথের সাথে সরাসরি যুক্ত হয়: `ns("/api/v1", …)` + `/users` → `/api/v1/users`; খালি প্রিফিক্স (`ns("", …)`) বৈধ — তখন গ্রুপ-পাথই সম্পূর্ণ পাথ।
+
+### স্টেটযুক্ত handler
+
+handler হলো axum handler: শেয়ার্ড স্টেট `State`-এ ইনজেক্ট হয় ও `Router::with_state`-এ জোড়া লাগে (`axum` সরাসরি নির্ভরতা হতে হবে — CLI স্ক্যাফোল্ডের Cargo.toml-এ তা আছে)। স্টেটলেস রুটে `build()`; handler `State` নিলে `axum::serve`-এর আগে `with_state` আবশ্যক। প্রচলিত `Pool + Cache` রূপ:
+
+```rust
+use std::sync::Arc;
+use axum::extract::State;
+use bee_rust::bee_cache::MemoryCache;
+use bee_rust::bee_orm::pool::sqlite::Pool;
+use bee_rust::prelude::*;
+
+#[derive(Model)]
+#[bee(crate = "bee_rust::bee_orm", table = "users")]  // শুধু bee_rust-এ নির্ভর করার রূপ
+struct User {
+    #[bee(pk, auto)]
+    id: i64,
+    name: String,
+}
+
+#[derive(Clone)]
+struct AppState {
+    pool: Pool,
+    cache: Arc<dyn Cache>,
+}
+
+async fn list_users(State(state): State<AppState>) -> Result<String, String> {
+    let users = User::query().all(&state.pool).await.map_err(|e| e.to_string())?;  // একটি কোয়েরি
+    Ok(format!("{} users", users.len()))
+}
+
+let app = Router::new()
+    .ns("/api/v1", |ns| ns.get("/users", list_users))
+    .with_state(AppState { pool, cache: Arc::new(MemoryCache::new()) });
 ```
 
 ### Context API
@@ -61,6 +104,8 @@ bee_rust = { features = ["security"] }
 ```
 
 ## ORM (bee_orm)
+
+> শুধু `bee_rust`-এ নির্ভর করলে: মডেলে `#[bee(crate = "bee_rust::bee_orm")]` দিন (প্রথম পছন্দ), বা মডিউলের শীর্ষে `use bee_rust::bee_orm;` — এক্সপ্যানশন ডিফল্টে `bee_orm::…` পাথ লেখে, দুটোর যেকোনো একটি থাকলেই সেগুলো রিজলভ হয়; বাকি `bee_orm::` পাথ `bee_rust::bee_orm::` হয়ে যায় (নিচের উদাহরণ সরাসরি `bee_orm` নির্ভরতার জন্য)।
 
 ```rust
 use bee_orm::pool::sqlite::Pool;
@@ -102,7 +147,7 @@ async fn demo() -> Result<(), bee_orm::OrmError> {
     migrate::sync::<User, _>(&pool).await?;
     migrate::sync::<Post, _>(&pool).await?;
 
-    // INSERT — `auto` প্রাইমারি কী ডেটাবেস দেয়
+    // INSERT — insert() প্রভাবিত সারি ফেরত দেয়
     let user = User { id: 0, name: "alice".into(), age: Some(30), active: true, created_at: 0, deleted: false, cache: vec![] };
     user.insert(&pool).await?;
 
@@ -141,6 +186,8 @@ async fn demo() -> Result<(), bee_orm::OrmError> {
 }
 ```
 
+> লেখার দুই রূপ: `insert()` প্রভাবিত সারি (`u64`) ফেরত দেয়; `create()` ইনসার্ট করে সারি আবার পড়ে `auto` প্রাইমারি কী / ডিফল্ট ভরা ইনস্ট্যান্স ফেরত দেয় (আবার পড়তে না পারলে `NotFound`) — কী দরকার হলে সরাসরি `create()` (নিচের m2m উদাহরণ)।
+
 > মাইগ্রেশন এখন উপলব্ধ: `bee_orm::migrate` (`create_table` / `add_missing_columns` / `sync`) ডায়ালেক্ট অনুযায়ী DDL তৈরি করে — টেবিল তৈরি ও অনুপস্থিত কলাম যোগ করে, কখনো মুছে বা বদলায় না। রিলেশন পড়া `belongs_to`, has_many (`children*`) ও many-to-many (`m2m`) সমর্থন করে। `#[bee(fk = …)]` বিদেশি-কী DDL তৈরি করে: postgres ও sqlite (bundled বিল্ড) এটি প্রয়োগ করে, আর mysql opt-in-এ টেবিল-স্তরের বিদেশি-কী চালু করতে পারে (নিচে)।
 
 ### অনেক-থেকে-অনেক (`m2m`)
@@ -162,11 +209,9 @@ struct User {
 migrate::sync::<Tag, _>(&pool).await?;       // আগে লক্ষ্য মডেল
 migrate::sync::<User, _>(&pool).await?;      // ঘোষক মডেল জয়েন টেবিল তৈরি করে
 
-// `auto` কী ডেটাবেস নির্ধারণ করে: রিলেশন স্পর্শের আগে ইনস্ট্যান্স আবার পড়ুন
-User { id: 0, name: "alice".into() }.insert(&pool).await?;
-let user = User::query().filter_eq("name", "alice")?.one(&pool).await?.expect("inserted");
-Tag { id: 0, name: "rust".into() }.insert(&pool).await?;
-let tag = Tag::query().filter_eq("name", "rust")?.one(&pool).await?.expect("inserted");
+// create() ইনসার্ট করে ইনস্ট্যান্স আবার পড়ে (auto pk ভরা) — সরাসরি রিলেশনের জন্য প্রস্তুত
+let user = User { id: 0, name: "alice".into() }.create(&pool).await?;
+let tag = Tag { id: 0, name: "rust".into() }.create(&pool).await?;
 
 m2m::attach::<User, Tag, _>(&pool, &user, &tag).await?;   // ডুপ্লিকেট attach -> কম্পোজিট PK ত্রুটি
 let tags = m2m::related::<User, Tag, _>(&pool, &user).await?;
@@ -280,7 +325,7 @@ cache.set("k", b"v".to_vec(), Some(60)).await?;
 let v = cache.get("k").await?;
 ```
 
-> `MemcacheCache` (feature `memcache`)-এর একই ইন্টারফেস; TTL `Some(0)` Redis ব্যাকএন্ডে `DEL` দিয়ে যায় (`SET … EX 0` প্রত্যাখ্যাত হয়), memcached-এও মুছে ফেলা হিসেবে ধরা হয় (সেখানে 0 মানে কখনো 만료되지 않음); অ-সংখ্যাসূচক মানে `incr` সিরিয়ালাইজেশন ত্রুটি।
+> `MemcacheCache` (feature `memcache`)-এর একই ইন্টারফেস; TTL `Some(0)` Redis ব্যাকএন্ডে `DEL` দিয়ে যায় (`SET … EX 0` প্রত্যাখ্যাত হয়), memcached-এও মুছে ফেলা হিসেবে ধরা হয় (সেখানে 0 মানে কখনো মেয়াদ শেষ হয় না); অ-সংখ্যাসূচক মানে `incr` সিরিয়ালাইজেশন ত্রুটি।
 
 **সার্চ ইঞ্জিন (বাস্তবায়িত, opt-in):**
 ```rust
