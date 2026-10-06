@@ -17,7 +17,7 @@ Ou dans le `Cargo.toml`：
 
 ```toml
 [dependencies]
-bee_rust = "1.2.0"
+bee_rust = "1.2.1"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -76,7 +76,7 @@ Un projet entièrement exécutable se trouve dans [examples/hello](https://githu
 Cœur minimal (sans ORM ni pilotes de base de données)：
 
 ```toml
-bee_rust = { version = "1.2.0", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.2.1", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## Sous-crates
@@ -102,7 +102,7 @@ Le framework est un ensemble de crates utilisables indépendamment ; `bee_rust` 
 Ils peuvent aussi être dépendus séparément — par exemple, juste un client Elasticsearch：
 
 ```toml
-bee_search = { version = "1.2.0", features = ["elasticsearch"] }
+bee_search = { version = "1.2.1", features = ["elasticsearch"] }
 ```
 
 ## Bases de données prises en charge

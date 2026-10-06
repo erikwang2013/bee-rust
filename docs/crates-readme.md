@@ -17,7 +17,7 @@ Or add it to `Cargo.toml`:
 
 ```toml
 [dependencies]
-bee_rust = "1.2.0"
+bee_rust = "1.2.1"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -76,7 +76,7 @@ A complete runnable project lives in [examples/hello](https://github.com/erikwan
 Minimal core (no ORM, no database drivers):
 
 ```toml
-bee_rust = { version = "1.2.0", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.2.1", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## Sub-crates
@@ -102,7 +102,7 @@ The framework is a set of independently usable crates; `bee_rust` is the single 
 They can also be depended on directly — for example, just an Elasticsearch client:
 
 ```toml
-bee_search = { version = "1.2.0", features = ["elasticsearch"] }
+bee_search = { version = "1.2.1", features = ["elasticsearch"] }
 ```
 
 ## Supported databases
@@ -144,7 +144,7 @@ cargo add bee_rust
 
 ```toml
 [dependencies]
-bee_rust = "1.2.0"
+bee_rust = "1.2.1"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -203,7 +203,7 @@ curl http://localhost:8080/api/v1/health    # OK
 只想要最小核心（不拖 ORM、数据库驱动）：
 
 ```toml
-bee_rust = { version = "1.2.0", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.2.1", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## 子 Crate
@@ -229,7 +229,7 @@ bee_rust = { version = "1.2.0", default-features = false, features = ["router", 
 这些 crate 也可以单独依赖，例如只用一个 ES 客户端：
 
 ```toml
-bee_search = { version = "1.2.0", features = ["elasticsearch"] }
+bee_search = { version = "1.2.1", features = ["elasticsearch"] }
 ```
 
 ## 支持的数据库
