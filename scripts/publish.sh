@@ -13,7 +13,9 @@ on_crates() { curl -sf -o /dev/null -A "$UA" "https://crates.io/api/v1/crates/$1
 list() {
   cargo metadata --no-deps --format-version 1 \
     | python3 -c 'import json,sys
-for p in json.load(sys.stdin)["packages"]: print(p["name"], p["version"])'
+for p in json.load(sys.stdin)["packages"]:
+    if p.get("publish") == []: continue  # publish=false 的包（示例）跳过，否则每轮重试空转
+    print(p["name"], p["version"])'
 }
 
 while :; do
