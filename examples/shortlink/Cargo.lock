@@ -121,9 +121,9 @@ checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
 
 [[package]]
 name = "bee_cache"
-version = "1.2.1"
+version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a70a69d38c45363a36812a94ea2c9fdf59101c09723b8be11c5b2253046d06a"
+checksum = "9800070cc136be9613b532d85e5fcde14c23c846e64cab560579d5a8a3e40fc2"
 dependencies = [
  "async-trait",
  "thiserror",
@@ -132,9 +132,9 @@ dependencies = [
 
 [[package]]
 name = "bee_config"
-version = "1.2.1"
+version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "827a71fd906369333c99ecf24fba3ec76f43d8b980ce862208213b355df14955"
+checksum = "94a25b80d79ba73976789cd41a638137cf55d86d73120adf67355654af8a9da7"
 dependencies = [
  "bee_config_macro",
  "notify",
@@ -145,9 +145,9 @@ dependencies = [
 
 [[package]]
 name = "bee_config_macro"
-version = "1.2.1"
+version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3cb120b609910a6ff3964e0c4552c58d3c9b589b9ba4de7d04cdf8ac012bf830"
+checksum = "73bebc7b67b04b5bf8a9fece4ae7e28110905df56499af3c92b076a9d76b3373"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -156,9 +156,9 @@ dependencies = [
 
 [[package]]
 name = "bee_logs"
-version = "1.2.1"
+version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "723982fb919763fb45b6f6d56a22f7102194a11c38e368c9d826b97198647ab3"
+checksum = "b88a181e3962b37d2916c5063cd124b1449a6d6b3005dfc7d7de8679358df7ed"
 dependencies = [
  "tracing",
  "tracing-appender",
@@ -167,9 +167,9 @@ dependencies = [
 
 [[package]]
 name = "bee_orm"
-version = "1.2.1"
+version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46648b34791945e54be6e13080335945ea59d51de685c99fe3b21668919202a5"
+checksum = "7e944c9477b46b3b22717ce448fe27284cf31eeb6d9e5a38a6b97176de3bafe0"
 dependencies = [
  "async-trait",
  "bee_orm_macro",
@@ -184,9 +184,9 @@ dependencies = [
 
 [[package]]
 name = "bee_orm_macro"
-version = "1.2.1"
+version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6abd1014f93293bd6f190e351426546aaa3f973cad0bd4804368f34e316cb137"
+checksum = "63752ab65bb9ba62773f63e9cece5a47b8fbd3591203f76d2262f6c2e25eb36d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -195,9 +195,9 @@ dependencies = [
 
 [[package]]
 name = "bee_router"
-version = "1.2.1"
+version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d4a4487e26db3af923fadedfb07e272d6e0238efcd5942109615e71cf5c2162"
+checksum = "536107f5a53b31172dd48e07151c5165c6d5a724a6d633326550c3e15c6aafcf"
 dependencies = [
  "async-trait",
  "axum",
@@ -217,9 +217,9 @@ dependencies = [
 
 [[package]]
 name = "bee_rust"
-version = "1.2.1"
+version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8208fc5864a09edf36a263d7be662b54b3f6b46a4fe9f56f58a9c473a1d3f56"
+checksum = "b44445df7d796f360b0c8f65321640e6834a572be5d7f4a20ae898f91c364a85"
 dependencies = [
  "bee_cache",
  "bee_config",
@@ -232,9 +232,9 @@ dependencies = [
 
 [[package]]
 name = "bee_session"
-version = "1.2.1"
+version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a40591a217716e6c68f95c032d33e0287ff1c9fc962e53c3b38600a8177c3237"
+checksum = "605de746567d9066bf5cb7f55efc1c8aefd83b5f52fa01cbd57c4d870d27da03"
 dependencies = [
  "async-trait",
  "bee_cache",
@@ -246,9 +246,9 @@ dependencies = [
 
 [[package]]
 name = "bee_template"
-version = "1.2.1"
+version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f466e7edfe02211d1320837f67413dc1d1808611bb577ba038a9adc31c499a7d"
+checksum = "ee493d20a37fd410e1ec1d83bc8f57930483dba80392e227ed32e327e313f555"
 dependencies = [
  "serde",
  "serde_json",

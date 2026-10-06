@@ -34,7 +34,9 @@ fn bad_request(msg: impl Into<String>) -> HttpError {
 }
 
 fn oops(e: impl std::fmt::Display) -> HttpError {
-    HttpError(StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+    // Internal details go to the log; the client only gets a generic message.
+    eprintln!("shortlink: internal error: {e}");
+    HttpError(StatusCode::INTERNAL_SERVER_ERROR, "internal server error".into())
 }
 
 fn cache_key(code: &str) -> String {
@@ -44,6 +46,14 @@ fn cache_key(code: &str) -> String {
 fn is_http_url(url: &str) -> bool {
     let lower = url.to_ascii_lowercase();
     lower.starts_with("http://") || lower.starts_with("https://")
+}
+
+/// The host part — after `://`, up to the first `/`, `?`, `#` or the end — must be non-empty.
+fn has_host(url: &str) -> bool {
+    let Some(after_scheme) = url.find("://").map(|i| &url[i + 3..]) else {
+        return false;
+    };
+    !after_scheme.split(['/', '?', '#']).next().unwrap_or("").is_empty()
 }
 
 fn is_valid_code(code: &str) -> bool {
@@ -91,7 +101,11 @@ pub async fn create_link(
     let Some(url) = body.get("url").and_then(|v| v.as_str()) else {
         return Err(bad_request("url is required"));
     };
-    if url.len() > 2048 || !is_http_url(url) {
+    if url.len() > 2048
+        || !is_http_url(url)
+        || url.bytes().any(|b| b < 0x20 || b == 0x7F)
+        || !has_host(url)
+    {
         return Err(bad_request("url must be an absolute http(s) URL of at most 2048 chars"));
     }
 
@@ -117,19 +131,11 @@ pub async fn create_link(
         return Err(HttpError(StatusCode::CONFLICT, "code already exists".into()));
     }
 
-    let link =
-        Link { id: 0, code: code.clone(), url: url.to_string(), created_at: 0, deleted: false };
-    link.insert(state.pool.as_ref()).await.map_err(oops)?;
-
-    // auto pk: the database assigns the id, so read the row back.
-    let link = Link::query()
-        .with_deleted()
-        .filter_eq("code", code)
-        .map_err(oops)?
-        .one(state.pool.as_ref())
+    // `create()` inserts and reads the database-assigned id / created_at back.
+    let link = Link { id: 0, code, url: url.to_string(), created_at: 0, deleted: false }
+        .create(state.pool.as_ref())
         .await
-        .map_err(oops)?
-        .ok_or_else(|| oops("inserted row not found"))?;
+        .map_err(oops)?;
 
     Ok((
         StatusCode::CREATED,
@@ -262,17 +268,8 @@ pub async fn add_tag(
     {
         Some(tag) => tag,
         None => {
-            Tag { id: 0, name: name.to_string() }
-                .insert(state.pool.as_ref())
-                .await
-                .map_err(oops)?;
-            Tag::query()
-                .filter_eq("name", name.to_string())
-                .map_err(oops)?
-                .one(state.pool.as_ref())
-                .await
-                .map_err(oops)?
-                .ok_or_else(|| oops("inserted tag not found"))?
+            // `create()` inserts and reads the database-assigned id back.
+            Tag { id: 0, name: name.to_string() }.create(state.pool.as_ref()).await.map_err(oops)?
         }
     };
 

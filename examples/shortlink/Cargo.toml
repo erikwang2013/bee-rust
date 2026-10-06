@@ -9,7 +9,7 @@ edition = "2024"
 publish = false
 
 [dependencies]
-bee_rust = { version = "1.2.1", default-features = false, features = ["orm-sqlite", "router", "cache", "logs"] }
+bee_rust = { version = "1.2.2", default-features = false, features = ["orm-sqlite", "router", "cache", "logs"] }
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 serde_json = "1"
