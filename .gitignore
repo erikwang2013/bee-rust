@@ -11,3 +11,6 @@ Thumbs.db
 ruvector.db
 target
 .rusty/
+
+# Editor atomic-write residue (`file.tmp.<pid>.<hash>`) — never commit.
+*.tmp.*

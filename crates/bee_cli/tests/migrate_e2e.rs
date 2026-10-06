@@ -4,9 +4,11 @@
 //! the table exists afterwards.
 //!
 //! Env-gated by `BEE_CLI_E2E` (it spawns `cargo run`, which compiles a fresh
-//! crate — minutes, not milliseconds); it is offline (`CARGO_NET_OFFLINE`)
-//! against the local cargo cache. Scratch dir is removed on success and kept
-//! for inspection when an assertion fails.
+//! crate — minutes, not milliseconds). The inner build is online: the scratch
+//! crate re-resolves from scratch, so a cold cargo cache (CI runners) lacks
+//! its versions — offline only ever passed on warm local caches. Network use
+//! is opt-in with the gate. Scratch dir is removed on success and kept for
+//! inspection when an assertion fails.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -70,13 +72,13 @@ fn init_fill_run_creates_the_table() {
            #[bee(pk, auto)]\n    id: i64,\n    title: String,\n}\n";
     fs::write(&bin, filled).unwrap();
 
-    // 3. run it: `cargo run --bin bee_migrate`, offline, own target dir.
+    // 3. run it: `cargo run --bin bee_migrate`, online (a cold registry cannot
+    // resolve the scratch crate offline — see the module docs), own target dir.
     let status = Command::new(env!("CARGO_BIN_EXE_bee-rust"))
         .args(["migrate", "run"])
         .current_dir(&dir)
         .env("DATABASE_URL", &db)
         .env("CARGO_TARGET_DIR", dir.join("target"))
-        .env("CARGO_NET_OFFLINE", "true")
         // The outer `cargo test` jobserver must not be handed to the inner build.
         .env_remove("CARGO_MAKEFLAGS")
         .env_remove("MAKEFLAGS")
