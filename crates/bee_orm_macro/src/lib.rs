@@ -10,6 +10,8 @@
 //! `{local}_{target}`, columns `{local}_id` / `{target}_id` — overridden by
 //! `table = "…"`, `local = "…"`, `foreign = "…"`; a target whose two column
 //! defaults collide (the model itself, `Self`) needs the explicit columns.
+//! `#[bee(crate = "…")]` replaces the `bee_orm` prefix of every emitted path,
+//! for models that reach the ORM crate through a re-export.
 //! Field level, combinable in one attribute (`#[bee(pk, auto)]`):
 //!
 //! - `column = "name"` — column override, must match `[A-Za-z_][A-Za-z0-9_]*`
@@ -39,6 +41,29 @@ mod types;
 use expand::expand;
 
 /// Derive `bee_orm::Model` for a struct.
+///
+/// Every knob is an argument of `#[bee(…)]`, at struct level:
+///
+/// | Key | Meaning |
+/// |---|---|
+/// | `table = "name"` | Table name. Default: struct name lowercased plus `s`. |
+/// | `crate = "path"` | Path to the ORM crate, replacing the default `bee_orm` — for models that reach the crate through a re-export (`my_app::bee_orm`). Must be a string literal holding a path. |
+/// | `hooks(a, b, …)` | Forward each listed lifecycle event to a same-named inherent async method (`async fn event(&self) -> orm::Result<()>`); repeatable, duplicates are dropped. |
+/// | `m2m(Target, table = "…", local = "…", foreign = "…")` | Many-to-many join table towards `Target`; repeatable, the three options optional (defaults are lowercased-ident conventions: table `{local}_{target}`, columns `{local}_id` / `{target}_id`). |
+///
+/// … and at field level, combinable in one attribute (`#[bee(pk, auto)]`):
+///
+/// | Key | Meaning |
+/// |---|---|
+/// | `column = "name"` | Column override, must match `[A-Za-z_][A-Za-z0-9_]*`. |
+/// | `pk` | Primary key. Without it the field named `id` is the key; two marked fields are an error. |
+/// | `auto` | Database-assigned: skipped by `insert_values`. Primary key only, and the mapped type must be an integer. |
+/// | `ignore` | Not a column: excluded from every read, write and `columns()`, and built with `Default::default()` in `from_row`. |
+/// | `auto_now_add` | Unix-seconds timestamp column injected on insert; the field type must decode an integer (`i64` / `Option<i64>`). |
+/// | `auto_now` | Same, refreshed on insert and update. |
+/// | `soft_delete` | Soft-delete flag column, stored as a `bool`: rows whose flag is NULL stay invisible to default queries. At most one per model, never on the primary key. |
+/// | `sql_type = "…"` | Raw SQL type for `columns()`, bypassing the type spelling table; required for spellings without a mapping and for a non-integer `auto` primary key. |
+/// | `fk = Target` | Foreign key: `columns()` records `Target`'s table and primary-key column, and `Target` must derive `Model`. |
 #[proc_macro_derive(Model, attributes(bee))]
 pub fn derive_model(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

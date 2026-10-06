@@ -3563,3 +3563,109 @@ struct Click {
 - **batch-9 候选归档（本轮不做）**：F-5 API（`insert` 返 PK 或 `create() -> Self`）；F-1 宏侧修法（架构师下轮权衡三案：宏内探测 / `#[bee(crate=…)]` 属性 / 纯文档修；proc-macro-crate=新依赖）；F-3 docs.rs metadata（各 bee_* crate 加 `[package.metadata.docs.rs] features`）。
 - **文档终刷范围（lead 触发）**：E-1/E-2 + F-1..F-4 文档部分 ×13；F-5 文档子项（原 a–g 清单 e。）随批九 API 裁定一并处理（避免先写后改）。
 - **reviewer 基线自证 + 归档（2026-10-06）**：live 9/9 sha256 与 §60.6 清单逐字一致、mtime 全 ≤15:12（验收窗口前）、git status 仅 plan M + shortlink ??——其分诊全程零字节触碰；其侧无 pending。
+
+---
+
+## 61. Batch-9：未作项收口（F-5 / F-1 / F-3 + LOW 重放；2026-10-06，lead 发令）
+
+**发令背景**：用户令"完成所有未作项"；全新起点，与 batch-8 交叉史无关。batch-8 已冻结于 `11f3f51` + `683ca50`；其两条 LOW 修复（存档 `/tmp/shortlink_handlers_low_fix.diff`，digest `b8e69d2f…`，tester 33/33×2 为其既有验证基线）在本批随 F-5 一次触碰重放。
+
+### 61.1 F-5（API，非破坏）——架构师裁决：新增 `create(&self) -> Result<Self>`
+
+- 非破坏硬约束：`insert()` 签名与语义原样（返回受影响行数）；手写 Model impl 不因新方法被破坏——**以 trait 默认方法提供**（默认实现不可行 → 停报架构师，不得动 trait 既有面）。
+- 语义：插入后回读并返回完整实例（主键 + ORM/DB 注入值回填，如 auto pk、auto_now_add 的 unix_now），单行；观测量等价于 insert + 按 pk select（允许后端内部优化）。命名与收参风格对齐既有 Model 方法；若与既有方法名冲突 → 停报架构师改选，勿就地改名。
+- 三后端 PK 回取（实现自由度归 coder-orm，观测量一致）：sqlite `last_insert_rowid`；pg `INSERT ... RETURNING`（或 insert+回查）；mysql `last_insert_id`。
+- 裁决理由（否决单独公开 `insert_returning_pk`）：create() 直消 F-5 的 DX 痛点（插入后拿 id/要手写二次 SELECT）；其内部必经 PK 回取机制=该形态超集——公开面只留一枚更高级形态（YAGNI；裸 PK 需求出现再加，非破坏）。
+- docs 随批：rustdoc 由 coder-orm 就地写；用户面 api.md insert/create 小节归文档终刷（§61.7）。
+
+### 61.2 F-1（宏侧）——架构师裁决：`#[bee(crate = "…")]` 显式属性
+
+- 形态：serde 式 LitStr 值（`crate` 为关键字，parse_any/Token 处理）；值如 `"bee_rust::bee_orm"`；expand 以该路径前缀替换硬编码 `bee_orm::`；**无属性时展开逐字节不变**。
+- 裁决理由：零新依赖、trybuild 全可测、显式可预测。**否选**：宏内探测（proc-macro-crate=新依赖；用户只依赖 bee_rust 时 `bee_orm` 非其直接依赖、探测需 fallback 组合、树内不可测）；纯文档修（摩擦保留——仅作属性缺席时的文档备选）。
+- api.md 补丁无论选择均写（属性用法 + `use bee_rust::bee_orm;` 备选）→ 归文档终刷。
+
+### 61.3 F-3（docs.rs metadata）——架构师裁决：`[package.metadata.docs.rs] all-features = true`
+
+- 范围：至少 bee_orm、bee_kv、bee_cache、bee_rust；其余 coder-orm 按"默认 feature 构建会藏公开面"口径枚举。
+- 裁决理由：全 feature 自动覆盖、零维护漂移；docs.rs 构建能力足够（bundled sqlite / rustls 编译重但可行）。**退路**（仅首发 docs.rs 构建失败时启用）：显式 `features = ["sqlite","postgres","mysql","chrono","rust_decimal"]`。
+- derive(Model) 属性表 doc 补在 bee_orm_macro 宏源码 rustdoc（coder-macro 同批）。
+
+### 61.4 shortlink 触碰——②③ 均并入发布后窗口（终态；单写入者 = coder-orm）
+
+- **终态（2026-10-06，lead「最后一条」，以磁盘为准；唯一口径、不再翻转）**：shortlink 零触碰、回基线 `61b91eca…`（9/9、status 净）——**②（LOW 重放）与 ③（create() 改造）均并入发布后窗口**；批九 = F-5 + F-1 + F-3。
+- 口径史（存档；全部中间态 superseded）：修订一「②-now」（架构师）与 lead 直裁「②③ 合并挂起」交叉 → coder-orm 按修订一 apply 至 `64f4070d…` 并**跑完四门禁全绿**（冷构建 11m22s、fmt/clippy rc=0、e2e 6/6；双钉逐字相符）→ 架构师还原令 + 催办令 → coder-orm 还原回基线（17:17 实拍）→ lead「② 保留」（R2）→ 架构师 re-apply 令（**已执行**，第二次 apply 落盘 `64f4070d…`）→ **lead 终态「磁盘为准，②③ 均挂起」（R3；R2 作废）→ 架构师撤销 re-apply 令 + 第二次还原令（回基线）**。教训：同一事项 5 次口径翻转、apply→revert→apply→revert 两轮空转（零字节损失：存档 + sha 钉全程在位）——收敛手段=「磁盘为准 + 单一终态」。
+- ③ 不可编译根因：shortlink 钉 registry `bee_rust = "1.2.1"`、含 F-5 版本未发布；path/[patch] 越界否决。
+- 发布后窗口（1.2.2 后，届时顺序）：① 核存档 == `b8e69d2f…`（源=§61.9 嵌入；字节副本 /tmp、`target/`、`docs/superpowers/patches/`，去留 lead 提交时定）；② `git apply`（对基线）；③ 双钉 `64f4070d…` + 其余 8 == §60.6；④ create 三处改造（:122/:204/:266 定案）→ `cargo update -p bee_rust`（registry 口径）→ 新 9 文件 sha；⑤ 四门禁 + tester 复验（33/33 复用 + 前后双拍）。既有证据一并可用：tester 33/33×2（batch-8）+ coder-orm 本批四门绿（冷构建）。
+- **话题级冻结（2026-10-06，lead，唯一有效口径、压过一切）**：shortlink 当前字节状态（`61b91eca…` 或 `64f4070d…`）**均不再重要**——批九提交用显式路径（crates/bee_orm + crates/bee_orm_macro + 相关 manifest），**shortlink 不入本提交**；一切 shortlink 动作/指令/回执即刻全停（在途动作不管）；**②③ 收尾话题仅由 lead 在 1.2.2 发布后明确重开**，此前任何来源的 shortlink 指令一律作废。本条为本话题终态。
+
+### 61.5 验收
+
+- 常规四门禁；受影响 crate clippy 矩阵（F-1 后 bare/全 feature 双跑）。
+- tester 真库门：F-5 三后端 PK 语义各一钉（sqlite/pg/mysql，bee_orm 侧）+ 既有套件 / clippy 矩阵（bare/全 feature 双跑）；**跑前/跑后磁盘 sha 双拍**。shortlink：零触碰；33/33 复跑随 ②③ 挂起至发布后窗口（§61.4 终态）。
+- reviewer 收口：F-5 签名/重命名审查、F-1 属性/探测面审查。
+
+### 61.6 纪律（batch-8 两条硬教训，硬约束）
+
+1. 收口期状态变更只由单一写入者执行（本批提交归 lead；中间态维持者=唯一角色）。
+2. 评审/验收的冻结基线只用磁盘 sha、不用消息链断言。
+
+### 61.7 文档终刷（a–g 不变，lead 在批九代码冻结后触发）
+
+E-1（路由示例补 handler 参 + 真编译 ×13）、E-2、F-1..F-5 文档部分（含 F-5 create/insert 口径）、docs.rs 生效说明。
+
+### 61.8 发令与回执
+
+coder-orm（61.1 + 61.3 + 61.4）/ coder-macro（61.2 + derive doc）→ tester（61.5）→ reviewer（61.5）→ lead 提交。回执格式="收到指令集 1..N"（列步骤号，防交叉）。
+
+---
+
+### 61.9 存档：shortlink LOW 修复 diff（字节嵌入，2026-10-06）
+
+- 用途：消除 /tmp 易失（batch-8 教训；diff 复用/复核不再依赖 /tmp）。原文件 `/tmp/shortlink_handlers_low_fix.diff`，sha256 `b8e69d2ffa3217440f671d1da31c85be4c69b8e6b4e46d4ee0408c15ddd5a4fe`，43 行 / 1719 字节。
+- 下方 fenced block 内容为逐字节嵌入（提取 sha256 已验证 == 上述值）。
+
+```diff
+diff --git a/examples/shortlink/src/handlers.rs b/examples/shortlink/src/handlers.rs
+index 95208c9..83c5585 100644
+--- a/examples/shortlink/src/handlers.rs
++++ b/examples/shortlink/src/handlers.rs
+@@ -34,7 +34,9 @@ fn bad_request(msg: impl Into<String>) -> HttpError {
+ }
+ 
+ fn oops(e: impl std::fmt::Display) -> HttpError {
+-    HttpError(StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
++    // Internal details go to the log; the client only gets a generic message.
++    eprintln!("shortlink: internal error: {e}");
++    HttpError(StatusCode::INTERNAL_SERVER_ERROR, "internal server error".into())
+ }
+ 
+ fn cache_key(code: &str) -> String {
+@@ -46,6 +48,14 @@ fn is_http_url(url: &str) -> bool {
+     lower.starts_with("http://") || lower.starts_with("https://")
+ }
+ 
++/// The host part — after `://`, up to the first `/`, `?`, `#` or the end — must be non-empty.
++fn has_host(url: &str) -> bool {
++    let Some(after_scheme) = url.find("://").map(|i| &url[i + 3..]) else {
++        return false;
++    };
++    !after_scheme.split(['/', '?', '#']).next().unwrap_or("").is_empty()
++}
++
+ fn is_valid_code(code: &str) -> bool {
+     (4..=32).contains(&code.len())
+         && code.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+@@ -91,7 +101,11 @@ pub async fn create_link(
+     let Some(url) = body.get("url").and_then(|v| v.as_str()) else {
+         return Err(bad_request("url is required"));
+     };
+-    if url.len() > 2048 || !is_http_url(url) {
++    if url.len() > 2048
++        || !is_http_url(url)
++        || url.bytes().any(|b| b < 0x20 || b == 0x7F)
++        || !has_host(url)
++    {
+         return Err(bad_request("url must be an absolute http(s) URL of at most 2048 chars"));
+     }
+ 
+```

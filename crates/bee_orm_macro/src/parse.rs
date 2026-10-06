@@ -53,6 +53,12 @@ pub(crate) struct M2m {
 /// §43: one `m2m(...)` names one target — a repeat is always an authoring bug.
 const DUPLICATE_M2M: &str = "bee_orm: duplicate m2m target: each target can appear only once";
 
+/// §61.2 `#[bee(crate = "…")]` value errors: a bad path there would silently
+/// mis-point every emitted path, so each shape fails loudly.
+const CRATE_EXPECTS_LITERAL: &str = "bee_orm: #[bee(crate = \"path\")] expects a string literal";
+const CRATE_EMPTY: &str = "bee_orm: #[bee(crate = \"path\")] must not be empty";
+const CRATE_NOT_A_PATH: &str = "bee_orm: #[bee(crate = \"path\")] is not a valid path";
+
 /// Records one `table = "…"` / `local = "…"` / `foreign = "…"` of an `m2m`.
 /// Repeating a key is an authoring bug (§18.3), never a last-wins.
 fn set_m2m_option(
@@ -82,13 +88,15 @@ fn is_valid_column(name: &str) -> bool {
         && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
-/// The `table` override (if any), the forward-list `hooks` (declaration order,
-/// duplicates silently dropped) and the resolved `m2m` targets.
+/// The `table` override (if any), the §61.2 `crate` path (the ORM crate the
+/// expansion prefixes every path with), the forward-list `hooks` (declaration
+/// order, duplicates silently dropped) and the resolved `m2m` targets.
 pub(crate) fn parse_struct_attrs(
     input: &DeriveInput,
     errors: &mut Vec<Error>,
-) -> (Option<LitStr>, Vec<&'static str>, Vec<M2m>) {
+) -> (Option<LitStr>, Option<syn::Path>, Vec<&'static str>, Vec<M2m>) {
     let mut table: Option<LitStr> = None;
+    let mut orm: Option<syn::Path> = None;
     let mut hooks: Vec<&'static str> = Vec::new();
     let mut m2m_defs: Vec<M2m> = Vec::new();
     let mut seen_m2m: Vec<String> = Vec::new();
@@ -124,6 +132,24 @@ pub(crate) fn parse_struct_attrs(
                         ))),
                     }
                 })
+            } else if meta.path.is_ident("crate") {
+                // §61.2: the path to the ORM crate, replacing the default
+                // `bee_orm` — for users who reach it through a re-export
+                // (`bee_rust::bee_orm`) and never depend on it directly.
+                // `crate` is a keyword, but `parse_nested_meta` reads the
+                // path with `parse_any`, so the segment is already here.
+                let literal: LitStr = meta.value()?.parse().map_err(|error| {
+                    Error::new(error.span(), CRATE_EXPECTS_LITERAL)
+                })?;
+                if literal.value().is_empty() {
+                    return Err(Error::new(literal.span(), CRATE_EMPTY));
+                }
+                let path: syn::Path =
+                    literal.parse().map_err(|_| Error::new(literal.span(), CRATE_NOT_A_PATH))?;
+                if orm.replace(path).is_some() {
+                    return Err(meta.error("bee_orm: duplicate #[bee(crate)] attribute"));
+                }
+                Ok(())
             } else if meta.path.is_ident("m2m") {
                 let mut target: Option<syn::Path> = None;
                 let mut table: Option<LitStr> = None;
@@ -216,15 +242,16 @@ pub(crate) fn parse_struct_attrs(
                 }
                 Ok(())
             } else {
-                Err(meta
-                    .error("bee_orm: unknown bee attribute for a struct (expected table, hooks, m2m)"))
+                Err(meta.error(
+                    "bee_orm: unknown bee attribute for a struct (expected table, hooks, m2m, crate)",
+                ))
             }
         });
         if let Err(error) = parsed {
             errors.push(error);
         }
     }
-    (table, hooks, m2m_defs)
+    (table, orm, hooks, m2m_defs)
 }
 
 /// Resolve every field into a [`Column`], accumulating the per-field errors.

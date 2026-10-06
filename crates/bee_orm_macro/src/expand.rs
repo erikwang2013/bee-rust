@@ -43,7 +43,11 @@ pub(crate) fn expand(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream
 
     let mut errors: Vec<Error> = Vec::new();
 
-    let (table, hooks, m2m) = parse_struct_attrs(&input, &mut errors);
+    let (table, orm, hooks, m2m) = parse_struct_attrs(&input, &mut errors);
+    // §61.2: every emitted path goes through `#orm`; without the attribute it
+    // is the literal `bee_orm` path, so the expansion is byte-identical to
+    // what pre-attribute versions produced.
+    let orm: syn::Path = orm.unwrap_or_else(|| syn::parse_quote!(bee_orm));
     let columns = parse_fields(named, &mut errors);
 
     // The primary key is the `#[bee(pk)]` field, or else the non-ignored field
@@ -144,12 +148,12 @@ pub(crate) fn expand(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream
         let (option_spelled, inner) = types::strip_option(&column.ty);
         let mapped = types::spelling(inner);
         let sql = match &column.sql_type {
-            Some(literal) => quote! { bee_orm::model::SqlType::Raw(#literal) },
-            None if timestamp => quote! { bee_orm::model::SqlType::BigInt },
+            Some(literal) => quote! { #orm::model::SqlType::Raw(#literal) },
+            None if timestamp => quote! { #orm::model::SqlType::BigInt },
             None => match mapped {
                 Some(variant) => {
                     let variant = syn::Ident::new(variant, proc_macro2::Span::call_site());
-                    quote! { bee_orm::model::SqlType::#variant }
+                    quote! { #orm::model::SqlType::#variant }
                 }
                 None => {
                     // Whitespace-normalised spelling, as written in the source.
@@ -187,9 +191,9 @@ pub(crate) fn expand(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream
 
         let nullable = option_spelled && !timestamp && !column.soft_delete;
         let default = if timestamp {
-            quote! { Some(bee_orm::model::DefaultValue::Int(0)) }
+            quote! { Some(#orm::model::DefaultValue::Int(0)) }
         } else if column.soft_delete {
-            quote! { Some(bee_orm::model::DefaultValue::Bool(false)) }
+            quote! { Some(#orm::model::DefaultValue::Bool(false)) }
         } else {
             quote! { None }
         };
@@ -199,14 +203,14 @@ pub(crate) fn expand(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream
                 // there (§37.3); the qualified paths alone would be cryptic.
                 fk_assertions.push(quote_spanned! { target.span() =>
                     const _: fn() = || {
-                        fn assert_model<T: bee_orm::Model>() {}
+                        fn assert_model<T: #orm::Model>() {}
                         assert_model::<#target>();
                     };
                 });
                 quote_spanned! { target.span() =>
-                    Some(bee_orm::model::Reference {
-                        table: <#target as bee_orm::Model>::table_name,
-                        pk_column: <#target as bee_orm::Model>::pk_column,
+                    Some(#orm::model::Reference {
+                        table: <#target as #orm::Model>::table_name,
+                        pk_column: <#target as #orm::Model>::pk_column,
                     })
                 }
             }
@@ -215,7 +219,7 @@ pub(crate) fn expand(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream
 
         let name = &column.column;
         column_defs.push(quote! {
-            bee_orm::model::ColumnDef {
+            #orm::model::ColumnDef {
                 name: #name,
                 sql: #sql,
                 nullable: #nullable,
@@ -237,13 +241,13 @@ pub(crate) fn expand(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream
             let (table, local, foreign) = (&def.table, &def.local, &def.foreign);
             let target_ident = &def.target_ident;
             quote_spanned! { target.span() =>
-                bee_orm::model::M2mDef {
+                #orm::model::M2mDef {
                     table: #table,
                     local_column: #local,
                     foreign_column: #foreign,
                     target_ident: #target_ident,
-                    target_table: <#target as bee_orm::Model>::table_name,
-                    target_columns: <#target as bee_orm::Model>::columns,
+                    target_table: <#target as #orm::Model>::table_name,
+                    target_columns: <#target as #orm::Model>::columns,
                 }
             }
         })
@@ -252,7 +256,7 @@ pub(crate) fn expand(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream
         None
     } else {
         Some(quote! {
-            fn m2m() -> &'static [bee_orm::model::M2mDef] {
+            fn m2m() -> &'static [#orm::model::M2mDef] {
                 &[#(#m2m_defs),*]
             }
         })
@@ -271,7 +275,7 @@ pub(crate) fn expand(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream
             };
             quote_spanned! { span =>
                 const _: fn() = || {
-                    fn assert_model<T: bee_orm::Model>() {}
+                    fn assert_model<T: #orm::Model>() {}
                     assert_model::<#target>();
                 };
             }
@@ -316,7 +320,7 @@ pub(crate) fn expand(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream
             quote! { #ident: ::core::default::Default::default() }
         } else {
             let name = &column.column;
-            quote! { #ident: bee_orm::decode(row, #name)? }
+            quote! { #ident: #orm::decode(row, #name)? }
         }
     });
     let insert_values = columns
@@ -325,7 +329,7 @@ pub(crate) fn expand(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream
         .map(|column| {
             let ident = &column.ident;
             let name = &column.column;
-            quote! { (#name, bee_orm::Value::from(self.#ident.clone())) }
+            quote! { (#name, #orm::Value::from(self.#ident.clone())) }
         });
     let update_values = columns
         .iter()
@@ -336,7 +340,7 @@ pub(crate) fn expand(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream
         .map(|(_, column)| {
             let ident = &column.ident;
             let name = &column.column;
-            quote! { (#name, bee_orm::Value::from(self.#ident.clone())) }
+            quote! { (#name, #orm::Value::from(self.#ident.clone())) }
         });
 
     // Emitted only when the corresponding attribute is used, so a round-2
@@ -372,7 +376,7 @@ pub(crate) fn expand(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream
     let hook_forwarders = hooks.iter().copied().map(|name| {
         let method = syn::Ident::new(name, proc_macro2::Span::call_site());
         quote! {
-            async fn #method(&self) -> bee_orm::Result<()> {
+            async fn #method(&self) -> #orm::Result<()> {
                 Self::#method(self).await
             }
         }
@@ -380,14 +384,14 @@ pub(crate) fn expand(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream
     // An impl overriding async trait methods must carry the attribute; an impl
     // without hooks stays unannotated.
     let impl_attribute =
-        if hooks.is_empty() { None } else { Some(quote! { #[bee_orm::__private::async_trait] }) };
+        if hooks.is_empty() { None } else { Some(quote! { #[#orm::__private::async_trait] }) };
 
     let pk_ident = &pk.ident;
     let pk_column = &pk.column;
 
     Ok(quote! {
         #impl_attribute
-        impl bee_orm::Model for #struct_name {
+        impl #orm::Model for #struct_name {
             fn table_name() -> &'static str {
                 #table
             }
@@ -396,25 +400,25 @@ pub(crate) fn expand(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream
                 #pk_column
             }
 
-            fn from_row(row: &bee_orm::Row) -> bee_orm::Result<Self> {
+            fn from_row(row: &#orm::Row) -> #orm::Result<Self> {
                 Ok(Self {
                     #(#from_row),*
                 })
             }
 
-            fn insert_values(&self) -> ::std::vec::Vec<(&'static str, bee_orm::Value)> {
+            fn insert_values(&self) -> ::std::vec::Vec<(&'static str, #orm::Value)> {
                 ::std::vec![#(#insert_values),*]
             }
 
-            fn pk_value(&self) -> bee_orm::Value {
-                bee_orm::Value::from(self.#pk_ident.clone())
+            fn pk_value(&self) -> #orm::Value {
+                #orm::Value::from(self.#pk_ident.clone())
             }
 
-            fn update_values(&self) -> ::std::vec::Vec<(&'static str, bee_orm::Value)> {
+            fn update_values(&self) -> ::std::vec::Vec<(&'static str, #orm::Value)> {
                 ::std::vec![#(#update_values),*]
             }
 
-            fn columns() -> &'static [bee_orm::model::ColumnDef] {
+            fn columns() -> &'static [#orm::model::ColumnDef] {
                 &[#(#column_defs),*]
             }
 
@@ -436,8 +440,8 @@ pub(crate) fn expand(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream
             }
 
             /// Build a query set for this model's table.
-            pub fn query() -> bee_orm::QuerySet<Self> {
-                bee_orm::QuerySet::new(#table)
+            pub fn query() -> #orm::QuerySet<Self> {
+                #orm::QuerySet::new(#table)
             }
         }
     })

@@ -24,4 +24,26 @@ pub trait Db: Send + Sync {
     fn dialect(&self) -> Option<Dialect> {
         None
     }
+
+    /// Insert and, where the backend can, return the stored row.
+    ///
+    /// The seam behind [`Model::create`](crate::Model::create), which needs
+    /// the row as stored to surface database-assigned values (an
+    /// auto-increment primary key, column defaults). The default runs the
+    /// statement through [`execute`](Db::execute) and returns `Ok(None)` —
+    /// mocks and hand-written impls keep compiling, and `create` falls back
+    /// to selecting by primary key. `sql` is a plain `INSERT`; `table` /
+    /// `pk_column` are the model's static names, for backends whose
+    /// read-back needs them. `Ok(None)` also covers a backend that ran the
+    /// statement but cannot produce the row.
+    async fn insert_returning(
+        &self,
+        _table: &str,
+        _pk_column: &str,
+        sql: &str,
+        params: &[Value],
+    ) -> Result<Option<Row>> {
+        self.execute(sql, params).await?;
+        Ok(None)
+    }
 }

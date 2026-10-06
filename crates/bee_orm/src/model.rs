@@ -283,21 +283,46 @@ pub trait Model: Send + Sync + 'static {
     /// columns, executes, then runs [`after_insert`](Model::after_insert).
     async fn insert<D: Db + ?Sized>(&self, db: &D) -> Result<u64> {
         self.before_insert().await?;
-        let values = insert_row_values(self, batch_now::<Self>()?);
-        if values.is_empty() {
-            return Err(no_columns("insert", Self::table_name()));
-        }
-        let columns: Vec<&str> = values.iter().map(|(column, _)| *column).collect();
-        let placeholders = vec!["?"; values.len()].join(", ");
-        let sql = format!(
-            "INSERT INTO {} ({}) VALUES ({placeholders})",
-            Self::table_name(),
-            columns.join(", ")
-        );
+        let (sql, values) = insert_statement(self, batch_now::<Self>()?, "insert")?;
         let params: Vec<Value> = values.into_iter().map(|(_, value)| value).collect();
         let affected = db.execute(&sql, &params).await?;
         self.after_insert().await?;
         Ok(affected)
+    }
+
+    /// `INSERT` this instance and return it as stored.
+    ///
+    /// Like [`insert`](Model::insert), but reads the row back — through
+    /// [`Db::insert_returning`] where the backend supports it, otherwise a
+    /// select by [`pk_value`](Model::pk_value) — so database-assigned values
+    /// (an auto-increment primary key, column defaults) are filled in. Runs
+    /// the insert hooks; the read-back skips the soft-delete filter.
+    /// [`OrmError::NotFound`] when the written row cannot be read back.
+    async fn create<D: Db + ?Sized>(&self, db: &D) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        self.before_insert().await?;
+        let (sql, values) = insert_statement(self, batch_now::<Self>()?, "create")?;
+        let has_pk = values.iter().any(|(column, _)| *column == Self::pk_column());
+        let params: Vec<Value> = values.into_iter().map(|(_, value)| value).collect();
+        let row = if has_pk {
+            db.execute(&sql, &params).await?;
+            None
+        } else {
+            db.insert_returning(Self::table_name(), Self::pk_column(), &sql, &params).await?
+        };
+        let row = match row {
+            Some(row) => row,
+            None => {
+                let sql =
+                    format!("SELECT * FROM {} WHERE {} = ?", Self::table_name(), Self::pk_column());
+                let rows = db.query(&sql, &[self.pk_value()]).await?;
+                rows.into_iter().next().ok_or(OrmError::NotFound)?
+            }
+        };
+        self.after_insert().await?;
+        Self::from_row(&row)
     }
 
     /// `UPDATE` this instance, addressed by primary key.
@@ -439,6 +464,24 @@ fn update_row_values<M: Model + ?Sized>(model: &M, now: i64) -> Vec<(&'static st
     let mut values = model.update_values();
     values.extend(M::auto_now_columns().iter().map(|c| (*c, Value::Int(now))));
     values
+}
+
+/// The `INSERT` statement and its named values (own columns plus the
+/// timestamp injection); `op` names the caller in the no-columns error.
+fn insert_statement<M: Model + ?Sized>(
+    model: &M,
+    now: i64,
+    op: &str,
+) -> Result<(String, Vec<(&'static str, Value)>)> {
+    let values = insert_row_values(model, now);
+    if values.is_empty() {
+        return Err(no_columns(op, M::table_name()));
+    }
+    let columns: Vec<&str> = values.iter().map(|(column, _)| *column).collect();
+    let placeholders = vec!["?"; values.len()].join(", ");
+    let sql =
+        format!("INSERT INTO {} ({}) VALUES ({placeholders})", M::table_name(), columns.join(", "));
+    Ok((sql, values))
 }
 
 fn no_columns(op: &str, table: &str) -> OrmError {

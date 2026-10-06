@@ -1,0 +1,43 @@
+diff --git a/examples/shortlink/src/handlers.rs b/examples/shortlink/src/handlers.rs
+index 95208c9..83c5585 100644
+--- a/examples/shortlink/src/handlers.rs
++++ b/examples/shortlink/src/handlers.rs
+@@ -34,7 +34,9 @@ fn bad_request(msg: impl Into<String>) -> HttpError {
+ }
+ 
+ fn oops(e: impl std::fmt::Display) -> HttpError {
+-    HttpError(StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
++    // Internal details go to the log; the client only gets a generic message.
++    eprintln!("shortlink: internal error: {e}");
++    HttpError(StatusCode::INTERNAL_SERVER_ERROR, "internal server error".into())
+ }
+ 
+ fn cache_key(code: &str) -> String {
+@@ -46,6 +48,14 @@ fn is_http_url(url: &str) -> bool {
+     lower.starts_with("http://") || lower.starts_with("https://")
+ }
+ 
++/// The host part — after `://`, up to the first `/`, `?`, `#` or the end — must be non-empty.
++fn has_host(url: &str) -> bool {
++    let Some(after_scheme) = url.find("://").map(|i| &url[i + 3..]) else {
++        return false;
++    };
++    !after_scheme.split(['/', '?', '#']).next().unwrap_or("").is_empty()
++}
++
+ fn is_valid_code(code: &str) -> bool {
+     (4..=32).contains(&code.len())
+         && code.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+@@ -91,7 +101,11 @@ pub async fn create_link(
+     let Some(url) = body.get("url").and_then(|v| v.as_str()) else {
+         return Err(bad_request("url is required"));
+     };
+-    if url.len() > 2048 || !is_http_url(url) {
++    if url.len() > 2048
++        || !is_http_url(url)
++        || url.bytes().any(|b| b < 0x20 || b == 0x7F)
++        || !has_host(url)
++    {
+         return Err(bad_request("url must be an absolute http(s) URL of at most 2048 chars"));
+     }
+ 

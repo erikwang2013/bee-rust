@@ -96,6 +96,42 @@ impl Db for Pool {
     async fn execute(&self, sql: &str, params: &[Value]) -> Result<u64> {
         Pool::execute(self, sql, params).await
     }
+
+    /// No `RETURNING` in MySQL: insert, then read the row back on the same
+    /// connection. The key comes from `LAST_INSERT_ID()` only when the pk
+    /// column is `AUTO_INCREMENT` — an explicit value leaves it untouched,
+    /// and a pooled connection may carry an id from an earlier insert, so
+    /// `None` is returned otherwise and `create` falls back to a pk select.
+    async fn insert_returning(
+        &self,
+        table: &str,
+        pk_column: &str,
+        sql: &str,
+        params: &[Value],
+    ) -> Result<Option<Row>> {
+        let mut conn = self.get().await?;
+        conn.execute(sql, params).await?;
+        let auto = "SELECT COUNT(*) AS n FROM information_schema.columns \
+                    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? \
+                    AND COLUMN_NAME = ? AND EXTRA LIKE '%auto_increment%'";
+        let args = [Value::Text(table.to_owned()), Value::Text(pk_column.to_owned())];
+        let found = conn
+            .query(auto, &args)
+            .await?
+            .first()
+            .and_then(|row| row.get("n"))
+            .and_then(Json::as_i64)
+            .unwrap_or(0);
+        if found == 0 {
+            return Ok(None);
+        }
+        let rows = conn.query("SELECT LAST_INSERT_ID() AS id", &[]).await?;
+        let Some(pk) = rows.first().and_then(|row| row.get("id")).and_then(Json::as_i64) else {
+            return Ok(None);
+        };
+        let select = format!("SELECT * FROM {table} WHERE {pk_column} = ? LIMIT 1");
+        Ok(conn.query(&select, &[Value::Int(pk)]).await?.into_iter().next())
+    }
 }
 
 /// A checked-out MySQL connection, returned to the pool on drop.

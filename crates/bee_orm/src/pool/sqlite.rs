@@ -102,6 +102,19 @@ impl Db for Pool {
     async fn execute(&self, sql: &str, params: &[Value]) -> Result<u64> {
         Pool::execute(self, sql, params).await
     }
+
+    /// `INSERT … RETURNING *` — the stored row, read on the one connection
+    /// that ran the statement (SQLite has supported it since 3.35).
+    async fn insert_returning(
+        &self,
+        _table: &str,
+        _pk_column: &str,
+        sql: &str,
+        params: &[Value],
+    ) -> Result<Option<Row>> {
+        let sql = format!("{sql} RETURNING *");
+        Ok(Pool::query(self, &sql, params).await?.into_iter().next())
+    }
 }
 
 /// A checked-out SQLite connection, returned to the pool on drop.

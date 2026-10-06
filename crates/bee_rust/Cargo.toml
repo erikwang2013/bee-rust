@@ -44,3 +44,7 @@ config = ["bee_config"]
 logs = ["bee_logs"]
 cache = ["bee_cache", "bee_config"]
 session = ["bee_session", "bee_cache"]
+
+# Build the docs with every feature: the optional backends gate public modules.
+[package.metadata.docs.rs]
+all-features = true

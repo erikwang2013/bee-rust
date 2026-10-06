@@ -33,3 +33,7 @@ default-features = false
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt", "macros"] }
+
+# Build the docs with every feature: the optional backends gate public modules.
+[package.metadata.docs.rs]
+all-features = true

@@ -141,6 +141,7 @@ fn note(id: i64) -> Note {
 }
 
 /// Hooks that fail for the titles "blocked" (before) and "late" (after).
+#[derive(Debug)]
 struct Guarded {
     id: i64,
     title: String,

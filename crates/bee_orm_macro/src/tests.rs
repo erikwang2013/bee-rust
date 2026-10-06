@@ -33,7 +33,7 @@ fn compile_errors_match_the_frozen_table() {
     );
     expect_error(
         "#[bee(nope)] struct Foo { id: i64 }",
-        "bee_orm: unknown bee attribute for a struct (expected table, hooks, m2m)",
+        "bee_orm: unknown bee attribute for a struct (expected table, hooks, m2m, crate)",
     );
     expect_error(
         "#[bee(table = \"a\", table = \"b\")] struct Foo { id: i64 }",
@@ -434,5 +434,60 @@ fn round7_date_time_spellings_need_utc() {
     expect_error(
         "struct Row { #[bee(pk)] id: i64, at: Option<DateTime<Local>> }",
         "bee_orm: no SQL type mapping for `DateTime<Local>`: add #[bee(sql_type = \"...\")] to override",
+    );
+}
+
+#[test]
+fn round9_crate_attribute_replaces_the_prefix() {
+    // §61.2: the value is the ORM crate's path — for users who depend on
+    // `bee_rust` and reach `bee_orm` through its re-export. Every emitted path
+    // takes it, the const assertion and the `QuerySet` helper included.
+    let expanded = expand_str(
+        "#[bee(crate = \"bee_rust::bee_orm\")] \
+         struct User { id: i64, name: String, #[bee(fk = Team)] team_id: i64 }",
+    )
+    .expect("must expand");
+    assert!(expanded.contains("impl bee_rust :: bee_orm :: Model for User"));
+    assert!(expanded.contains("bee_rust :: bee_orm :: QuerySet :: new (\"users\")"));
+    assert!(
+        expanded.contains("fn columns () -> & 'static [bee_rust :: bee_orm :: model :: ColumnDef]")
+    );
+    assert!(expanded.contains("bee_rust :: bee_orm :: Value :: from (self . id . clone ())"));
+    assert!(expanded.contains(
+        "const _ : fn () = || { fn assert_model < T : bee_rust :: bee_orm :: Model > () { } assert_model :: < Team > () ; } ;"
+    ));
+    // Every `bee_orm` in the output is part of the given prefix: nothing is
+    // left on the default path.
+    assert_eq!(
+        expanded.matches("bee_orm").count(),
+        expanded.matches("bee_rust :: bee_orm").count()
+    );
+
+    // Without the attribute the default path is untouched — the frozen
+    // baselines elsewhere pin that byte-for-byte.
+    let plain = expand_str("struct User { id: i64 }").expect("must expand");
+    assert!(!plain.contains("bee_rust"));
+}
+
+#[test]
+fn round9_crate_attribute_errors() {
+    // §61.2: a bad crate path would mis-point every emitted path, so all
+    // three value shapes fail loudly instead of expanding to code that
+    // cannot build.
+    expect_error(
+        "#[bee(crate = 42)] struct User { id: i64 }",
+        "bee_orm: #[bee(crate = \"path\")] expects a string literal",
+    );
+    expect_error(
+        "#[bee(crate = \"\")] struct User { id: i64 }",
+        "bee_orm: #[bee(crate = \"path\")] must not be empty",
+    );
+    expect_error(
+        "#[bee(crate = \"bee_orm Model\")] struct User { id: i64 }",
+        "bee_orm: #[bee(crate = \"path\")] is not a valid path",
+    );
+    expect_error(
+        "#[bee(crate = \"bee_orm\")] #[bee(crate = \"bee_rust::bee_orm\")] struct User { id: i64 }",
+        "bee_orm: duplicate #[bee(crate)] attribute",
     );
 }
