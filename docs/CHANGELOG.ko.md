@@ -2,6 +2,13 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.3] — 2026-10-06
+
+### 수정됨
+- `bee_cli`: 스캐폴드가 컴파일되지 않는 프로젝트를 더 이상 생성하지 않습니다 — `new` 템플릿의 의존 이름 오타(`bee-rust`는 해석 불가, 실제 발행명 `bee_rust`)와 컨트롤러 템플릿의 `#[async_trait]` 누락·비공개 `RouterError` 루트 경로를 수정했고, 새 `BEE_CLI_E2E` 게이트 테스트가 프로젝트 생성 → `cargo check`를 종단 간 검증합니다
+- 문서: api 컨트롤러 예제를 컴파일 가능한 형태로 수정(자체 `async-trait` 의존성, `bee_rust::bee_router::context::RouterError`); `bee_rust`만 의존할 때의 `#[bee(crate = "bee_rust::bee_orm")]` 표기, `{name}` 경로 문법과 `ns` 빈 접두사 규칙, `create()` 사용법을 문서화; 벵골어 api 문서에 섞여 있던 한국어 조각을 수정
+- `examples/shortlink`: 내부 오류 상세는 로그로(응답 본문은 일반 메시지), URL 검증은 빈 호스트와 제어 문자를 거부, `create_link` / `add_tag`는 이제 `Model::create()` 사용(302 핫 패스의 `Click` 삽입은 `insert()` 유지)
+
 ## [1.2.2] — 2026-10-06
 
 ### 추가됨

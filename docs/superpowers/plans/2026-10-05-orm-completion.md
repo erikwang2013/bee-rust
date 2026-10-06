@@ -3443,7 +3443,7 @@ optional = true
 
 ## 60. Batch-8: dogfood 示例应用 `examples/shortlink`（DX 挖矿）
 
-**目标**：一个独立于工作区、只依赖 crates.io 已发布 `bee_rust = "1.2.2"`（禁 path 依赖）的短链服务示例应用。实现者 = **全新 agent（零内部上下文）**，参考面只许公开文档；每遇到"文档没讲清 / 要翻源码才懂 / API 别扭 / 报错难懂"即记一条 DX 摩擦日志。挖出的问题走架构师裁决流程，归口下轮。
+**目标**：一个独立于工作区、只依赖 crates.io 已发布 `bee_rust = "1.2.3"`（禁 path 依赖）的短链服务示例应用。实现者 = **全新 agent（零内部上下文）**，参考面只许公开文档；每遇到"文档没讲清 / 要翻源码才懂 / API 别扭 / 报错难懂"即记一条 DX 摩擦日志。挖出的问题走架构师裁决流程，归口下轮。
 
 ### 60.1 前提、参考面与写权（硬约束）
 
@@ -3496,7 +3496,7 @@ struct Click {
 
 结构（最低要求）：`src/lib.rs` 暴露 `pub async fn build_app(db_path: &str) -> …`（内部完成 sync 建表、建 state、返回可 serve 的 axum Router；签名形状供 e2e 直接调用）；`src/main.rs` 读 env `PORT`（默认 8080）/ `SHORTLINK_DB`（默认 `shortlink.db`）后 serve。文件划分自由，每文件 <500 行（项目规则）；**Cargo.lock 与 .gitignore（`target/`、`*.db*`）必须交付**。
 
-依赖（建议最小集；多引进任何一个都要在摩擦日志记注）：`bee_rust = { version = "1.2.2", default-features = false, features = ["orm-sqlite", "router", "cache", "logs"] }`（orm-sqlite 不在 full 里，须显式——README feature 表口径）、`tokio`（full）、`axum = "0.8"`、`serde_json`；dev-dependencies：`reqwest`（0.12，default-features=false，features `["json","rustls-tls"]`）。不启用 orm-chrono（created_at 用文档 i64 配对）。
+依赖（建议最小集；多引进任何一个都要在摩擦日志记注）：`bee_rust = { version = "1.2.3", default-features = false, features = ["orm-sqlite", "router", "cache", "logs"] }`（orm-sqlite 不在 full 里，须显式——README feature 表口径）、`tokio`（full）、`axum = "0.8"`、`serde_json`；dev-dependencies：`reqwest`（0.12，default-features=false，features `["json","rustls-tls"]`）。不启用 orm-chrono（created_at 用文档 i64 配对）。
 
 ### 60.3 交付物与验收标准
 
@@ -3594,7 +3594,7 @@ struct Click {
 
 - **终态（2026-10-06，lead「最后一条」，以磁盘为准；唯一口径、不再翻转）**：shortlink 零触碰、回基线 `61b91eca…`（9/9、status 净）——**②（LOW 重放）与 ③（create() 改造）均并入发布后窗口**；批九 = F-5 + F-1 + F-3。
 - 口径史（存档；全部中间态 superseded）：修订一「②-now」（架构师）与 lead 直裁「②③ 合并挂起」交叉 → coder-orm 按修订一 apply 至 `64f4070d…` 并**跑完四门禁全绿**（冷构建 11m22s、fmt/clippy rc=0、e2e 6/6；双钉逐字相符）→ 架构师还原令 + 催办令 → coder-orm 还原回基线（17:17 实拍）→ lead「② 保留」（R2）→ 架构师 re-apply 令（**已执行**，第二次 apply 落盘 `64f4070d…`）→ **lead 终态「磁盘为准，②③ 均挂起」（R3；R2 作废）→ 架构师撤销 re-apply 令 + 第二次还原令（回基线）**。教训：同一事项 5 次口径翻转、apply→revert→apply→revert 两轮空转（零字节损失：存档 + sha 钉全程在位）——收敛手段=「磁盘为准 + 单一终态」。
-- ③ 不可编译根因：shortlink 钉 registry `bee_rust = "1.2.2"`、含 F-5 版本未发布；path/[patch] 越界否决。
+- ③ 不可编译根因：shortlink 钉 registry `bee_rust = "1.2.3"`、含 F-5 版本未发布；path/[patch] 越界否决。
 - 发布后窗口（1.2.2 后，届时顺序）：① 核存档 == `b8e69d2f…`（源=§61.9 嵌入；字节副本 /tmp、`target/`、`docs/superpowers/patches/`，去留 lead 提交时定）；② `git apply`（对基线）；③ 双钉 `64f4070d…` + 其余 8 == §60.6；④ create 三处改造（:122/:204/:266 定案）→ `cargo update -p bee_rust`（registry 口径）→ 新 9 文件 sha；⑤ 四门禁 + tester 复验（33/33 复用 + 前后双拍）。既有证据一并可用：tester 33/33×2（batch-8）+ coder-orm 本批四门绿（冷构建）。
 - **话题级冻结（2026-10-06，lead，唯一有效口径、压过一切）**：shortlink 当前字节状态（`61b91eca…` 或 `64f4070d…`）**均不再重要**——批九提交用显式路径（crates/bee_orm + crates/bee_orm_macro + 相关 manifest），**shortlink 不入本提交**；一切 shortlink 动作/指令/回执即刻全停（在途动作不管）；**②③ 收尾话题仅由 lead 在 1.2.2 发布后明确重开**，此前任何来源的 shortlink 指令一律作废。本条为本话题终态。
 

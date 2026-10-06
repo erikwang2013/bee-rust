@@ -17,7 +17,7 @@ cargo add bee_rust
 
 ```toml
 [dependencies]
-bee_rust = "1.2.2"
+bee_rust = "1.2.3"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -76,7 +76,7 @@ curl http://localhost:8080/api/v1/health    # OK
 न्यूनतम कोर (ORM और डेटाबेस ड्राइवर के बिना)：
 
 ```toml
-bee_rust = { version = "1.2.2", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.2.3", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## सब-क्रेट
@@ -102,7 +102,7 @@ bee_rust = { version = "1.2.2", default-features = false, features = ["router", 
 इन्हें अलग-अलग भी निर्भरता बनाया जा सकता है — जैसे केवल Elasticsearch क्लाइंट：
 
 ```toml
-bee_search = { version = "1.2.2", features = ["elasticsearch"] }
+bee_search = { version = "1.2.3", features = ["elasticsearch"] }
 ```
 
 ## समर्थित डेटाबेस

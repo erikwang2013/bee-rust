@@ -2,6 +2,13 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.3] — 2026-10-06
+
+### Diperbaiki
+- `bee_cli`: scaffold tidak lagi menghasilkan proyek yang gagal dikompilasi — template `new` menyebut paket yang tidak bisa diresolusi (`bee-rust`; dipublikasikan sebagai `bee_rust`) dan template controller tidak punya `#[async_trait]` serta memakai jalur akar `RouterError` yang privat; tes bergerbang `BEE_CLI_E2E` yang baru membuat proyek lalu menjalankan `cargo check` dari awal sampai akhir
+- dokumen: contoh controller di api kini dalam bentuk yang bisa dikompilasi (dependensi `async-trait` sendiri, `bee_rust::bee_router::context::RouterError`); didokumentasikan pula penulisan `#[bee(crate = "bee_rust::bee_orm")]` untuk proyek yang hanya bergantung pada `bee_rust`, sintaks rute `{name}` dengan aturan prefiks kosong `ns`, dan penggunaan `create()`; satu fragmen Korea di dokumen api Bengali diperbaiki
+- `examples/shortlink`: detail kesalahan internal masuk ke log (bodi respons hanya pesan umum), validasi URL menolak host kosong dan karakter kendali, dan `create_link` / `add_tag` kini memakai `Model::create()` (insert `Click` di jalur panas 302 tetap `insert()`)
+
 ## [1.2.2] — 2026-10-06
 
 ### Ditambahkan

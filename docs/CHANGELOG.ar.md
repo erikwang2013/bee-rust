@@ -2,6 +2,13 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.3] — 2026-10-06
+
+### أُصلح
+- `bee_cli`: لم يعد السقالب يُنشئ مشاريع لا تُترجم — قالب `new` كان يسمّي حزمة لا تُحلّ (`bee-rust`؛ المنشورة باسم `bee_rust`) وقالب المتحكم كان ينقصه `#[async_trait]` ويستخدم مسار الجذر الخاص لـ`RouterError`؛ اختبار جديد محكوم بـ`BEE_CLI_E2E` ينشئ مشروعًا ويشغّل عليه `cargo check` من البداية إلى النهاية
+- الوثائق: صار مثال المتحكم في api بالصيغة القابلة للترجمة (اعتماد `async-trait` خاص به، `bee_rust::bee_router::context::RouterError`)؛ وأُضيف توثيق كتابة `#[bee(crate = "bee_rust::bee_orm")]` لمشاريع `bee_rust` وحدها، وصيغة المسار `{name}` مع قاعدة البادئة الفارغة لـ`ns`، واستخدام `create()`؛ وصُحّح جزء كوري تسرّب إلى وثيقة api البنغالية
+- `examples/shortlink`: تفاصيل الأخطاء الداخلية تذهب إلى السجل بدل جسم الاستجابة، والتحقق من URL يرفض المضيف الفارغ ومحارف التحكم، و`create_link` / `add_tag` تستخدمان الآن `Model::create()` (إدراج `Click` في المسار الساخن 302 يبقى `insert()`)
+
 ## [1.2.2] — 2026-10-06
 
 ### أُضيف

@@ -2,6 +2,13 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.3] — 2026-10-06
+
+### যা ঠিক করা হয়েছে
+- `bee_cli`: স্ক্যাফোল্ড আর কম্পাইল-অযোগ্য প্রজেক্ট বানায় না — `new` টেমপ্লেটে প্যাকেজের ভুল নাম ছিল (`bee-rust`, যা রিজলভ হয় না; প্রকাশিত নাম `bee_rust`), আর কন্ট্রোলার টেমপ্লেটে `#[async_trait]` ছিল না এবং প্রাইভেট `RouterError` রুট পাথ ব্যবহৃত হচ্ছিল; নতুন `BEE_CLI_E2E`-গেটেড টেস্ট প্রজেক্ট বানিয়ে তাতে `cargo check` চালিয়ে পুরো পথ যাচাই করে
+- ডকুমেন্টেশন: api-এর কন্ট্রোলার উদাহরণ এখন কম্পাইলযোগ্য রূপে (নিজস্ব `async-trait` নির্ভরতা, `bee_rust::bee_router::context::RouterError`); কেবল `bee_rust`-নির্ভর প্রজেক্টের `#[bee(crate = "bee_rust::bee_orm")]` লেখা, `ns`-এর খালি-প্রিফিক্স নিয়মসহ `{name}` রুট সিনট্যাক্স এবং `create()`-এর ব্যবহার লিপিবদ্ধ; বাংলা api ডকে ঢুকে পড়া একটি কোরিয়ান অংশ ঠিক করা হয়েছে
+- `examples/shortlink`: অভ্যন্তরীণ ত্রুটির বিবরণ এখন লগে যায় (প্রতিক্রিয়ায় সাধারণ বার্তা), URL যাচাই খালি হোস্ট ও কন্ট্রোল অক্ষর প্রত্যাখ্যান করে, এবং `create_link` / `add_tag` এখন `Model::create()` ব্যবহার করে (302 হট পাথের `Click` ইনসার্ট `insert()`-ই থাকে)
+
 ## [1.2.2] — 2026-10-06
 
 ### যা যোগ হয়েছে

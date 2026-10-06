@@ -2,6 +2,13 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.3] — 2026-10-06
+
+### 修复
+- `bee_cli`：脚手架不再生成无法编译的项目——`new` 模板依赖名笔误（`bee-rust` 无法解析，发布名为 `bee_rust`）、控制器模板缺 `#[async_trait]` 且用了私有的 `RouterError` 根路径；新增 `BEE_CLI_E2E` 门控测试：真实生成项目并 `cargo check` 端到端钉住
+- 文档：api 控制器示例修为可编译形态（自带 `async-trait` 依赖、`bee_rust::bee_router::context::RouterError`）；补记只依赖 `bee_rust` 时的 `#[bee(crate = "bee_rust::bee_orm")]` 写法、`{name}` 路由语法与 `ns` 空前缀规则、`create()` 用法；修复孟加拉语 api 文档中混入的一处韩文片段
+- `examples/shortlink`：500 细节改走日志（响应体只留泛化信息）、URL 校验拒空 authority 与控制字符、`create_link` / `add_tag` 改用 `Model::create()`（302 热路径的 Click 插入保留 `insert()`）
+
 ## [1.2.2] — 2026-10-06
 
 ### 新增

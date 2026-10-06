@@ -17,7 +17,7 @@ Atau tuliskan di `Cargo.toml`：
 
 ```toml
 [dependencies]
-bee_rust = "1.2.2"
+bee_rust = "1.2.3"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -76,7 +76,7 @@ Proyek yang benar-benar bisa dijalankan ada di [examples/hello](https://github.c
 Inti minimal (tanpa ORM dan driver basis data)：
 
 ```toml
-bee_rust = { version = "1.2.2", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.2.3", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## Sub-crate
@@ -102,7 +102,7 @@ Framework ini terdiri dari crate yang bisa dipakai secara mandiri; `bee_rust` ad
 Mereka juga bisa dijadikan dependensi terpisah — misalnya hanya klien Elasticsearch：
 
 ```toml
-bee_search = { version = "1.2.2", features = ["elasticsearch"] }
+bee_search = { version = "1.2.3", features = ["elasticsearch"] }
 ```
 
 ## Basis data yang didukung

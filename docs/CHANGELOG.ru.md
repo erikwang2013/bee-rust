@@ -2,6 +2,13 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.3] — 2026-10-06
+
+### Исправлено
+- `bee_cli`: скаффолд больше не генерирует некомпилируемые проекты — шаблон `new` указывал пакет, который не резолвится (`bee-rust`; публикуется как `bee_rust`), а в шаблоне контроллера не хватало `#[async_trait]` и использовался приватный корневой путь `RouterError`; новый тест под гейтом `BEE_CLI_E2E` создаёт проект и прогоняет `cargo check` от начала до конца
+- документация: пример контроллера в api приведён к компилируемому виду (собственная зависимость `async-trait`, `bee_rust::bee_router::context::RouterError`); задокументированы написание `#[bee(crate = "bee_rust::bee_orm")]` для проектов только с `bee_rust`, синтаксис маршрутов `{name}` с правилом пустого префикса `ns` и использование `create()`; исправлен корейский фрагмент в бенгальском api-документе
+- `examples/shortlink`: детали внутренних ошибок уходят в лог, а не в тело ответа, валидация URL отклоняет пустой хост и управляющие символы, а `create_link` / `add_tag` теперь используют `Model::create()` (вставка `Click` на горячем пути 302 остаётся `insert()`)
+
 ## [1.2.2] — 2026-10-06
 
 ### Добавлено

@@ -2,6 +2,13 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.3] — 2026-10-06
+
+### Fixed
+- `bee_cli`: the scaffold no longer generates projects that fail to compile — the `new` template named a package that does not resolve (`bee-rust`; it is published as `bee_rust`) and the controller template was missing `#[async_trait]` and used the private `RouterError` root path; a new `BEE_CLI_E2E`-gated test scaffolds a project and `cargo check`s it end to end
+- docs: the api controller example is now in its compiling form (own `async-trait` dependency, `bee_rust::bee_router::context::RouterError`); the `#[bee(crate = "bee_rust::bee_orm")]` spelling for `bee_rust`-only projects, the `{name}` route syntax with the `ns` empty-prefix rule, and `create()` usage are documented; one Korean fragment in the Bengali api doc was fixed
+- `examples/shortlink`: internal error details go to the log instead of the response body, URL validation rejects empty host parts and control characters, and `create_link` / `add_tag` use the new `Model::create()` (the `Click` insert on the 302 hot path keeps `insert()`)
+
 ## [1.2.2] — 2026-10-06
 
 ### Added

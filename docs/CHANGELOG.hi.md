@@ -2,6 +2,13 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.3] — 2026-10-06
+
+### ठीक किया गया
+- `bee_cli`: स्कैफ़ोल्ड अब ऐसे प्रोजेक्ट नहीं बनाता जो कंपाइल न हों — `new` टेम्पलेट में पैकेज का नाम गलत था (`bee-rust`, जो रिज़ॉल्व नहीं होता; प्रकाशित नाम `bee_rust`) और कंट्रोलर टेम्पलेट में `#[async_trait]` नहीं था तथा निजी `RouterError` रूट पथ इस्तेमाल हो रहा था; नया `BEE_CLI_E2E`-गेटेड टेस्ट प्रोजेक्ट बनाकर उस पर `cargo check` चलाकर इसे शुरू से अंत तक पिन करता है
+- दस्तावेज़: api का कंट्रोलर उदाहरण अब कंपाइल-योग्य रूप में है (अपनी `async-trait` निर्भरता, `bee_rust::bee_router::context::RouterError`); केवल `bee_rust` पर निर्भर प्रोजेक्ट के लिए `#[bee(crate = "bee_rust::bee_orm")]` लिखावट, `{name}` रूट सिंटैक्स के साथ `ns` खाली-प्रीफ़िक्स नियम, और `create()` का उपयोग दर्ज किया गया; बंगाली api दस्तावेज़ में घुसे एक कोरियाई अंश को ठीक किया गया
+- `examples/shortlink`: आंतरिक त्रुटि विवरण अब लॉग में जाते हैं (प्रतिक्रिया में सामान्य संदेश), URL सत्यापन खाली होस्ट और नियंत्रण अक्षर अस्वीकार करता है, और `create_link` / `add_tag` अब `Model::create()` उपयोग करते हैं (302 हॉट पाथ का `Click` इंसर्ट `insert()` ही रहता है)
+
 ## [1.2.2] — 2026-10-06
 
 ### जोड़ा गया

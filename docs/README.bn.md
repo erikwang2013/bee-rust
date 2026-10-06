@@ -264,7 +264,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.2.2", features = ["full"] }
+bee_rust = { version = "1.2.3", features = ["full"] }
 ```
 
 ## প্রযুক্তিগত নোট

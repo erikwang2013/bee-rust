@@ -2,6 +2,13 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.3] — 2026-10-06
+
+### 修正
+- `bee_cli`：スキャフォールドがコンパイルできないプロジェクトを生成しなくなりました——`new` テンプレートの依存名の誤り（`bee-rust` は解決不可。公開名は `bee_rust`）と、コントローラテンプレートの `#[async_trait]` 欠落・私有の `RouterError` ルートパスを修正。新たに `BEE_CLI_E2E` ゲートのテストがプロジェクト生成 → `cargo check` をエンドツーエンドで検証
+- ドキュメント：api のコントローラ例をコンパイル可能な形に修正（`async-trait` 依存を自前で持ち、`bee_rust::bee_router::context::RouterError` を使用）。`bee_rust` のみに依存する場合の `#[bee(crate = "bee_rust::bee_orm")]` の書き方、`{name}` ルート構文と `ns` の空プレフィックス規則、`create()` の用法を追記。ベンガル語 api ドキュメントに混入していた韓国語の断片を修正
+- `examples/shortlink`：内部エラーの詳細はログへ（レスポンスは汎用文言のみ）、URL 検証は空ホストと制御文字を拒否、`create_link` / `add_tag` を `Model::create()` に変更（302 ホットパスの `Click` 挿入は `insert()` のまま）
+
 ## [1.2.2] — 2026-10-06
 
 ### 追加

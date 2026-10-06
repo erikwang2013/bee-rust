@@ -17,7 +17,7 @@ cargo add bee_rust
 
 ```toml
 [dependencies]
-bee_rust = "1.2.2"
+bee_rust = "1.2.3"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -76,7 +76,7 @@ curl http://localhost:8080/api/v1/health    # OK
 Минимальное ядро (без ORM и драйверов БД)：
 
 ```toml
-bee_rust = { version = "1.2.2", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.2.3", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## Подкрейты
@@ -102,7 +102,7 @@ bee_rust = { version = "1.2.2", default-features = false, features = ["router", 
 Их можно подключать и по отдельности — например, только клиент Elasticsearch：
 
 ```toml
-bee_search = { version = "1.2.2", features = ["elasticsearch"] }
+bee_search = { version = "1.2.3", features = ["elasticsearch"] }
 ```
 
 ## Поддерживаемые базы данных
