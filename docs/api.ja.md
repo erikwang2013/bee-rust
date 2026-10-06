@@ -63,21 +63,154 @@ bee_rust = { features = ["security"] }
 ## ORM（bee_orm）
 
 ```rust
+use bee_orm::pool::sqlite::Pool;
+use bee_orm::{Model, Value, migrate, rel};
+
 #[derive(Model)]
 #[bee(table = "users")]
 struct User {
-    id:   i64,
+    #[bee(pk, auto)]
+    id: i64,
+    #[bee(column = "user_name")]
     name: String,
-    age:  i32,
+    age: Option<i32>,
+    active: bool,
+    #[bee(auto_now_add)]
+    created_at: i64,
+    #[bee(soft_delete)]
+    deleted: bool,
+    #[bee(ignore)]
+    cache: Vec<u8>,
 }
 
-// チェーン式クエリ
-let users = User::query()
-    .filter("age > 18")
-    .order_by("created_at DESC")
-    .limit(20)
-    .to_sql();
-// → SELECT * FROM users WHERE age > 18 ORDER BY created_at DESC LIMIT 20
+#[derive(Model)]
+#[bee(table = "posts")]
+struct Post {
+    #[bee(pk, auto)]
+    id: i64,
+    #[bee(fk = User)]
+    user_id: Option<i64>,
+    title: String,
+    #[bee(soft_delete)]
+    deleted: bool,
+}
+
+async fn demo() -> Result<(), bee_orm::OrmError> {
+    let pool = Pool::connect("app.db", 8)?;      // sqlite / postgres / mysql は同じ形
+
+    // スキーマ — migrate::sync がモデルメタデータから非破壊 DDL を生成
+    migrate::sync::<User, _>(&pool).await?;
+    migrate::sync::<Post, _>(&pool).await?;
+
+    // INSERT — `auto` 主キーはデータベースが採番
+    let user = User { id: 0, name: "alice".into(), age: Some(30), active: true, created_at: 0, deleted: false, cache: vec![] };
+    user.insert(&pool).await?;
+
+    // SELECT — チェーン式フィルタ + 実行：all / one / count / exists / sum / avg
+    let alice = User::query().filter_eq("user_name", "alice")?.one(&pool).await?.expect("inserted above");
+    let adults = User::query().filter_gt("age", 18)?.order_by("id").limit(20).all(&pool).await?;
+    let total = User::query().filter_lt("age", 65)?.count(&pool).await?;
+    let any = User::query().filter_contains("user_name", "a")?.exists(&pool).await?;
+    let avg_age = User::query().avg(&pool, "age").await?;
+
+    // リレーション — children が has_many、belongs_to が親行；FK 強制時は子を先に削除
+    Post { id: 0, user_id: Some(alice.id), title: "hello".into(), deleted: false }.insert(&pool).await?;
+    let posts = rel::children::<Post, User, _>(&pool, &alice).await?;
+    let author = rel::belongs_to::<User, _>(&pool, alice.id).await?;
+    let matching = Post::query().filter_in("title", &[Value::Text("hello".into())])?.all(&pool).await?;
+
+    // UPDATE / DELETE — delete はソフト削除（フラグ反転）。with_deleted() / hard_delete() で回避
+    Post::query().filter_eq("title", "hello")?.hard_delete(&pool).await?;
+    if let Some(mut u) = author {
+        u.age = Some(31);
+        u.update(&pool).await?;
+        u.delete(&pool).await?;
+        let live = User::query().count(&pool).await?;
+        let every = User::query().with_deleted().count(&pool).await?;
+        u.hard_delete(&pool).await?;
+    }
+    User::query().filter_eq("user_name", "bob")?.update(&pool, &[("user_name", "bobby".into())]).await?;
+
+    // トランザクション — `get()` で接続を保持；sqlite の `CheckedConn` は同期
+    let conn = pool.get()?;
+    conn.begin()?;
+    conn.execute("INSERT INTO users (user_name, active) VALUES (?, ?)", &[Value::from("carol"), Value::from(true)])?;
+    conn.commit()?;
+
+    Ok(())
+}
+```
+
+> マイグレーションが利用可能に：`bee_orm::migrate`（`create_table` / `add_missing_columns` / `sync`）が方言ごとの DDL を生成——テーブル作成と不足カラムの追加のみで、削除・変更は行いません。リレーション読み取りは `belongs_to`、has_many（`children*`）、many-to-many（`m2m`）に対応。`#[bee(fk = …)]` は外部キー DDL を生成します：postgres と sqlite（bundled ビルド）は強制、mysql はテーブルレベルの外部キーを opt-in で有効化できます（下記）。
+
+### 多対多（`m2m`）
+
+構造体レベルで `#[bee(m2m(Target))]` を宣言；join テーブルは `create_table` / `sync` が作成します（先に対象モデル、次に宣言側を同期）：
+
+```rust
+use bee_orm::m2m;
+
+#[derive(Model)]
+#[bee(table = "users")]
+#[bee(m2m(Tag))]                             // join テーブル user_tag、列 user_id / tag_id
+struct User {
+    #[bee(pk, auto)]
+    id: i64,
+    name: String,
+}
+
+migrate::sync::<Tag, _>(&pool).await?;       // まず対象モデル
+migrate::sync::<User, _>(&pool).await?;      // 宣言側が join テーブルを作成
+
+// `auto` 主キーはデータベースが割り当て：リレーション操作の前にインスタンスを読み直す
+User { id: 0, name: "alice".into() }.insert(&pool).await?;
+let user = User::query().filter_eq("name", "alice")?.one(&pool).await?.expect("inserted");
+Tag { id: 0, name: "rust".into() }.insert(&pool).await?;
+let tag = Tag::query().filter_eq("name", "rust")?.one(&pool).await?.expect("inserted");
+
+m2m::attach::<User, Tag, _>(&pool, &user, &tag).await?;   // attach 重複 -> 複合主キーエラー
+let tags = m2m::related::<User, Tag, _>(&pool, &user).await?;
+m2m::detach::<User, Tag, _>(&pool, &user, &tag).await?;   // 冪等：2 回目の呼び出しは 0 行
+```
+
+> 名称の上書き：`#[bee(m2m(Tag, table = "user_tag", local = "user_id", foreign = "tag_id"))]`；join テーブルは `create_table` / `sync` でのみ作成され、`add_missing_columns` は触れません。
+
+### JSON 列
+
+`serde_json::Value` フィールドは sqlite `TEXT` / postgres `JSONB` / mysql `JSON` にマップされます：
+
+```rust
+#[derive(Model)]
+#[bee(table = "docs")]
+struct Doc {
+    #[bee(pk, auto)]
+    id: i64,
+    body: serde_json::Value,           // 必須
+    extra: Option<serde_json::Value>,  // nullable
+}
+```
+
+> NULL の意味論：SQL `NULL` は `None` に、保存された JSON `null` ドキュメントは `Some(Json::Null)` にデコードされます——両者は異なります。
+
+### MySQL テーブルレベルの外部キー（opt-in）
+
+```rust
+use bee_orm::{MigrateOptions, migrate};
+
+let opts = MigrateOptions { table_level_fk: true };       // mysql のみ
+migrate::sync_with::<User, _>(&pool, opts).await?;
+```
+
+> 有効にすると新規テーブルと追加カラムにテーブルレベルの `FOREIGN KEY` が付きます（制約名 `{table}_{column}_fk`）；既存の孤児行があると `ADD CONSTRAINT` が失敗します（黙ってスキップせず、既存カラムの retrofit も行いません）；pg / sqlite ではこのオプションは無効です（inline が既に強制）。
+
+### postgres TLS
+
+```rust
+use bee_orm::pool::postgres::Pool;
+
+// connect_tls は同梱の webpki ルートを使用；独自の rustls 設定には connect_tls_with：
+let pool = Pool::connect_tls_with(dsn, 8, my_rustls_config)?;
+// my_rustls_config: bee_orm::rustls::ClientConfig（再エクスポート、crate と同じバージョン）
 ```
 
 ## 設定管理（bee_config）
@@ -99,32 +232,65 @@ let cfg = AppConfig::load("conf/app.conf")?;
 **KV/Cache：**
 ```rust
 let kv = RedisStore::new("redis://localhost:6379").await?;
-kv.set("key", b"value", Some(Duration::from_secs(60))).await?;
+kv.set("key", "value").await?;
+kv.expire("key", 60).await?;
 let val = kv.get("key").await?;
+
+// memcached バックエンド（feature `memcached`）
+let kv = MemcacheStore::new("127.0.0.1:11211")?;
 ```
 
-**検索エンジン（計画中）：**
+> `RedisStore` の内部は `ConnectionManager`：切断された接続は自動再接続されます（コマンド契機——バックグラウンドスレッドなし——指数バックオフとジッター付き）——切断に当たったコマンドはエラーになり、次のコマンドは新しい接続を待ちます。memcached：`incr` はまずカウンタを作成し（無ければ 0）、その後で増減します；カウンタは符号なしで、減算は 0 で止まります（Redis は負になります）；`expire(≤0)` は削除と同じです。
+
+**キャッシュバックエンド（bee_cache）：**
 ```rust
-// ドライバ実装は計画中、現在は trait のスタブ
-let engine = ElasticsearchEngine::new("http://localhost:9200")?;
-let result = engine.search("my_index", &SearchQuery {
-    q: Some("keyword".into()), ..Default::default()
+use bee_cache::{Cache, RedisCache};
+
+let cache = RedisCache::new("redis://localhost:6379").await?;  // feature `redis`
+cache.set("k", b"v".to_vec(), Some(60)).await?;
+let v = cache.get("k").await?;
+```
+
+> `MemcacheCache`（feature `memcache`）は同じインターフェース；TTL `Some(0)` は Redis バックエンドでは `DEL` を通ります（`SET … EX 0` は拒否されます）、memcached でも削除として扱われます（そちらでは 0 は無期限を意味します）；非数値への `incr` はシリアライズエラーです。
+
+**検索エンジン（実装済み、opt-in）：**
+```rust
+use bee_search::SearchEngine;
+use bee_search::elasticsearch::Elasticsearch;   // feature `elasticsearch` が必要
+let engine = Elasticsearch::new("http://localhost:9200");   // 同期コンストラクタ（`?` 不要）
+let result = engine.search("my_index", serde_json::json!({"query": {"match_all": {}}})).await?;
+```
+
+> ほかのドライバも同じ書き方で、いずれも opt-in です：`opensearch`, `clickhouse`（同名 feature）。
+
+**グラフデータベース（実装済み、opt-in）：**
+```rust
+use bee_graph::{GraphDB, Vertex};
+use bee_graph::neo4j::Neo4j;   // feature `neo4j` が必要
+let db = Neo4j::new("http://localhost:7474");   // 同期コンストラクタ（`?` 不要）
+let v = db.add_vertex(Vertex {
+    id: "p1".into(),
+    label: "Person".into(),
+    properties: [("name".to_string(), serde_json::json!("Alice"))].into_iter().collect(),
 }).await?;
 ```
 
-**グラフデータベース（計画中）：**
+> ほかのドライバも同じ書き方で、いずれも opt-in です：`nebulagraph`, `arangodb`（同名 feature）。
+
+**時系列データベース（実装済み、opt-in）：**
 ```rust
-// ドライバ実装は計画中、現在は trait のスタブ
-let db = Neo4jDB::new("bolt://localhost:7687").await?;
-let vid = db.add_vertex("Person", &[("name", "Alice")]).await?;
+use bee_tsdb::{Point, TimeSeriesDB};
+use bee_tsdb::influxdb::InfluxDB;   // feature `influxdb` が必要
+let tsdb = InfluxDB::new("http://localhost:8086");   // 同期コンストラクタ（`?` 不要）
+tsdb.write_point(Point {
+    measurement: "cpu".into(),
+    tags: [("host".to_string(), "srv1".to_string())].into_iter().collect(),
+    fields: [("value".to_string(), serde_json::json!(0.85))].into_iter().collect(),
+    timestamp: chrono::Utc::now(),
+}).await?;
 ```
 
-**時系列データベース（計画中）：**
-```rust
-// ドライバ実装は計画中、現在は trait のスタブ
-let tsdb = InfluxDB::new("http://localhost:8086").await?;
-tsdb.write_point("cpu", &[("host", "srv1")], &[("value", 0.85)], Utc::now()).await?;
-```
+> ほかのドライバも同じ書き方で、いずれも opt-in です：`iotdb`, `questdb`（同名 feature）。
 
 ## Session
 
@@ -134,6 +300,8 @@ let mut session = Session::new(cache, Duration::from_secs(3600));
 session.set("user_id", &"123")?;
 let uid: String = session.get("user_id")?.unwrap();
 ```
+
+> バックエンドは `bee_cache::Cache` を実装した任意のキャッシュです：`MemoryCache` / `RedisCache` / `MemcacheCache`。
 
 ## ログ
 
@@ -170,8 +338,9 @@ bee-rust run --watch
 # パッケージングしてデプロイ（cargo build --release + dist/ にコピー）
 bee-rust pack
 
-# データベースマイグレーション（未実装、計画中）
-bee-rust migrate up
+# データベースマイグレーション（対象クレートにエントリーポイントを生成して実行）
+bee-rust migrate init    # src/bin/bee_migrate.rs を生成（既存ファイルは上書きしません）
+bee-rust migrate run     # cargo run --bin bee_migrate
 ```
 
 > 注記：`pack --target` パラメータは予約済みのインターフェースで、現在のパッケージング処理はターゲットプラットフォームを区別しません。

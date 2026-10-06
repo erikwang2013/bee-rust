@@ -7,7 +7,9 @@ use std::time::{Duration, SystemTime};
 
 pub type CliResult = Result<(), String>;
 
+mod migrate;
 mod pet;
+pub use migrate::{migrate_init, migrate_run};
 pub use pet::pet;
 
 /// Scaffold a new bee-rust project directory with a runnable template.
@@ -194,11 +196,6 @@ pub fn pack(target: &str) -> CliResult {
     fs::copy(&src, &dst).map_err(io_err)?;
     println!("packaged `{}` -> `{dst}`", src.display());
     Ok(())
-}
-
-/// Database migrations are not yet implemented.
-pub fn migrate() -> CliResult {
-    Err("migrate is not implemented yet — use your ORM's migration tooling instead".into())
 }
 
 fn spawn_cargo_run() -> Result<Child, String> {
@@ -412,11 +409,6 @@ mod tests {
         assert!(generate_model("user", Some("title")).is_err());
         std::env::set_current_dir(old).unwrap();
         fs::remove_dir_all(&dir).unwrap();
-    }
-
-    #[test]
-    fn migrate_reports_not_implemented() {
-        assert!(migrate().unwrap_err().contains("not implemented"));
     }
 
     #[test]

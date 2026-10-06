@@ -24,7 +24,7 @@ cargo test --workspace
 crates/
   bee_rust/         # Meta crate, re-export + feature flags
   bee_router/       # Routing + Controller + Context + Filter chain
-  bee_orm/          # ORM — Model trait + QuerySet + Migration
+  bee_orm/          # ORM — Model trait + QuerySet
   bee_kv/           # KV/Cache unified abstraction
   bee_search/       # Search/Analytics engine
   bee_graph/        # Graph database

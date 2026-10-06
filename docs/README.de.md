@@ -82,17 +82,17 @@ Beerust ist ein produktionsreifes Web-Framework in Rust. Seine Designphilosophie
 ```
 bee_rust/           # Meta-Crate, re-export + feature flags
 bee_router/         # Routing + Controller + Context + Filterkette
-bee_orm/            # ORM — Model-Trait + QuerySet + Migration + Beziehungs-Mapping
-bee_kv/             # Vereinheitlichte KV/Cache-Abstraktion — Redis + Memcached
+bee_orm/            # ORM — Model-Trait + QuerySet
+bee_kv/             # Vereinheitlichte KV/Cache-Abstraktion — Redis / Memcached
 bee_search/         # Such-/Analyse-Engine — Elasticsearch + OpenSearch + ClickHouse
 bee_graph/          # Graphdatenbank — Neo4j + NebulaGraph + ArangoDB
 bee_tsdb/           # Zeitreihendatenbank — InfluxDB + Apache IoTDB + QuestDB
 bee_config/         # Konfigurationsverwaltung — INI/YAML/ENV + Hot-Reload
-bee_cache/          # Cache-Abstraktion — Memory/Redis/Memcache
-bee_session/        # Session — Memory/Redis/Cookie/Database-Backends
+bee_cache/          # Cache-Abstraktion — Memory / Redis / Memcache
+bee_session/        # Session — Memory, Redis (implementiert) / Cookie, Database (geplant)-Backends
 bee_logs/           # Logging — mehrstufige Logs + tracing-Integration
 bee_template/       # Template-Rendering — basierend auf tera
-bee_cli/            # CLI — Scaffolding/Codegenerierung/Entwicklungsbetrieb/Packaging (Migration geplant)
+bee_cli/            # CLI — Scaffolding/Codegenerierung/Entwicklungsbetrieb/Packaging (migrate init/run enthalten)
 ```
 
 ### Architekturdiagramm
@@ -112,7 +112,7 @@ bee_cli/            # CLI — Scaffolding/Codegenerierung/Entwicklungsbetrieb/Pa
   ┌───────────┼───────────┐  ┌───────┼───────┐  ┌───────────┼───────────┐
   │ bee_router            │  │ bee_orm        │  │ bee_cli               │
   │  - Routenregistrierung│  │  - Model/Query  │  │  - Scaffolding        │
-  │  - Controller-Trait   │  │  - Migration   │  │  - Hot-Reload         │
+  │  - Controller-Trait   │  │  - QuerySet    │  │  - Hot-Reload         │
   │  - Filterkette        │  │  - Verbindung   │  │  - Codegenerierung    │
   │  - Parameter-Extraktion │                 │  │                       │
   ├────────────────────────┤  ├────────────────┤  ├───────────────────────┤
@@ -122,13 +122,13 @@ bee_cli/            # CLI — Scaffolding/Codegenerierung/Entwicklungsbetrieb/Pa
   ├────────────────────────┤  ├────────────────┤  └───────────────────────┘
   │ bee_session            │  │ bee_cache      │
   │  - Session-Verwaltung  │  │  - Cache-Trait │
-  │  - Multi-Backend       │  │  - Mem/Redis   │
+  │  - Memory/Redis        │  │  - Mem/Redis   │
   └────────────────────────┘  └────────────────┘
 
   ┌─────────────────────────────────────────────────────────┐
   │                Speicher-Engine-Ebene                     │
   ├──────────────────┬──────────────────────────────────────┤
-  │ bee_kv           │  Redis + Memcached                   │
+  │ bee_kv           │  Redis / Memcached                   │
   │ bee_search       │  Elasticsearch + OpenSearch + ClickHouse │
   │ bee_graph        │  Neo4j + NebulaGraph + ArangoDB      │
   │ bee_tsdb         │  InfluxDB + Apache IoTDB + QuestDB   │
@@ -157,12 +157,12 @@ bee_rust   → alle oben genannten Crates (re-export)
 
 | Kategorie | Datenbank | Zugehöriges Crate | Feature-Flag |
 |------|--------|-----------|-------------|
-| **Relational** | SQLite | `bee_orm` | `sqlite` |
-| | PostgreSQL | `bee_orm` | `postgres` |
-| | MySQL | `bee_orm` | `mysql` |
+| **Relational** | SQLite | `bee_orm` | `sqlite` (bee_rust: `orm-sqlite`) |
+| | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls` (bee_rust: `orm-postgres` / `orm-postgres-tls`) |
+| | MySQL | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **KV / Cache** | Redis | `bee_kv` / `bee_cache` | `redis` |
-| | Memcached | `bee_kv` / `bee_cache` | `memcache` |
+| | Memcached | `bee_kv` / `bee_cache` | `memcached` / `memcache` |
 | **Suche / Analyse** | Elasticsearch | `bee_search` | `elasticsearch` |
 | | OpenSearch | `bee_search` | `opensearch` |
 | | ClickHouse | `bee_search` | `clickhouse` |
@@ -202,7 +202,7 @@ let security = SecurityFilter::new();  // alle 27 Detektoren aktiv
 
 ### ORM (bee_orm)
 
-`#[derive(Model)]`-Derivierungsmakro + QuerySet-Kettenabfrage (filter / order_by / limit), unterstützt SQLite, PostgreSQL, MySQL, TiDB.
+`#[derive(Model)]`-Derivierungsmakro (mit `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + QuerySet-Kettenabfragen und -Ausführung (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, Aggregate `sum` / `avg` / `min` / `max`) + nicht-destruktive Migrationen (`migrate::create_table` / `add_missing_columns` / `sync`) + Beziehungs-Leseabfragen (`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON-Spalten (`serde_json::Value`) + Verbindungspools für alle drei Backends (inkl. Transaktionen und Timeouts), unterstützt SQLite, PostgreSQL, MySQL, TiDB.
 
 ### Konfigurationsverwaltung (bee_config)
 
@@ -210,11 +210,11 @@ let security = SecurityFilter::new();  // alle 27 Detektoren aktiv
 
 ### Speicher-Engines
 
-KV / Cache (Redis + Memcached), Suchmaschine (Elasticsearch / OpenSearch / ClickHouse), Graphdatenbank (Neo4j / NebulaGraph / ArangoDB), Zeitreihendatenbank (InfluxDB / IoTDB / QuestDB) — einheitliche Trait-Abstraktion, Treiber werden per Feature-Gate kompiliert.
+KV / Cache (Redis / Memcached), Suchmaschine (Elasticsearch / OpenSearch / ClickHouse), Graphdatenbank (Neo4j / NebulaGraph / ArangoDB), Zeitreihendatenbank (InfluxDB / IoTDB / QuestDB) — einheitliche Trait-Abstraktion, Treiber werden per Feature-Gate kompiliert.
 
 ### Session, Logging, Templates
 
-- Session: Memory / Redis / Cookie / Database-Multi-Backend
+- Session: Memory, Redis (implementiert) / Cookie, Database (geplant)
 - Logging: mehrstufige Logs + tracing-Integration
 - Templates: Rendering basierend auf tera
 
@@ -298,36 +298,37 @@ bee_rust = { git = "https://github.com/erikwang2013/bee-rust", features = ["full
 |-------|------|-----------|
 | `bee_rust` | Meta-Crate, einheitlicher Einstiegspunkt | — |
 | `bee_router` | Routing + Controller + Context + Filter | `server/web`, `context` |
-| `bee_orm` | ORM + QuerySet + Migration | `client/orm` |
+| `bee_orm` | ORM + QuerySet | `client/orm` |
 | `bee_kv` | Vereinheitlichte KV/Cache-Abstraktion | `client/cache` (erweitert) |
 | `bee_search` | Such-/Analyse-Engine | — (neu) |
 | `bee_graph` | Graphdatenbank | — (neu) |
 | `bee_tsdb` | Zeitreihendatenbank | — (neu) |
 | `bee_config` | Konfigurationsverwaltung + Hot-Reload | `client/config` |
 | `bee_cache` | Cache-Abstraktion | `client/cache` |
-| `bee_session` | Session-Verwaltung | `server/web/session` |
+| `bee_session` | Session-Verwaltung (Memory/Redis implementiert; Cookie/Database geplant) | `server/web/session` |
 | `bee_logs` | Logging | `logs` |
 | `bee_template` | Template-Rendering | — (verbessert) |
 | `bee_cli` | CLI-Werkzeuge | `bee`-Werkzeug |
 
 ### Testabdeckung
 
-Alle 68 Tests des Repositories bestehen:
+Alle 334 Tests des Repositories bestehen:
 
 | Crate | Anzahl der Tests |
 |-------|--------|
-| bee_config | 4 |
-| bee_cache | 4 |
+| bee_config | 9 |
+| bee_cache | 15 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 4 |
-| bee_search | 6 |
-| bee_graph | 5 |
-| bee_tsdb | 5 |
-| bee_orm | 7 |
+| bee_kv | 15 |
+| bee_search | 21 |
+| bee_graph | 19 |
+| bee_tsdb | 19 |
+| bee_orm | 141 |
+| bee_orm_macro | 20 |
 | bee_session | 2 |
-| bee_router | 9 |
-| bee_cli | 16 |
+| bee_router | 40 |
+| bee_cli | 28 |
 
 ## Unterstützung willkommen
 

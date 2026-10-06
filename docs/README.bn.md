@@ -82,17 +82,17 @@ Beerust হল Rust ভাষায় লেখা একটি প্রোড
 ```
 bee_rust/           # মেটা crate, re-export + feature flags
 bee_router/         # রাউটিং + কন্ট্রোলার + Context + ফিল্টার চেইন
-bee_orm/            # ORM — Model trait + QuerySet + Migration + রিলেশন ম্যাপিং
-bee_kv/             # KV/Cache একীভূত অ্যাবস্ট্রাকশন — Redis + Memcached
+bee_orm/            # ORM — Model trait + QuerySet
+bee_kv/             # KV/Cache একীভূত অ্যাবস্ট্রাকশন — Redis / Memcached
 bee_search/         # সার্চ/অ্যানালিটিক্স ইঞ্জিন — Elasticsearch + OpenSearch + ClickHouse
 bee_graph/          # গ্রাফ ডেটাবেস — Neo4j + NebulaGraph + ArangoDB
 bee_tsdb/           # টাইম-সিরিজ ডেটাবেস — InfluxDB + Apache IoTDB + QuestDB
 bee_config/         # কনফিগ ম্যানেজমেন্ট — INI/YAML/ENV + হট-রিলোড
-bee_cache/          # ক্যাশ অ্যাবস্ট্রাকশন — Memory/Redis/Memcache
-bee_session/        # Session — Memory/Redis/Cookie/Database ব্যাকএন্ড
+bee_cache/          # ক্যাশ অ্যাবস্ট্রাকশন — Memory / Redis / Memcache
+bee_session/        # Session — Memory, Redis (বাস্তবায়িত) / Cookie, Database (পরিকল্পনাধীন) ব্যাকএন্ড
 bee_logs/           # লগিং — মাল্টি-লেভেল লগ + tracing ইন্টিগ্রেশন
 bee_template/       # টেমপ্লেট রেন্ডারিং — tera-ভিত্তিক
-bee_cli/            # CLI — স্ক্যাফোল্ডিং/কোড জেনারেশন/ডেভ রান/প্যাকেজিং (মাইগ্রেশন পরিকল্পনাধীন)
+bee_cli/            # CLI — স্ক্যাফোল্ডিং/কোড জেনারেশন/ডেভ রান/প্যাকেজিং (migrate init/run অন্তর্ভুক্ত)
 ```
 
 ### আর্কিটেকচার ডায়াগ্রাম
@@ -112,7 +112,7 @@ bee_cli/            # CLI — স্ক্যাফোল্ডিং/কোড 
   ┌───────────┼───────────┐  ┌───────┼───────┐  ┌───────────┼───────────┐
   │ bee_router            │  │ bee_orm        │  │ bee_cli               │
   │  - route register     │  │  - Model/Query  │  │  - scaffolding        │
-  │  - controller trait   │  │  - Migration   │  │  - hot reload          │
+  │  - controller trait   │  │  - QuerySet    │  │  - hot reload          │
   │  - filter chain       │  │  - Connection   │  │  - code generation    │
   │  - param extract      │  │                 │  │                       │
   ├────────────────────────┤  ├────────────────┤  ├───────────────────────┤
@@ -122,13 +122,13 @@ bee_cli/            # CLI — স্ক্যাফোল্ডিং/কোড 
   ├────────────────────────┤  ├────────────────┤  └───────────────────────┘
   │ bee_session            │  │ bee_cache      │
   │  - session management  │  │  - cache trait  │
-  │  - multi-backend       │  │  - Mem/Redis    │
+  │  - Memory/Redis        │  │  - Mem/Redis    │
   └────────────────────────┘  └────────────────┘
 
   ┌─────────────────────────────────────────────────────────┐
   │                   Storage Engine Layer                   │
   ├──────────────────┬──────────────────────────────────────┤
-  │ bee_kv           │  Redis + Memcached                   │
+  │ bee_kv           │  Redis / Memcached                   │
   │ bee_search       │  Elasticsearch + OpenSearch + ClickHouse │
   │ bee_graph        │  Neo4j + NebulaGraph + ArangoDB      │
   │ bee_tsdb         │  InfluxDB + Apache IoTDB + QuestDB   │
@@ -157,12 +157,12 @@ bee_rust   → উপরের সব crate (re-export)
 
 | শ্রেণি | ডেটাবেস | সংশ্লিষ্ট Crate | Feature Flag |
 |------|--------|-----------|-------------|
-| **রিলেশনাল** | SQLite | `bee_orm` | `sqlite` |
-| | PostgreSQL | `bee_orm` | `postgres` |
-| | MySQL | `bee_orm` | `mysql` |
+| **রিলেশনাল** | SQLite | `bee_orm` | `sqlite` (bee_rust: `orm-sqlite`) |
+| | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls` (bee_rust: `orm-postgres` / `orm-postgres-tls`) |
+| | MySQL | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **KV / ক্যাশ** | Redis | `bee_kv` / `bee_cache` | `redis` |
-| | Memcached | `bee_kv` / `bee_cache` | `memcache` |
+| | Memcached | `bee_kv` / `bee_cache` | `memcached` / `memcache` |
 | **সার্চ / অ্যানালিটিক্স** | Elasticsearch | `bee_search` | `elasticsearch` |
 | | OpenSearch | `bee_search` | `opensearch` |
 | | ClickHouse | `bee_search` | `clickhouse` |
@@ -202,7 +202,7 @@ let security = SecurityFilter::new();  // ২৭টি ডিটেক্টর 
 
 ### ORM (bee_orm)
 
-`#[derive(Model)]` ডেরাইভ ম্যাক্রো + QuerySet চেইনড কোয়েরি (filter / order_by / limit), SQLite, PostgreSQL, MySQL, TiDB সমর্থন করে।
+`#[derive(Model)]` ডেরাইভ ম্যাক্রো (`#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]` সহ) + QuerySet চেইনড কোয়েরি ও এক্সিকিউশন (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, অ্যাগ্রিগেট `sum` / `avg` / `min` / `max`) + অবিনাশী মাইগ্রেশন (`migrate::create_table` / `add_missing_columns` / `sync`) + রিলেশন পড়া (`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON কলাম (`serde_json::Value`) + তিন বেকএন্ডের কানেকশন পুল (ট্রানজ্যাকশন ও টাইমআউটসহ), SQLite, PostgreSQL, MySQL, TiDB সমর্থন করে।
 
 ### কনফিগ ম্যানেজমেন্ট (bee_config)
 
@@ -210,11 +210,11 @@ let security = SecurityFilter::new();  // ২৭টি ডিটেক্টর 
 
 ### স্টোরেজ ইঞ্জিন
 
-KV / Cache (Redis + Memcached), সার্চ ইঞ্জিন (Elasticsearch / OpenSearch / ClickHouse), গ্রাফ ডেটাবেস (Neo4j / NebulaGraph / ArangoDB), টাইম-সিরিজ ডেটাবেস (InfluxDB / IoTDB / QuestDB) — সব একীভূত trait অ্যাবস্ট্রাকশন, ড্রাইভার feature gate অনুযায়ী কম্পাইল হয়।
+KV / Cache (Redis / Memcached), সার্চ ইঞ্জিন (Elasticsearch / OpenSearch / ClickHouse), গ্রাফ ডেটাবেস (Neo4j / NebulaGraph / ArangoDB), টাইম-সিরিজ ডেটাবেস (InfluxDB / IoTDB / QuestDB) — সব একীভূত trait অ্যাবস্ট্রাকশন, ড্রাইভার feature gate অনুযায়ী কম্পাইল হয়।
 
 ### Session, লগ, টেমপ্লেট
 
-- Session: Memory / Redis / Cookie / Database মাল্টি-ব্যাকএন্ড
+- Session: Memory, Redis (বাস্তবায়িত) / Cookie, Database (পরিকল্পনাধীন)
 - লগ: মাল্টি-লেভেল লগ + tracing ইন্টিগ্রেশন
 - টেমপ্লেট: tera-ভিত্তিক রেন্ডারিং
 
@@ -298,36 +298,37 @@ bee_rust = { git = "https://github.com/erikwang2013/bee-rust", features = ["full
 |-------|------|-----------|
 | `bee_rust` | মেটা crate, একীভূত প্রবেশপথ | — |
 | `bee_router` | রাউটিং + কন্ট্রোলার + Context + ফিল্টার | `server/web`, `context` |
-| `bee_orm` | ORM + QuerySet + Migration | `client/orm` |
+| `bee_orm` | ORM + QuerySet | `client/orm` |
 | `bee_kv` | KV/Cache একীভূত অ্যাবস্ট্রাকশন | `client/cache` (সম্প্রসারিত) |
 | `bee_search` | সার্চ/অ্যানালিটিক্স ইঞ্জিন | — (নতুন) |
 | `bee_graph` | গ্রাফ ডেটাবেস | — (নতুন) |
 | `bee_tsdb` | টাইম-সিরিজ ডেটাবেস | — (নতুন) |
 | `bee_config` | কনফিগ ম্যানেজমেন্ট + হট-রিলোড | `client/config` |
 | `bee_cache` | ক্যাশ অ্যাবস্ট্রাকশন | `client/cache` |
-| `bee_session` | Session ম্যানেজমেন্ট | `server/web/session` |
+| `bee_session` | Session ম্যানেজমেন্ট (Memory/Redis বাস্তবায়িত; Cookie/Database পরিকল্পনাধীন) | `server/web/session` |
 | `bee_logs` | লগিং | `logs` |
 | `bee_template` | টেমপ্লেট রেন্ডারিং | — (উন্নত) |
 | `bee_cli` | CLI টুল | `bee` টুল |
 
 ### টেস্ট কভারেজ
 
-পুরো রিপোজিটরির ৬৮টি টেস্ট পাস:
+পুরো রিপোজিটরির ৩৩৪টি টেস্ট পাস:
 
 | Crate | টেস্ট সংখ্যা |
 |-------|--------|
-| bee_config | 4 |
-| bee_cache | 4 |
+| bee_config | 9 |
+| bee_cache | 15 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 4 |
-| bee_search | 6 |
-| bee_graph | 5 |
-| bee_tsdb | 5 |
-| bee_orm | 7 |
+| bee_kv | 15 |
+| bee_search | 21 |
+| bee_graph | 19 |
+| bee_tsdb | 19 |
+| bee_orm | 141 |
+| bee_orm_macro | 20 |
 | bee_session | 2 |
-| bee_router | 9 |
-| bee_cli | 16 |
+| bee_router | 40 |
+| bee_cli | 28 |
 
 ## সমর্থন স্বাগত
 

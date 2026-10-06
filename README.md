@@ -82,17 +82,17 @@ Beerust是一个 Rust 语言的生产级 Web 框架，设计哲学源自 Go 的 
 ```
 bee_rust/           # 元 crate，re-export + feature flags
 bee_router/         # 路由 + 控制器 + Context + 过滤器链
-bee_orm/            # ORM — Model trait + QuerySet + Migration + 关系映射
-bee_kv/             # KV/Cache 统一抽象 — Redis + Memcached
+bee_orm/            # ORM — Model trait + QuerySet
+bee_kv/             # KV/Cache 统一抽象 — Redis、Memcached
 bee_search/         # 搜索/分析引擎 — Elasticsearch + OpenSearch + ClickHouse
 bee_graph/          # 图数据库 — Neo4j + NebulaGraph + ArangoDB
 bee_tsdb/           # 时序数据库 — InfluxDB + Apache IoTDB + QuestDB
 bee_config/         # 配置管理 — INI/YAML/ENV + 热更新
-bee_cache/          # 缓存抽象 — Memory/Redis/Memcache
-bee_session/        # Session — Memory/Redis/Cookie/Database 后端
+bee_cache/          # 缓存抽象 — Memory、Redis、Memcache
+bee_session/        # Session — Memory、Redis（已实现） / Cookie、Database（规划中） 后端
 bee_logs/           # 日志 — 多级日志 + tracing 集成
 bee_template/       # 模板渲染 — 基于 tera
-bee_cli/            # CLI — 脚手架/代码生成/开发运行/打包（迁移规划中）
+bee_cli/            # CLI — 脚手架/代码生成/开发运行/打包（含 migrate init/run）
 ```
 
 ### 架构图
@@ -112,7 +112,7 @@ bee_cli/            # CLI — 脚手架/代码生成/开发运行/打包（迁�
   ┌───────────┼───────────┐  ┌───────┼───────┐  ┌───────────┼───────────┐
   │ bee_router            │  │ bee_orm        │  │ bee_cli               │
   │  - route register     │  │  - Model/Query  │  │  - scaffolding        │
-  │  - controller trait   │  │  - Migration   │  │  - hot reload          │
+  │  - controller trait   │  │  - QuerySet    │  │  - hot reload          │
   │  - filter chain       │  │  - Connection   │  │  - code generation    │
   │  - param extract      │  │                 │  │                       │
   ├────────────────────────┤  ├────────────────┤  ├───────────────────────┤
@@ -122,13 +122,13 @@ bee_cli/            # CLI — 脚手架/代码生成/开发运行/打包（迁�
   ├────────────────────────┤  ├────────────────┤  └───────────────────────┘
   │ bee_session            │  │ bee_cache      │
   │  - session management  │  │  - cache trait  │
-  │  - multi-backend       │  │  - Mem/Redis    │
+  │  - Memory/Redis        │  │  - Mem/Redis    │
   └────────────────────────┘  └────────────────┘
 
   ┌─────────────────────────────────────────────────────────┐
   │                   Storage Engine Layer                   │
   ├──────────────────┬──────────────────────────────────────┤
-  │ bee_kv           │  Redis + Memcached                   │
+  │ bee_kv           │  Redis / Memcached                   │
   │ bee_search       │  Elasticsearch + OpenSearch + ClickHouse │
   │ bee_graph        │  Neo4j + NebulaGraph + ArangoDB      │
   │ bee_tsdb         │  InfluxDB + Apache IoTDB + QuestDB   │
@@ -157,12 +157,12 @@ bee_rust   → 全部上述 crate (re-export)
 
 | 类别 | 数据库 | 对应 Crate | Feature Flag |
 |------|--------|-----------|-------------|
-| **关系型** | SQLite | `bee_orm` | `sqlite` |
-| | PostgreSQL | `bee_orm` | `postgres` |
-| | MySQL | `bee_orm` | `mysql` |
+| **关系型** | SQLite | `bee_orm` | `sqlite`（bee_rust：`orm-sqlite`） |
+| | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls`（bee_rust：`orm-postgres` / `orm-postgres-tls`） |
+| | MySQL | `bee_orm` | `mysql`（bee_rust：`orm-mysql`） |
 | | TiDB | `bee_orm` | `mysql` |
 | **KV / 缓存** | Redis | `bee_kv` / `bee_cache` | `redis` |
-| | Memcached | `bee_kv` / `bee_cache` | `memcache` |
+| | Memcached | `bee_kv` / `bee_cache` | `memcached` / `memcache` |
 | **搜索 / 分析** | Elasticsearch | `bee_search` | `elasticsearch` |
 | | OpenSearch | `bee_search` | `opensearch` |
 | | ClickHouse | `bee_search` | `clickhouse` |
@@ -202,7 +202,7 @@ let security = SecurityFilter::new();  // 27 个检测器全开
 
 ### ORM（bee_orm）
 
-`#[derive(Model)]` 派生宏 + QuerySet 链式查询（filter / order_by / limit），支持 SQLite、PostgreSQL、MySQL、TiDB。
+`#[derive(Model)]` 派生宏（支持 `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`）+ QuerySet 链式查询与执行（`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`，聚合 `sum` / `avg` / `min` / `max`）+ 非破坏性迁移（`migrate::create_table` / `add_missing_columns` / `sync`）+ 关系查询（`belongs_to` / has_many `children*` / 多对多 `m2m`）+ JSON 列（`serde_json::Value`）+ 三后端连接池（含事务与超时控制），支持 SQLite、PostgreSQL、MySQL、TiDB。
 
 ### 配置管理（bee_config）
 
@@ -210,11 +210,11 @@ let security = SecurityFilter::new();  // 27 个检测器全开
 
 ### 存储引擎
 
-KV / Cache（Redis + Memcached）、搜索引擎（Elasticsearch / OpenSearch / ClickHouse）、图数据库（Neo4j / NebulaGraph / ArangoDB）、时序数据库（InfluxDB / IoTDB / QuestDB）统一 trait 抽象，驱动按 feature gate 编译。
+KV / Cache（Redis / Memcached）、搜索引擎（Elasticsearch / OpenSearch / ClickHouse）、图数据库（Neo4j / NebulaGraph / ArangoDB）、时序数据库（InfluxDB / IoTDB / QuestDB）统一 trait 抽象，驱动按 feature gate 编译。
 
 ### Session、日志、模板
 
-- Session：Memory / Redis / Cookie / Database 多后端
+- Session：Memory、Redis（已实现）/ Cookie、Database（规划中）
 - 日志：多级日志 + tracing 集成
 - 模板：基于 tera 渲染
 
@@ -298,36 +298,37 @@ bee_rust = { git = "https://github.com/erikwang2013/bee-rust", features = ["full
 |-------|------|-----------|
 | `bee_rust` | 元 crate，统一入口 | — |
 | `bee_router` | 路由 + 控制器 + Context + 过滤器 | `server/web`, `context` |
-| `bee_orm` | ORM + QuerySet + Migration | `client/orm` |
+| `bee_orm` | ORM + QuerySet | `client/orm` |
 | `bee_kv` | KV/Cache 统一抽象 | `client/cache`（扩展） |
 | `bee_search` | 搜索/分析引擎 | —（新增） |
 | `bee_graph` | 图数据库 | —（新增） |
 | `bee_tsdb` | 时序数据库 | —（新增） |
 | `bee_config` | 配置管理 + 热更新 | `client/config` |
 | `bee_cache` | 缓存抽象 | `client/cache` |
-| `bee_session` | Session 管理 | `server/web/session` |
+| `bee_session` | Session 管理（Memory/Redis 已实现；Cookie/Database 规划中） | `server/web/session` |
 | `bee_logs` | 日志 | `logs` |
 | `bee_template` | 模板渲染 | —（增强） |
 | `bee_cli` | CLI 工具 | `bee` 工具 |
 
 ### 测试覆盖
 
-全仓 68 个测试通过：
+全仓 334 个测试通过：
 
 | Crate | 测试数 |
 |-------|--------|
-| bee_config | 4 |
-| bee_cache | 4 |
+| bee_config | 9 |
+| bee_cache | 15 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 4 |
-| bee_search | 6 |
-| bee_graph | 5 |
-| bee_tsdb | 5 |
-| bee_orm | 7 |
+| bee_kv | 15 |
+| bee_search | 21 |
+| bee_graph | 19 |
+| bee_tsdb | 19 |
+| bee_orm | 141 |
+| bee_orm_macro | 20 |
 | bee_session | 2 |
-| bee_router | 9 |
-| bee_cli | 16 |
+| bee_router | 40 |
+| bee_cli | 28 |
 
 ## 欢迎支持
 

@@ -17,7 +17,7 @@ cargo add bee_rust
 
 ```toml
 [dependencies]
-bee_rust = "1.1.5"
+bee_rust = "1.2.0"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -59,10 +59,11 @@ curl http://localhost:8080/api/v1/health    # OK
 |---------|-----------|-------|
 | `full` *(افتراضي)* | router, orm, kv, config, logs, cache, session, security, template | كل شيء دفعة واحدة |
 | `router` | bee_router, bee_session, bee_template, bee_config, bee_logs | نواة الويب: التوجيه + المتحكّمات + سلسلة المرشّحات |
-| `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet |
+| `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet + CRUD + تجمّع + ترحيلات + علاقات |
+| `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` | bee_orm backend | تمرير خلفية `bee_orm` عبر `bee_rust` (ليست ضمن `full`) |
 | `kv` | bee_kv | تجريد KV |
 | `cache` | bee_cache, bee_config | تجريد التخزين المؤقت |
-| `session` | bee_session, bee_cache | جلسات متعددة الخلفيات |
+| `session` | bee_session, bee_cache | جلسات (Memory/Redis مطبَّق؛ Cookie/Database مخطط لها) |
 | `config` | bee_config | INI / YAML / ENV + إعادة تحميل فورية |
 | `logs` | bee_logs | تسجيل متدرّج + tracing |
 | `template` | bee_template | قوالب tera |
@@ -74,7 +75,7 @@ curl http://localhost:8080/api/v1/health    # OK
 النواة الدنيا (بدون ORM أو مشغّلات قواعد البيانات)：
 
 ```toml
-bee_rust = { version = "1.1.5", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.2.0", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## الحزم الفرعية
@@ -85,11 +86,11 @@ bee_rust = { version = "1.1.5", default-features = false, features = ["router", 
 |-------|--------------|-------------------|
 | `bee_rust` | حزمة وصفية، نقطة الدخول الوحيدة | — |
 | `bee_router` | التوجيه + المتحكّمات + `Context` + المرشّحات | `server/web`, `context` |
-| `bee_orm` | ORM + QuerySet + الترحيلات | `client/orm` |
+| `bee_orm` | ORM + QuerySet + CRUD + تجمّع الاتصالات + ترحيلات غير مُدمِّرة + علاقات belongs_to/has_many | `client/orm` |
 | `bee_config` | الإعدادات + إعادة التحميل الفورية | `client/config` |
 | `bee_logs` | التسجيل | `logs` |
 | `bee_cache` | تجريد التخزين المؤقت | `client/cache` |
-| `bee_session` | إدارة الجلسات | `server/web/session` |
+| `bee_session` | إدارة الجلسات (Memory/Redis مطبَّق؛ Cookie/Database مخطط لها) | `server/web/session` |
 | `bee_template` | عرض القوالب | — (موسّع) |
 | `bee_kv` | تجريد KV/التخزين المؤقت | `client/cache` (موسّع) |
 | `bee_search` | محرّكات البحث / التحليل | — (جديد) |
@@ -100,15 +101,15 @@ bee_rust = { version = "1.1.5", default-features = false, features = ["router", 
 يمكن الاعتماد عليها منفردة أيضًا — مثلًا عميل Elasticsearch فقط：
 
 ```toml
-bee_search = { version = "1.1.5", features = ["elasticsearch"] }
+bee_search = { version = "1.2.0", features = ["elasticsearch"] }
 ```
 
 ## قواعد البيانات المدعومة
 
 | النوع | قواعد البيانات | Crate | Feature |
 |------|-----------|-------|---------|
-| علائقية | SQLite / PostgreSQL / MySQL / TiDB | `bee_orm` | `sqlite` / `postgres` / `mysql` |
-| KV / تخزين مؤقت | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcache` |
+| علائقية | SQLite / PostgreSQL / MySQL / TiDB | `bee_orm` | `sqlite` / `postgres` / `postgres-tls` / `mysql` |
+| KV / تخزين مؤقت | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcached` / `memcache` |
 | بحث / تحليل | Elasticsearch / OpenSearch / ClickHouse | `bee_search` | `elasticsearch` / `opensearch` / `clickhouse` |
 | رسوم بيانية | Neo4j / NebulaGraph / ArangoDB | `bee_graph` | `neo4j` / `nebulagraph` / `arangodb` |
 | سلاسل زمنية | InfluxDB / Apache IoTDB / QuestDB | `bee_tsdb` | `influxdb` / `iotdb` / `questdb` |

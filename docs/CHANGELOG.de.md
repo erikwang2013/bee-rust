@@ -2,6 +2,28 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.0] — 2026-10-06
+
+### Neu hinzugefügt
+- `bee_orm`: Das ORM läuft jetzt durchgängig — typisierte `Value`-Parameter (Null / Bool / Int / Float / Text / Bytes), `#[derive(Model)]` mit `#[bee(table / column / pk / auto / ignore)]`, `insert` / `update` / `delete` am Modell und `QuerySet`-Ausführung (`all` / `one` / `count` / `exists` / `update` / `delete`)
+- `bee_orm`: Verbindungspools für alle drei Backends (`pool::{sqlite, postgres, mysql}::Pool`) — `connect(dsn, max_size)`, `get()` → `CheckedConn`, `query` / `execute`, `status()` und Transaktionen über `begin` / `commit` / `rollback`; eine mitten in der Transaktion verworfene Verbindung wird bei sqlite und postgres zurückgerollt
+- `bee_orm`: neues Feature `postgres-tls` (PostgreSQL über TLS, gebündelte Mozilla-Roots) und gehärtete Pools — 30 s Warte- / 10 s Aufbau-Timeout sowie ein Prepared-Statement-Cache im postgres-Pool
+- `bee_orm`: Modell-Lebenszyklus — Zeitstempel über `#[bee(auto_now_add)]` / `#[bee(auto_now)]`, Soft-Delete über `#[bee(soft_delete)]` (delete setzt die Markierung; `with_deleted()` / `hard_delete()` umgehen sie), Lifecycle-Hooks (before/after für insert/update/delete), `Model::insert_many` (Chunks zu 999 Parametern, nicht transaktional) sowie `QuerySet::filter_in` und Aggregate `sum` / `avg` / `min` / `max`
+- `bee_orm`: nicht-destruktive Migrationen — `migrate::{create_table, add_missing_columns, sync}` erzeugen dialektgerechtes DDL (sqlite `AUTOINCREMENT` / postgres `IDENTITY` / mysql `AUTO_INCREMENT`) und legen Tabellen sowie fehlende Spalten an, ohne je zu löschen oder zu ändern
+- `bee_orm`: Fremdschlüssel-Beziehungen — `#[bee(fk = Target)]` (mit `#[bee(sql_type = "…")]`) erzeugt FK-DDL, `rel::{fk_column_to, belongs_to, children, children_for}` lesen sie; die Durchsetzung hängt vom Backend ab: postgres und sqlite (bundled-Build) erzwingen die Referenz, mysql ignoriert inline `REFERENCES` (Lücke für round 5+)
+- `bee_orm`: Many-to-many-Beziehungen — `#[bee(m2m(Target))]` deklariert die Beziehung, `m2m::{attach, detach, related, related_for, related_ids}` lesen und schreiben sie, und `create_table` / `sync` legen die Join-Tabelle an (`add_missing_columns` rührt sie nie an)
+- `bee_orm`: JSON-Spalten — `serde_json::Value`-Felder werden je Backend auf `TEXT` / `JSONB` / `JSON` abgebildet, mit ehrlicher NULL-Semantik: SQL `NULL` → `None`, ein gespeichertes JSON-`null`-Dokument → `Some(Json::Null)`
+- `bee_orm`: opt-in Tabellen-Fremdschlüssel für MySQL — `MigrateOptions { table_level_fk }` mit `sync_with` / `create_table_with` / `add_missing_columns_with`; standardmäßig aus, und vorhandene verwaiste Zeilen lassen `ADD CONSTRAINT` scheitern statt still übersprungen zu werden
+- `bee_orm`: `Pool::connect_tls_with` für eine eigene `rustls::ClientConfig`, dazu ein `bee_orm::rustls`-Re-Export, damit die Version immer passt; `connect_tls` behält die gebündelten webpki-Roots
+- `bee_rust`: vier Weiterleitungs-Features — `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` reichen ein `bee_orm`-Backend über `bee_rust` durch (keines davon in `full`)
+- `bee_cli`: `bee-rust migrate init` erzeugt `src/bin/bee_migrate.rs` (überschreibt eine vorhandene Datei nicht), `bee-rust migrate run` führt sie per `cargo run --bin bee_migrate` aus
+- `bee_kv` / `bee_cache`: Die Redis-Backends überstehen abgerissene Verbindungen — der zugrunde liegende `ConnectionManager` verbindet bei Bedarf neu (kein Hintergrund-Thread) mit exponentiellem Backoff und Jitter (der Befehl am Bruch schlägt fehl, der nächste wartet auf die frische Verbindung)
+- `bee_kv` / `bee_cache`: memcached-Backends (`MemcacheStore` in bee_kv, `MemcacheCache` in bee_cache); `incr` legt den Zähler vor dem Delta an, vorzeichenlose Zähler bleiben bei 0 stehen, TTL 0 löscht den Schlüssel
+
+### Geändert
+- bee_orm-Migrationen, -Beziehungen (inklusive many-to-many), der `bee-rust migrate`-Unterbefehl, die Redis- / Memcached-Backends und die ORM-Weiterleitungs-Features von `bee_rust` sind in den Docs nicht mehr als geplant markiert
+- die Treiber für Suche / Graph / Zeitreihen sind in den Docs nicht mehr als geplant bzw. Trait-Stub markiert, sondern als implementiert (opt-in-Features); die alten Beispiele wurden korrigiert (nicht existierende Typnamen `ElasticsearchEngine` / `Neo4jDB`, falsches `bolt://`)
+
 ## [1.1.5] — 2026-09-25
 
 ### Neu hinzugefügt

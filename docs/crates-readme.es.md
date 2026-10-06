@@ -17,7 +17,7 @@ O añádelo al `Cargo.toml`：
 
 ```toml
 [dependencies]
-bee_rust = "1.1.5"
+bee_rust = "1.2.0"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -59,10 +59,11 @@ Hay un proyecto completamente ejecutable en [examples/hello](https://github.com/
 |---------|-----------|-------|
 | `full` *(por defecto)* | router, orm, kv, config, logs, cache, session, security, template | todo en uno |
 | `router` | bee_router, bee_session, bee_template, bee_config, bee_logs | Núcleo Web: enrutado + controladores + cadena de filtros |
-| `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet |
+| `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet + CRUD + pooling + migraciones + relaciones |
+| `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` | bee_orm backend | reenvía un backend de `bee_orm` a través de `bee_rust` (no está en `full`) |
 | `kv` | bee_kv | Abstracción KV |
 | `cache` | bee_cache, bee_config | Abstracción de caché |
-| `session` | bee_session, bee_cache | sesiones multi-backend |
+| `session` | bee_session, bee_cache | sesiones (Memory/Redis implementado; Cookie/Database planificados) |
 | `config` | bee_config | INI / YAML / ENV + recarga en caliente |
 | `logs` | bee_logs | logging por niveles + tracing |
 | `template` | bee_template | plantillas tera |
@@ -74,7 +75,7 @@ Hay un proyecto completamente ejecutable en [examples/hello](https://github.com/
 Núcleo mínimo (sin ORM ni drivers de base de datos)：
 
 ```toml
-bee_rust = { version = "1.1.5", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.2.0", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## Sub-crates
@@ -85,11 +86,11 @@ El framework es un conjunto de crates usables de forma independiente; `bee_rust`
 |-------|--------------|-------------------|
 | `bee_rust` | meta-crate, punto de entrada único | — |
 | `bee_router` | enrutado + controladores + `Context` + filtros | `server/web`, `context` |
-| `bee_orm` | ORM + QuerySet + migraciones | `client/orm` |
+| `bee_orm` | ORM + QuerySet + CRUD + pooling + migraciones no destructivas + relaciones belongs_to/has_many | `client/orm` |
 | `bee_config` | configuración + recarga en caliente | `client/config` |
 | `bee_logs` | logging | `logs` |
 | `bee_cache` | abstracción de caché | `client/cache` |
-| `bee_session` | gestión de sesiones | `server/web/session` |
+| `bee_session` | gestión de sesiones (Memory/Redis implementado; Cookie/Database planificado) | `server/web/session` |
 | `bee_template` | renderizado de plantillas | — (ampliado) |
 | `bee_kv` | abstracción KV/caché | `client/cache` (ampliado) |
 | `bee_search` | motores de búsqueda / analítica | — (nuevo) |
@@ -100,15 +101,15 @@ El framework es un conjunto de crates usables de forma independiente; `bee_rust`
 También pueden usarse por separado; por ejemplo, solo un cliente de Elasticsearch：
 
 ```toml
-bee_search = { version = "1.1.5", features = ["elasticsearch"] }
+bee_search = { version = "1.2.0", features = ["elasticsearch"] }
 ```
 
 ## Bases de datos compatibles
 
 | Tipo | Bases de datos | Crate | Feature |
 |------|-----------|-------|---------|
-| Relacionales | SQLite / PostgreSQL / MySQL / TiDB | `bee_orm` | `sqlite` / `postgres` / `mysql` |
-| KV / caché | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcache` |
+| Relacionales | SQLite / PostgreSQL / MySQL / TiDB | `bee_orm` | `sqlite` / `postgres` / `postgres-tls` / `mysql` |
+| KV / caché | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcached` / `memcache` |
 | Búsqueda / analítica | Elasticsearch / OpenSearch / ClickHouse | `bee_search` | `elasticsearch` / `opensearch` / `clickhouse` |
 | Grafos | Neo4j / NebulaGraph / ArangoDB | `bee_graph` | `neo4j` / `nebulagraph` / `arangodb` |
 | Series temporales | InfluxDB / Apache IoTDB / QuestDB | `bee_tsdb` | `influxdb` / `iotdb` / `questdb` |

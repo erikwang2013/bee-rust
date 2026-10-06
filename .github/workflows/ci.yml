@@ -31,6 +31,9 @@ jobs:
       - name: Build
         run: cargo build --workspace
 
+      - name: Build (postgres-tls)
+        run: cargo build -p bee_orm --features postgres-tls
+
       - name: Test
         run: cargo test --workspace
 
@@ -39,6 +42,91 @@ jobs:
         # ArangoDB/NebulaGraph) are feature-gated with `default = []`; this
         # unlocks their ~37 otherwise-skipped tests.
         run: cargo test --workspace --all-features
+
+  integration:
+    name: Integration (postgres + mysql + redis + memcached)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - "5432:5432"
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: bee_test
+        ports:
+          - "3306:3306"
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+          --health-start-period 30s
+      redis:
+        image: redis:7-alpine
+        ports:
+          - "6379:6379"
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+      memcached:
+        image: memcached:1-alpine
+        ports:
+          - "11211:11211"
+        options: >-
+          --health-cmd "printf 'stats\r\n' | nc 127.0.0.1 11211"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+    env:
+      BEE_ORM_PG_DSN: postgres://postgres:postgres@127.0.0.1:5432/postgres
+      BEE_ORM_MYSQL_DSN: mysql://root:root@127.0.0.1:3306/bee_test
+      BEE_KV_REDIS_DSN: redis://127.0.0.1:6379
+      BEE_KV_MEMCACHE_ADDR: 127.0.0.1:11211
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          components: rustfmt, clippy
+
+      - name: Integration tests (DSN-gated)
+        run: cargo test -p bee_orm --all-features
+
+      - name: KV / cache integration tests (DSN-gated)
+        run: cargo test -p bee_kv -p bee_cache --all-features
+
+      # Must come after the step above: integration_pg.rs asserts that
+      # `sslmode=require` against a TLS-less server errors (negative A), and
+      # `ssl*` are SIGHUP-context settings, so pg_reload_conf() is enough.
+      - name: Enable TLS on postgres
+        run: |
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+            -keyout /tmp/pg.key -out /tmp/pg.crt \
+            -subj "/CN=127.0.0.1" -addext "subjectAltName=IP:127.0.0.1"
+          cid=$(docker ps -q -f ancestor=postgres:16-alpine)
+          docker exec "$cid" mkdir -p /var/lib/postgresql/tls
+          docker cp /tmp/pg.crt "$cid:/var/lib/postgresql/tls/server.crt"
+          docker cp /tmp/pg.key "$cid:/var/lib/postgresql/tls/server.key"
+          docker exec "$cid" chown -R postgres:postgres /var/lib/postgresql/tls
+          docker exec "$cid" chmod 600 /var/lib/postgresql/tls/server.key
+          # ALTER SYSTEM needs string literals for the paths — unquoted
+          # `name=/path` is a syntax error (measured on postgres:16-alpine).
+          for s in "ssl=on" \
+                   "ssl_cert_file='/var/lib/postgresql/tls/server.crt'" \
+                   "ssl_key_file='/var/lib/postgresql/tls/server.key'"; do
+            docker exec "$cid" psql -U postgres -c "ALTER SYSTEM SET $s"
+          done
+          docker exec "$cid" psql -U postgres -c "SELECT pg_reload_conf()"
+
+      - name: TLS integration tests (§41 A2, DSN-gated)
+        env:
+          BEE_ORM_PG_TLS_DSN: "postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=require"
+        run: cargo test -p bee_orm --all-features --test integration_pg_tls
 
   audit:
     name: Audit dependencies

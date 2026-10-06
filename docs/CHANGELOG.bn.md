@@ -2,6 +2,28 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.0] — 2026-10-06
+
+### যা যোগ হয়েছে
+- `bee_orm`: ORM এখন শুরু থেকে শেষ পর্যন্ত চলে — টাইপযুক্ত `Value` প্যারামিটার (Null / Bool / Int / Float / Text / Bytes), `#[bee(table / column / pk / auto / ignore)]`-সহ `#[derive(Model)]`, মডেলে `insert` / `update` / `delete`, এবং `QuerySet` এক্সিকিউশন (`all` / `one` / `count` / `exists` / `update` / `delete`)
+- `bee_orm`: তিন বেকএন্ডের জন্যই কানেকশন পুল (`pool::{sqlite, postgres, mysql}::Pool`) — `connect(dsn, max_size)`, `get()` → `CheckedConn`, `query` / `execute`, `status()`, এবং `begin` / `commit` / `rollback` দিয়ে ট্রানজ্যাকশন; ট্রানজ্যাকশনের মাঝপথে ফেলে দেওয়া কানেকশন sqlite ও postgres-এ রোলব্যাক হয়
+- `bee_orm`: নতুন `postgres-tls` ফিচার (TLS-এ PostgreSQL, অন্তর্ভুক্ত Mozilla রুট) ও পুল সুদৃঢ়করণ — ৩০ সেকেন্ড অপেক্ষা / ১০ সেকেন্ড তৈরি টাইমআউট এবং postgres পুলে প্রিপেয়ার্ড-স্টেটমেন্ট ক্যাশে
+- `bee_orm`: মডেল লাইফসাইকল — `#[bee(auto_now_add)]` / `#[bee(auto_now)]` স্বয়ংক্রিয় টাইমস্ট্যাম্প, `#[bee(soft_delete)]` সফট ডিলিট (delete ফ্ল্যাগ উল্টে দেয়; `with_deleted()` / `hard_delete()` তা এড়ায়), insert/update/delete হুক, `Model::insert_many` (৯৯৯ প্যারামিটারের ভাগে, ট্রানজ্যাকশনহীন), এবং `QuerySet::filter_in` ও `sum` / `avg` / `min` / `max` অ্যাগ্রিগেট
+- `bee_orm`: অবিনাশী মাইগ্রেশন — `migrate::{create_table, add_missing_columns, sync}` ডায়ালেক্ট অনুযায়ী DDL তৈরি করে (sqlite `AUTOINCREMENT` / postgres `IDENTITY` / mysql `AUTO_INCREMENT`): টেবিল তৈরি ও অনুপস্থিত কলাম যোগ করে, কখনো মুছে বা বদলায় না
+- `bee_orm`: বিদেশি-কী রিলেশন — `#[bee(fk = Target)]` (`#[bee(sql_type = "…")]`-সহ) FK DDL তৈরি করে, আর `rel::{fk_column_to, belongs_to, children, children_for}` তা পড়ে; প্রয়োগ নির্ভর করে বেকএন্ডের উপর: postgres ও sqlite (bundled বিল্ড) প্রয়োগ করে, mysql inline `REFERENCES` উপেক্ষা করে (round 5+ এর ফাঁক)
+- `bee_orm`: অনেক-থেকে-অনেক রিলেশন — `#[bee(m2m(Target))]` রিলেশন ঘোষণা করে, `m2m::{attach, detach, related, related_for, related_ids}` পড়ে-লেখে, আর জয়েন টেবিল তৈরি করে `create_table` / `sync` (`add_missing_columns` তা স্পর্শ করে না)
+- `bee_orm`: JSON কলাম — `serde_json::Value` ফিল্ড ব্যাকএন্ড অনুযায়ী `TEXT` / `JSONB` / `JSON`-এ ম্যাপ হয়, সৎ NULL অর্থবোধসহ: SQL `NULL` → `None`, সংরক্ষিত JSON `null` ডকুমেন্ট → `Some(Json::Null)`
+- `bee_orm`: MySQL টেবিল-স্তরের বিদেশি-কী (opt-in) — `MigrateOptions { table_level_fk }`-সহ `sync_with` / `create_table_with` / `add_missing_columns_with`; ডিফল্টে বন্ধ, আর আগে থেকে থাকা অনাথ সারি নীরবে এড়িয়ে না গিয়ে `ADD CONSTRAINT` ব্যর্থ করে
+- `bee_orm`: কাস্টম `rustls::ClientConfig`-এর জন্য `Pool::connect_tls_with`, সঙ্গে `bee_orm::rustls` পুনঃরপ্তানি যাতে সংস্করণ সবসময় মেলে; `connect_tls` বান্ডল করা webpki রুট রাখে
+- `bee_rust`: চারটি ফরওয়ার্ডিং feature — `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` `bee_rust`-এর মাধ্যমে `bee_orm` ব্যাকএন্ড ফরওয়ার্ড করে (কোনোটিই `full`-এ নেই)
+- `bee_cli`: `bee-rust migrate init` `src/bin/bee_migrate.rs` তৈরি করে (বিদ্যমান ফাইল ওভাররাইট করে না), `bee-rust migrate run` তা `cargo run --bin bee_migrate` দিয়ে চালায়
+- `bee_kv` / `bee_cache`: Redis ব্যাকএন্ড কাটা সংযোগ থেকে সেরে ওঠে — অন্তর্নিহিত `ConnectionManager` চাহিদা অনুযায়ী (পটভূমি থ্রেড ছাড়া) সূচকীয় ব্যাকঅফ ও জিটারে পুনঃসংযুক্ত হয় (কাটায় ধাক্কা খাওয়া কমান্ড ব্যর্থ, পরেরটি নতুন সংযোগের অপেক্ষা করে)
+- `bee_kv` / `bee_cache`: memcached ব্যাকএন্ড (bee_kv-তে `MemcacheStore`, bee_cache-এ `MemcacheCache`); `incr` ডেল্টার আগে কাউন্টার বানায়, unsigned কাউন্টার 0-তে থামে, আর TTL 0 কী মুছে দেয়
+
+### যা পরিবর্তন করা হয়েছে
+- ডকুমেন্টে bee_orm-এর মাইগ্রেশন, রিলেশন (many-to-many সহ), `bee-rust migrate` সাবকমান্ড, Redis / Memcached ব্যাকএন্ড ও `bee_rust`-এর ORM ফরওয়ার্ডিং feature আর পরিকল্পিত নয়
+- ডকুমেন্টে search / graph / tsdb ড্রাইভার আর পরিকল্পিত বা trait-stub হিসেবে নয়, বাস্তবায়িত (opt-in feature) হিসেবে উল্লেখ করা হয়েছে, এবং পুরোনো উদাহরণের টাইপ নাম ও সংযোগ পদ্ধতি সংশোধন করা হয়েছে (অনুপস্থিত `ElasticsearchEngine` / `Neo4jDB`, ভুল `bolt://`)
+
 ## [1.1.5] — 2026-09-25
 
 ### যা যোগ হয়েছে

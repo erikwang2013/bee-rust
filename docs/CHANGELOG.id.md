@@ -2,6 +2,28 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.0] — 2026-10-06
+
+### Ditambahkan
+- `bee_orm`: ORM kini berjalan menyeluruh — parameter `Value` bertipe (Null / Bool / Int / Float / Text / Bytes), `#[derive(Model)]` dengan `#[bee(table / column / pk / auto / ignore)]`, `insert` / `update` / `delete` pada model, dan eksekusi `QuerySet` (`all` / `one` / `count` / `exists` / `update` / `delete`)
+- `bee_orm`: connection pool untuk ketiga backend (`pool::{sqlite, postgres, mysql}::Pool`) — `connect(dsn, max_size)`, `get()` → `CheckedConn`, `query` / `execute`, `status()`, serta transaksi lewat `begin` / `commit` / `rollback`; koneksi yang dilepas di tengah transaksi di-rollback pada sqlite dan postgres
+- `bee_orm`: fitur baru `postgres-tls` (PostgreSQL lewat TLS, root Mozilla bawaan) dan penguatan pool — timeout 30 detik menunggu / 10 detik membuat koneksi serta cache prepared statement di pool postgres
+- `bee_orm`: siklus hidup model — stempel waktu `#[bee(auto_now_add)]` / `#[bee(auto_now)]`, soft delete `#[bee(soft_delete)]` (delete membalik flag; `with_deleted()` / `hard_delete()` melewatinya), hook insert/update/delete, `Model::insert_many` (potongan 999 parameter, non-transaksional), serta `QuerySet::filter_in` dan agregat `sum` / `avg` / `min` / `max`
+- `bee_orm`: migrasi non-destruktif — `migrate::{create_table, add_missing_columns, sync}` menghasilkan DDL sesuai dialek (sqlite `AUTOINCREMENT` / postgres `IDENTITY` / mysql `AUTO_INCREMENT`): membuat tabel dan menambah kolom yang belum ada, tidak pernah menghapus atau mengubah
+- `bee_orm`: relasi kunci asing — `#[bee(fk = Target)]` (dengan `#[bee(sql_type = "…")]`) menghasilkan DDL FK dan `rel::{fk_column_to, belongs_to, children, children_for}` membacanya; penegakan bergantung backend: postgres dan sqlite (build bundled) menegakkannya, mysql mengabaikan `REFERENCES` inline (celah untuk round 5+)
+- `bee_orm`: relasi banyak-ke-banyak — `#[bee(m2m(Target))]` mendeklarasikan relasi, `m2m::{attach, detach, related, related_for, related_ids}` membacanya, dan `create_table` / `sync` membuat tabel join (`add_missing_columns` tidak menyentuhnya)
+- `bee_orm`: kolom JSON — field `serde_json::Value` dipetakan ke `TEXT` / `JSONB` / `JSON` sesuai backend, dengan semantik NULL yang jujur: SQL `NULL` → `None`, dokumen JSON `null` tersimpan → `Some(Json::Null)`
+- `bee_orm`: kunci asing tingkat tabel MySQL (opt-in) — `MigrateOptions { table_level_fk }` dengan `sync_with` / `create_table_with` / `add_missing_columns_with`; mati secara default, dan baris yatim yang sudah ada membuat `ADD CONSTRAINT` gagal alih-alih dilewati senyap
+- `bee_orm`: `Pool::connect_tls_with` untuk `rustls::ClientConfig` kustom, plus reekspor `bee_orm::rustls` agar versinya selalu cocok; `connect_tls` tetap memakai root webpki bawaan
+- `bee_rust`: empat feature penerusan — `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` meneruskan backend `bee_orm` melalui `bee_rust` (tak satu pun di `full`)
+- `bee_cli`: `bee-rust migrate init` membuat `src/bin/bee_migrate.rs` (menolak menimpa file yang ada), dan `bee-rust migrate run` menjalankannya lewat `cargo run --bin bee_migrate`
+- `bee_kv` / `bee_cache`: backend Redis bertahan dari koneksi terputus — `ConnectionManager` di dalamnya menyambung ulang sesuai permintaan (tanpa utas latar belakang) dengan backoff eksponensial dan jitter (perintah yang kena putus error, berikutnya menunggu koneksi baru)
+- `bee_kv` / `bee_cache`: backend memcached (`MemcacheStore` di bee_kv, `MemcacheCache` di bee_cache); `incr` membuat counter sebelum delta, counter tak bertanda berhenti di 0, dan TTL 0 menghapus kunci
+
+### Diubah
+- Migrasi dan relasi bee_orm (termasuk many-to-many), subperintah `bee-rust migrate`, backend Redis / Memcached, dan feature penerusan ORM `bee_rust` tidak lagi ditandai direncanakan di dokumentasi
+- driver search / graph / tsdb tidak lagi ditandai di dokumentasi sebagai direncanakan atau trait-stub, melainkan terimplementasi (feature opt-in), dan contoh lama diperbaiki (nama tipe yang tidak ada `ElasticsearchEngine` / `Neo4jDB`, skema `bolt://` yang salah)
+
 ## [1.1.5] — 2026-09-25
 
 ### Ditambahkan

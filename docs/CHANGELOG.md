@@ -2,6 +2,28 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.0] — 2026-10-06
+
+### Added
+- `bee_orm`: the ORM now runs end to end — typed `Value` bind parameters (Null / Bool / Int / Float / Text / Bytes), `#[derive(Model)]` with `#[bee(table / column / pk / auto / ignore)]`, model `insert` / `update` / `delete`, and `QuerySet` execution (`all` / `one` / `count` / `exists` / `update` / `delete`)
+- `bee_orm`: connection pools for all three backends (`pool::{sqlite, postgres, mysql}::Pool`) — `connect(dsn, max_size)`, `get()` → `CheckedConn`, `query` / `execute`, `status()`, and transactions via `begin` / `commit` / `rollback`; a connection dropped mid-transaction is rolled back on sqlite and postgres
+- `bee_orm`: new `postgres-tls` feature (PostgreSQL over TLS with bundled Mozilla roots) and pool hardening — 30 s wait / 10 s create timeouts plus a prepared-statement cache on the postgres pool
+- `bee_orm`: model lifecycle — `#[bee(auto_now_add)]` / `#[bee(auto_now)]` timestamps, `#[bee(soft_delete)]` (delete flips the flag; `with_deleted()` / `hard_delete()` escape it), lifecycle hooks (before/after insert/update/delete), `Model::insert_many` (999-parameter chunks, not transactional) and `QuerySet::filter_in` plus `sum` / `avg` / `min` / `max` aggregates
+- `bee_orm`: non-destructive migrations — `migrate::{create_table, add_missing_columns, sync}` render dialect-aware DDL (sqlite `AUTOINCREMENT` / postgres `IDENTITY` / mysql `AUTO_INCREMENT`), adding tables and missing columns but never dropping or altering
+- `bee_orm`: foreign-key relations — `#[bee(fk = Target)]` (with `#[bee(sql_type = "…")]`) emits FK DDL, and `rel::{fk_column_to, belongs_to, children, children_for}` read them; enforcement follows the backend: postgres and sqlite (bundled build) enforce the reference, mysql ignores inline `REFERENCES` (a gap for round 5+)
+- `bee_orm`: many-to-many relations — `#[bee(m2m(Target))]` declares the relation, `m2m::{attach, detach, related, related_for, related_ids}` read and write it, and `create_table` / `sync` create the join table (`add_missing_columns` never touches it)
+- `bee_orm`: JSON columns — `serde_json::Value` fields map to `TEXT` / `JSONB` / `JSON` per backend, with honest NULL semantics: SQL `NULL` decodes to `None`, a stored JSON `null` document to `Some(Json::Null)`
+- `bee_orm`: opt-in MySQL table-level foreign keys — `MigrateOptions { table_level_fk }` with `sync_with` / `create_table_with` / `add_missing_columns_with`; off by default, and pre-existing orphan rows make `ADD CONSTRAINT` fail instead of being skipped silently
+- `bee_orm`: `Pool::connect_tls_with` for a custom `rustls::ClientConfig`, plus a `bee_orm::rustls` re-export so the config version always matches; `connect_tls` keeps the bundled webpki roots
+- `bee_rust`: four forwarding features — `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` forward a `bee_orm` backend through `bee_rust` (none of them are in `full`)
+- `bee_cli`: `bee-rust migrate init` scaffolds `src/bin/bee_migrate.rs` (refuses to overwrite an existing file) and `bee-rust migrate run` executes it via `cargo run --bin bee_migrate`
+- `bee_kv` / `bee_cache`: the Redis backends survive dropped connections — the underlying `ConnectionManager` reconnects on demand (no background thread) with exponential backoff and jitter (the command that hits the break errors; the next one waits for the fresh connection)
+- `bee_kv` / `bee_cache`: memcached backends (`MemcacheStore` in bee_kv, `MemcacheCache` in bee_cache); `incr` creates the counter before applying the delta, unsigned counters floor at 0, and TTL 0 deletes the key
+
+### Changed
+- bee_orm migrations, relations (including many-to-many), the `bee-rust migrate` CLI subcommand, the Redis / Memcached backends, and the `bee_rust` ORM forwarding features are no longer marked as planned in the docs
+- the search / graph / tsdb drivers are no longer marked in the docs as planned or as a trait stub, but as implemented (opt-in features); the old examples were corrected (nonexistent `ElasticsearchEngine` / `Neo4jDB` type names, wrong `bolt://` scheme)
+
 ## [1.1.5] — 2026-09-25
 
 ### Added

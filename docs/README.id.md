@@ -82,17 +82,17 @@ Beerust adalah framework web tingkat produksi berbahasa Rust, dengan filosofi de
 ```
 bee_rust/           # Meta crate, re-export + feature flags
 bee_router/         # Routing + Controller + Context + rantai filter
-bee_orm/            # ORM — trait Model + QuerySet + Migration + pemetaan relasi
-bee_kv/             # Abstraksi terpadu KV/Cache — Redis + Memcached
+bee_orm/            # ORM — trait Model + QuerySet
+bee_kv/             # Abstraksi terpadu KV/Cache — Redis / Memcached
 bee_search/         # Mesin pencarian/analitik — Elasticsearch + OpenSearch + ClickHouse
 bee_graph/          # Basis data graf — Neo4j + NebulaGraph + ArangoDB
 bee_tsdb/           # Basis data deret waktu — InfluxDB + Apache IoTDB + QuestDB
 bee_config/         # Manajemen konfigurasi — INI/YAML/ENV + hot-reload
-bee_cache/          # Abstraksi cache — Memory/Redis/Memcache
-bee_session/        # Session — backend Memory/Redis/Cookie/Database
+bee_cache/          # Abstraksi cache — Memory / Redis / Memcache
+bee_session/        # Session — backend Memory, Redis (diimplementasikan) / Cookie, Database (direncanakan)
 bee_logs/           # Logging — log bertingkat + integrasi tracing
 bee_template/       # Rendering template — berbasis tera
-bee_cli/            # CLI — scaffolding/generasi kode/run dev/pack (dalam rencana migrasi)
+bee_cli/            # CLI — scaffolding/generasi kode/run dev/pack (migrate init/run tersedia)
 ```
 
 ### Diagram Arsitektur
@@ -112,7 +112,7 @@ bee_cli/            # CLI — scaffolding/generasi kode/run dev/pack (dalam renc
   ┌───────────┼───────────┐  ┌───────┼───────┐  ┌───────────┼───────────┐
   │ bee_router            │  │ bee_orm        │  │ bee_cli               │
   │  - route register     │  │  - Model/Query  │  │  - scaffolding        │
-  │  - controller trait   │  │  - Migration   │  │  - hot reload          │
+  │  - controller trait   │  │  - QuerySet    │  │  - hot reload          │
   │  - filter chain       │  │  - Connection   │  │  - code generation    │
   │  - param extract      │  │                 │  │                       │
   ├────────────────────────┤  ├────────────────┤  ├───────────────────────┤
@@ -122,13 +122,13 @@ bee_cli/            # CLI — scaffolding/generasi kode/run dev/pack (dalam renc
   ├────────────────────────┤  ├────────────────┤  └───────────────────────┘
   │ bee_session            │  │ bee_cache      │
   │  - session management  │  │  - cache trait  │
-  │  - multi-backend       │  │  - Mem/Redis    │
+  │  - Memory/Redis        │  │  - Mem/Redis    │
   └────────────────────────┘  └────────────────┘
 
   ┌─────────────────────────────────────────────────────────┐
   │                   Storage Engine Layer                   │
   ├──────────────────┬──────────────────────────────────────┤
-  │ bee_kv           │  Redis + Memcached                   │
+  │ bee_kv           │  Redis / Memcached                   │
   │ bee_search       │  Elasticsearch + OpenSearch + ClickHouse │
   │ bee_graph        │  Neo4j + NebulaGraph + ArangoDB      │
   │ bee_tsdb         │  InfluxDB + Apache IoTDB + QuestDB   │
@@ -157,12 +157,12 @@ bee_rust   → semua crate di atas (re-export)
 
 | Kategori | Basis Data | Crate Terkait | Feature Flag |
 |------|--------|-----------|-------------|
-| **Relasional** | SQLite | `bee_orm` | `sqlite` |
-| | PostgreSQL | `bee_orm` | `postgres` |
-| | MySQL | `bee_orm` | `mysql` |
+| **Relasional** | SQLite | `bee_orm` | `sqlite` (bee_rust: `orm-sqlite`) |
+| | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls` (bee_rust: `orm-postgres` / `orm-postgres-tls`) |
+| | MySQL | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **KV / Cache** | Redis | `bee_kv` / `bee_cache` | `redis` |
-| | Memcached | `bee_kv` / `bee_cache` | `memcache` |
+| | Memcached | `bee_kv` / `bee_cache` | `memcached` / `memcache` |
 | **Pencarian / Analitik** | Elasticsearch | `bee_search` | `elasticsearch` |
 | | OpenSearch | `bee_search` | `opensearch` |
 | | ClickHouse | `bee_search` | `clickhouse` |
@@ -202,7 +202,7 @@ let security = SecurityFilter::new();  // 27 detektor semuanya aktif
 
 ### ORM (bee_orm)
 
-Macro turunan `#[derive(Model)]` + query berantai QuerySet (filter / order_by / limit), mendukung SQLite, PostgreSQL, MySQL, TiDB.
+Macro turunan `#[derive(Model)]` (dengan `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + query berantai dan eksekusi QuerySet (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, agregat `sum` / `avg` / `min` / `max`) + migrasi non-destruktif (`migrate::create_table` / `add_missing_columns` / `sync`) + pembacaan relasi (`belongs_to` / has_many `children*` / many-to-many `m2m`) + kolom JSON (`serde_json::Value`) + connection pool untuk ketiga backend (dengan transaksi dan timeout), mendukung SQLite, PostgreSQL, MySQL, TiDB.
 
 ### Manajemen Konfigurasi (bee_config)
 
@@ -210,11 +210,11 @@ Macro turunan `#[derive(Config)]`, mendukung pemuatan INI / YAML / ENV dan hot-r
 
 ### Mesin Penyimpanan
 
-Abstraksi trait terpadu untuk KV / Cache (Redis + Memcached), mesin pencarian (Elasticsearch / OpenSearch / ClickHouse), basis data graf (Neo4j / NebulaGraph / ArangoDB), basis data deret waktu (InfluxDB / IoTDB / QuestDB); driver dikompilasi sesuai feature gate.
+Abstraksi trait terpadu untuk KV / Cache (Redis / Memcached), mesin pencarian (Elasticsearch / OpenSearch / ClickHouse), basis data graf (Neo4j / NebulaGraph / ArangoDB), basis data deret waktu (InfluxDB / IoTDB / QuestDB); driver dikompilasi sesuai feature gate.
 
 ### Session, Logging, Template
 
-- Session: multi-backend Memory / Redis / Cookie / Database
+- Session: Memory, Redis (diimplementasikan) / Cookie, Database (direncanakan)
 - Logging: log bertingkat + integrasi tracing
 - Template: rendering berbasis tera
 
@@ -298,36 +298,37 @@ bee_rust = { git = "https://github.com/erikwang2013/bee-rust", features = ["full
 |-------|------|-----------|
 | `bee_rust` | meta crate, pintu masuk terpadu | — |
 | `bee_router` | Routing + Controller + Context + Filter | `server/web`, `context` |
-| `bee_orm` | ORM + QuerySet + Migration | `client/orm` |
+| `bee_orm` | ORM + QuerySet | `client/orm` |
 | `bee_kv` | Abstraksi terpadu KV/Cache | `client/cache` (perluasan) |
 | `bee_search` | Mesin pencarian/analitik | — (baru) |
 | `bee_graph` | Basis data graf | — (baru) |
 | `bee_tsdb` | Basis data deret waktu | — (baru) |
 | `bee_config` | Manajemen konfigurasi + hot-reload | `client/config` |
 | `bee_cache` | Abstraksi cache | `client/cache` |
-| `bee_session` | Manajemen Session | `server/web/session` |
+| `bee_session` | Manajemen Session (Memory/Redis diimplementasikan; Cookie/Database direncanakan) | `server/web/session` |
 | `bee_logs` | Logging | `logs` |
 | `bee_template` | Rendering template | — (ditingkatkan) |
 | `bee_cli` | Alat CLI | alat `bee` |
 
 ### Cakupan Pengujian
 
-Seluruh 68 pengujian di repositori lolos:
+Seluruh 334 pengujian di repositori lolos:
 
 | Crate | Jumlah Pengujian |
 |-------|--------|
-| bee_config | 4 |
-| bee_cache | 4 |
+| bee_config | 9 |
+| bee_cache | 15 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 4 |
-| bee_search | 6 |
-| bee_graph | 5 |
-| bee_tsdb | 5 |
-| bee_orm | 7 |
+| bee_kv | 15 |
+| bee_search | 21 |
+| bee_graph | 19 |
+| bee_tsdb | 19 |
+| bee_orm | 141 |
+| bee_orm_macro | 20 |
 | bee_session | 2 |
-| bee_router | 9 |
-| bee_cli | 16 |
+| bee_router | 40 |
+| bee_cli | 28 |
 
 ## Dukungan
 

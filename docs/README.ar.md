@@ -82,17 +82,17 @@ Beerust هو إطار ويب إنتاجي مكتوب بلغة Rust، فلسفة 
 ```
 bee_rust/           # meta crate، re-export + feature flags
 bee_router/         # التوجيه + المتحكم + Context + سلسلة الفلاتر
-bee_orm/            # ORM — Model trait + QuerySet + Migration + تعيين العلاقات
-bee_kv/             # تجريد موحد KV/Cache — Redis + Memcached
+bee_orm/            # ORM — Model trait + QuerySet
+bee_kv/             # تجريد موحد KV/Cache — Redis، Memcached
 bee_search/         # محرك بحث/تحليل — Elasticsearch + OpenSearch + ClickHouse
 bee_graph/          # قاعدة بيانات رسومية — Neo4j + NebulaGraph + ArangoDB
 bee_tsdb/           # قاعدة بيانات سلاسل زمنية — InfluxDB + Apache IoTDB + QuestDB
 bee_config/         # إدارة التكوين — INI/YAML/ENV + تحديث ساخن
-bee_cache/          # تجريد التخزين المؤقت — Memory/Redis/Memcache
-bee_session/        # الجلسات — خلفيات Memory/Redis/Cookie/Database
+bee_cache/          # تجريد التخزين المؤقت — Memory، Redis، Memcache
+bee_session/        # الجلسات — خلفيات Memory، Redis (مطبَّق) / Cookie، Database (مخطط لها)
 bee_logs/           # السجلات — سجلات متعددة المستويات + تكامل tracing
 bee_template/       # تقديم القوالب — مبني على tera
-bee_cli/            # CLI — سقالات/توليد كود/تشغيل تطويري/تغليف (مخطط للترحيل)
+bee_cli/            # CLI — سقالات/توليد كود/تشغيل تطويري/تغليف (migrate init/run مضمّن)
 ```
 
 ### مخطط معماري
@@ -112,7 +112,7 @@ bee_cli/            # CLI — سقالات/توليد كود/تشغيل تطوي
   ┌───────────┼───────────┐  ┌───────┼───────┐  ┌───────────┼───────────┐
   │ bee_router            │  │ bee_orm        │  │ bee_cli               │
   │  - route register     │  │  - Model/Query  │  │  - scaffolding        │
-  │  - controller trait   │  │  - Migration   │  │  - hot reload          │
+  │  - controller trait   │  │  - QuerySet    │  │  - hot reload          │
   │  - filter chain       │  │  - Connection   │  │  - code generation    │
   │  - param extract      │  │                 │  │                       │
   ├────────────────────────┤  ├────────────────┤  ├───────────────────────┤
@@ -122,13 +122,13 @@ bee_cli/            # CLI — سقالات/توليد كود/تشغيل تطوي
   ├────────────────────────┤  ├────────────────┤  └───────────────────────┘
   │ bee_session            │  │ bee_cache      │
   │  - session management  │  │  - cache trait  │
-  │  - multi-backend       │  │  - Mem/Redis    │
+  │  - Memory/Redis        │  │  - Mem/Redis    │
   └────────────────────────┘  └────────────────┘
 
   ┌─────────────────────────────────────────────────────────┐
   │                   Storage Engine Layer                   │
   ├──────────────────┬──────────────────────────────────────┤
-  │ bee_kv           │  Redis + Memcached                   │
+  │ bee_kv           │  Redis / Memcached                   │
   │ bee_search       │  Elasticsearch + OpenSearch + ClickHouse │
   │ bee_graph        │  Neo4j + NebulaGraph + ArangoDB      │
   │ bee_tsdb         │  InfluxDB + Apache IoTDB + QuestDB   │
@@ -157,12 +157,12 @@ bee_rust   → جميع الـ crates أعلاه (re-export)
 
 | الفئة | قاعدة البيانات | الـ Crate المقابل | Feature Flag |
 |------|--------|-----------|-------------|
-| **علائقية** | SQLite | `bee_orm` | `sqlite` |
-| | PostgreSQL | `bee_orm` | `postgres` |
-| | MySQL | `bee_orm` | `mysql` |
+| **علائقية** | SQLite | `bee_orm` | `sqlite` (bee_rust: `orm-sqlite`) |
+| | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls` (bee_rust: `orm-postgres` / `orm-postgres-tls`) |
+| | MySQL | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **KV / تخزين مؤقت** | Redis | `bee_kv` / `bee_cache` | `redis` |
-| | Memcached | `bee_kv` / `bee_cache` | `memcache` |
+| | Memcached | `bee_kv` / `bee_cache` | `memcached` / `memcache` |
 | **بحث / تحليل** | Elasticsearch | `bee_search` | `elasticsearch` |
 | | OpenSearch | `bee_search` | `opensearch` |
 | | ClickHouse | `bee_search` | `clickhouse` |
@@ -202,7 +202,7 @@ let security = SecurityFilter::new();  // تفعيل أدوات الكشف ال�
 
 ### ORM (bee_orm)
 
-ماكرو الاشتقاق `#[derive(Model)]` + استعلامات متسلسلة QuerySet (filter / order_by / limit)، يدعم SQLite و PostgreSQL و MySQL و TiDB.
+ماكرو الاشتقاق `#[derive(Model)]` (بدعم `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + استعلامات QuerySet المتسلسلة وتنفيذها (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`، وتجميعات `sum` / `avg` / `min` / `max`) + ترحيلات غير مُدمِّرة (`migrate::create_table` / `add_missing_columns` / `sync`) + قراءة العلاقات (`belongs_to` / has_many `children*` / many-to-many `m2m`) + أعمدة JSON (`serde_json::Value`) + تجمّع اتصالات للخلفيات الثلاث (مع المعاملات والمهلات)، يدعم SQLite و PostgreSQL و MySQL و TiDB.
 
 ### إدارة التكوين (bee_config)
 
@@ -210,11 +210,11 @@ let security = SecurityFilter::new();  // تفعيل أدوات الكشف ال�
 
 ### محركات التخزين
 
-تجريد موحد عبر traits لـ KV / Cache (Redis + Memcached)، ومحركات البحث (Elasticsearch / OpenSearch / ClickHouse)، وقواعد البيانات الرسومية (Neo4j / NebulaGraph / ArangoDB)، وقواعد بيانات السلاسل الزمنية (InfluxDB / IoTDB / QuestDB)، تُترجم برامج التشغيل حسب feature gates.
+تجريد موحد عبر traits لـ KV / Cache (Redis / Memcached)، ومحركات البحث (Elasticsearch / OpenSearch / ClickHouse)، وقواعد البيانات الرسومية (Neo4j / NebulaGraph / ArangoDB)، وقواعد بيانات السلاسل الزمنية (InfluxDB / IoTDB / QuestDB)، تُترجم برامج التشغيل حسب feature gates.
 
 ### الجلسات والسجلات والقوالب
 
-- الجلسات: خلفيات متعددة Memory / Redis / Cookie / Database
+- الجلسات: Memory، Redis (مطبَّق) / Cookie، Database (مخطط لها)
 - السجلات: سجلات متعددة المستويات + تكامل tracing
 - القوالب: تقديم مبني على tera
 
@@ -298,36 +298,37 @@ bee_rust = { git = "https://github.com/erikwang2013/bee-rust", features = ["full
 |-------|------|-----------|
 | `bee_rust` | meta crate، مدخل موحد | — |
 | `bee_router` | توجيه + متحكم + Context + فلاتر | `server/web`, `context` |
-| `bee_orm` | ORM + QuerySet + Migration | `client/orm` |
+| `bee_orm` | ORM + QuerySet | `client/orm` |
 | `bee_kv` | تجريد موحد KV/Cache | `client/cache` (موسع) |
 | `bee_search` | محرك بحث/تحليل | — (جديد) |
 | `bee_graph` | قاعدة بيانات رسومية | — (جديد) |
 | `bee_tsdb` | قاعدة بيانات سلاسل زمنية | — (جديد) |
 | `bee_config` | إدارة التكوين + تحديث ساخن | `client/config` |
 | `bee_cache` | تجريد التخزين المؤقت | `client/cache` |
-| `bee_session` | إدارة الجلسات | `server/web/session` |
+| `bee_session` | إدارة الجلسات (Memory/Redis مطبَّق؛ Cookie/Database مخطط لها) | `server/web/session` |
 | `bee_logs` | السجلات | `logs` |
 | `bee_template` | تقديم القوالب | — (مُحسّن) |
 | `bee_cli` | أدوات CLI | أداة `bee` |
 
 ### تغطية الاختبارات
 
-68 اختبارًا ناجحًا في المستودع كله:
+334 اختبارًا ناجحًا في المستودع كله:
 
 | Crate | عدد الاختبارات |
 |-------|--------|
-| bee_config | 4 |
-| bee_cache | 4 |
+| bee_config | 9 |
+| bee_cache | 15 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 4 |
-| bee_search | 6 |
-| bee_graph | 5 |
-| bee_tsdb | 5 |
-| bee_orm | 7 |
+| bee_kv | 15 |
+| bee_search | 21 |
+| bee_graph | 19 |
+| bee_tsdb | 19 |
+| bee_orm | 141 |
+| bee_orm_macro | 20 |
 | bee_session | 2 |
-| bee_router | 9 |
-| bee_cli | 16 |
+| bee_router | 40 |
+| bee_cli | 28 |
 
 ## نداء دعم
 

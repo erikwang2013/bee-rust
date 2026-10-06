@@ -17,7 +17,7 @@ cargo add bee_rust
 
 ```toml
 [dependencies]
-bee_rust = "1.1.5"
+bee_rust = "1.2.0"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -59,10 +59,11 @@ curl http://localhost:8080/api/v1/health    # OK
 |---------|-----------|-------|
 | `full` *(по умолчанию)* | router, orm, kv, config, logs, cache, session, security, template | всё сразу |
 | `router` | bee_router, bee_session, bee_template, bee_config, bee_logs | Ядро Web: маршрутизация + контроллеры + цепочка фильтров |
-| `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet |
+| `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet + CRUD + пул + миграции + связи |
+| `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` | bee_orm backend | проброс бэкенда `bee_orm` через `bee_rust` (не в `full`) |
 | `kv` | bee_kv | Абстракция KV |
 | `cache` | bee_cache, bee_config | Абстракция кэша |
-| `session` | bee_session, bee_cache | Сессии с несколькими бэкендами |
+| `session` | bee_session, bee_cache | Сессии (Memory/Redis реализовано; Cookie/Database в планах) |
 | `config` | bee_config | INI / YAML / ENV + горячая перезагрузка |
 | `logs` | bee_logs | Уровневое логирование + tracing |
 | `template` | bee_template | Шаблоны tera |
@@ -74,7 +75,7 @@ curl http://localhost:8080/api/v1/health    # OK
 Минимальное ядро (без ORM и драйверов БД)：
 
 ```toml
-bee_rust = { version = "1.1.5", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.2.0", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## Подкрейты
@@ -85,11 +86,11 @@ bee_rust = { version = "1.1.5", default-features = false, features = ["router", 
 |-------|--------------|-------------------|
 | `bee_rust` | мета-крейт, единая точка входа | — |
 | `bee_router` | маршрутизация + контроллеры + `Context` + фильтры | `server/web`, `context` |
-| `bee_orm` | ORM + QuerySet + миграции | `client/orm` |
+| `bee_orm` | ORM + QuerySet + CRUD + пул соединений + неразрушающие миграции + связи belongs_to/has_many | `client/orm` |
 | `bee_config` | конфигурация + горячая перезагрузка | `client/config` |
 | `bee_logs` | логирование | `logs` |
 | `bee_cache` | абстракция кэша | `client/cache` |
-| `bee_session` | управление сессиями | `server/web/session` |
+| `bee_session` | управление сессиями (Memory/Redis реализовано; Cookie/Database в планах) | `server/web/session` |
 | `bee_template` | рендеринг шаблонов | — (расширено) |
 | `bee_kv` | абстракция KV/кэша | `client/cache` (расширено) |
 | `bee_search` | поисковые / аналитические движки | — (новое) |
@@ -100,15 +101,15 @@ bee_rust = { version = "1.1.5", default-features = false, features = ["router", 
 Их можно подключать и по отдельности — например, только клиент Elasticsearch：
 
 ```toml
-bee_search = { version = "1.1.5", features = ["elasticsearch"] }
+bee_search = { version = "1.2.0", features = ["elasticsearch"] }
 ```
 
 ## Поддерживаемые базы данных
 
 | Тип | Базы данных | Crate | Feature |
 |------|-----------|-------|---------|
-| Реляционные | SQLite / PostgreSQL / MySQL / TiDB | `bee_orm` | `sqlite` / `postgres` / `mysql` |
-| KV / кэш | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcache` |
+| Реляционные | SQLite / PostgreSQL / MySQL / TiDB | `bee_orm` | `sqlite` / `postgres` / `postgres-tls` / `mysql` |
+| KV / кэш | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcached` / `memcache` |
 | Поиск / аналитика | Elasticsearch / OpenSearch / ClickHouse | `bee_search` | `elasticsearch` / `opensearch` / `clickhouse` |
 | Графовые | Neo4j / NebulaGraph / ArangoDB | `bee_graph` | `neo4j` / `nebulagraph` / `arangodb` |
 | Временные ряды | InfluxDB / Apache IoTDB / QuestDB | `bee_tsdb` | `influxdb` / `iotdb` / `questdb` |

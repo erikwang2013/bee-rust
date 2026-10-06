@@ -32,17 +32,17 @@ Beerust is a production-grade web framework for Rust, inspired by Go's [Beego](h
 ```
 bee_rust/           # Meta crate, re-export + feature flags
 bee_router/         # Routing + Controller + Context + Filter chain
-bee_orm/            # ORM — Model trait + QuerySet + Migration + Relations
-bee_kv/             # Unified KV/Cache — Redis + Memcached
+bee_orm/            # ORM — Model trait + QuerySet
+bee_kv/             # Unified KV/Cache — Redis / Memcached
 bee_search/         # Search/Analytics — Elasticsearch + OpenSearch + ClickHouse
 bee_graph/          # Graph DB — Neo4j + NebulaGraph + ArangoDB
 bee_tsdb/           # Time Series — InfluxDB + Apache IoTDB + QuestDB
 bee_config/         # Config — INI/YAML/ENV + hot-reload
-bee_cache/          # Cache abstraction — Memory/Redis/Memcache
-bee_session/        # Session — Memory/Redis/Cookie/Database backends
+bee_cache/          # Cache abstraction — Memory / Redis / Memcache
+bee_session/        # Session — Memory, Redis (implemented) / Cookie, Database (planned) backends
 bee_logs/           # Logging — multi-level + tracing integration
 bee_template/       # Template rendering — tera-based
-bee_cli/            # CLI — scaffolding/codegen/dev-run/pack (migrations planned)
+bee_cli/            # CLI — scaffolding/codegen/dev-run/pack (migrate init/run included)
 ```
 
 ### Architecture Diagram
@@ -62,7 +62,7 @@ bee_cli/            # CLI — scaffolding/codegen/dev-run/pack (migrations plann
   ┌───────────┼───────────┐  ┌───────┼───────┐  ┌───────────┼───────────┐
   │ bee_router            │  │ bee_orm        │  │ bee_cli               │
   │  - routes             │  │  - Model/Query  │  │  - scaffolding        │
-  │  - controller trait   │  │  - Migration   │  │  - hot reload          │
+  │  - controller trait   │  │  - QuerySet    │  │  - hot reload          │
   │  - filter chain       │  │  - Connection   │  │  - codegen            │
   ├────────────────────────┤  ├────────────────┤  ├───────────────────────┤
   │ bee_template           │  │ bee_config     │  │ bee_logs              │
@@ -73,7 +73,7 @@ bee_cli/            # CLI — scaffolding/codegen/dev-run/pack (migrations plann
   ┌─────────────────────────────────────────────────────────┐
   │                   Storage Engine Layer                   │
   ├──────────────────┬──────────────────────────────────────┤
-  │ bee_kv           │  Redis + Memcached                   │
+  │ bee_kv           │  Redis / Memcached                   │
   │ bee_search       │  Elasticsearch + OpenSearch + ClickHouse │
   │ bee_graph        │  Neo4j + NebulaGraph + ArangoDB      │
   │ bee_tsdb         │  InfluxDB + Apache IoTDB + QuestDB   │
@@ -102,12 +102,12 @@ bee_rust   → all above (re-export)
 
 | Category | Database | Crate | Feature Flag |
 |----------|---------|-------|-------------|
-| **Relational** | SQLite | `bee_orm` | `sqlite` |
-| | PostgreSQL | `bee_orm` | `postgres` |
-| | MySQL | `bee_orm` | `mysql` |
+| **Relational** | SQLite | `bee_orm` | `sqlite` (bee_rust: `orm-sqlite`) |
+| | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls` (bee_rust: `orm-postgres` / `orm-postgres-tls`) |
+| | MySQL | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **KV / Cache** | Redis | `bee_kv` / `bee_cache` | `redis` |
-| | Memcached | `bee_kv` / `bee_cache` | `memcache` |
+| | Memcached | `bee_kv` / `bee_cache` | `memcached` / `memcache` |
 | **Search / Analytics** | Elasticsearch | `bee_search` | `elasticsearch` |
 | | OpenSearch | `bee_search` | `opensearch` |
 | | ClickHouse | `bee_search` | `clickhouse` |
@@ -147,7 +147,7 @@ let security = SecurityFilter::new();  // all 27 detectors enabled
 
 ### ORM (bee_orm)
 
-`#[derive(Model)]` derive macro + chainable QuerySet queries (filter / order_by / limit), supporting SQLite, PostgreSQL, MySQL, and TiDB.
+`#[derive(Model)]` derive macro (with `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + QuerySet chained queries and execution (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, aggregates `sum` / `avg` / `min` / `max`) + non-destructive migrations (`migrate::create_table` / `add_missing_columns` / `sync`) + relation reads (`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON columns (`serde_json::Value`) + connection pools for all three backends (transactions and timeouts included), supporting SQLite, PostgreSQL, MySQL, and TiDB.
 
 ### Config (bee_config)
 
@@ -155,11 +155,11 @@ let security = SecurityFilter::new();  // all 27 detectors enabled
 
 ### Storage Engines
 
-Unified trait abstractions for KV / Cache (Redis + Memcached), Search (Elasticsearch / OpenSearch / ClickHouse), Graph (Neo4j / NebulaGraph / ArangoDB), and Time Series (InfluxDB / IoTDB / QuestDB), with drivers compiled behind feature gates.
+Unified trait abstractions for KV / Cache (Redis / Memcached), Search (Elasticsearch / OpenSearch / ClickHouse), Graph (Neo4j / NebulaGraph / ArangoDB), and Time Series (InfluxDB / IoTDB / QuestDB), with drivers compiled behind feature gates.
 
 ### Session, Logging, Templates
 
-- Session: Memory / Redis / Cookie / Database backends
+- Session: Memory, Redis (implemented) / Cookie, Database (planned)
 - Logging: multi-level logging + tracing integration
 - Templates: tera-based rendering
 
@@ -233,36 +233,37 @@ bee_rust = { git = "https://github.com/erikwang2013/bee-rust", features = ["full
 |-------|---------|-----------------|
 | `bee_rust` | Meta crate, unified entry | — |
 | `bee_router` | Routing + Controller + Context + Filter | `server/web`, `context` |
-| `bee_orm` | ORM + QuerySet + Migration | `client/orm` |
+| `bee_orm` | ORM + QuerySet | `client/orm` |
 | `bee_kv` | Unified KV/Cache | `client/cache` (extended) |
 | `bee_search` | Search/Analytics engine | — (new) |
 | `bee_graph` | Graph database | — (new) |
 | `bee_tsdb` | Time series database | — (new) |
 | `bee_config` | Config + hot-reload | `client/config` |
 | `bee_cache` | Cache abstraction | `client/cache` |
-| `bee_session` | Session management | `server/web/session` |
+| `bee_session` | session management (Memory/Redis implemented; Cookie/Database planned) | `server/web/session` |
 | `bee_logs` | Logging | `logs` |
 | `bee_template` | Template rendering | — (enhanced) |
 | `bee_cli` | CLI tooling | `bee` tool |
 
 ## Test Coverage
 
-68 tests passing across all crates:
+334 tests passing across all crates:
 
 | Crate | Tests |
 |-------|-------|
-| bee_config | 4 |
-| bee_cache | 4 |
+| bee_config | 9 |
+| bee_cache | 15 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 4 |
-| bee_search | 6 |
-| bee_graph | 5 |
-| bee_tsdb | 5 |
-| bee_orm | 7 |
+| bee_kv | 15 |
+| bee_search | 21 |
+| bee_graph | 19 |
+| bee_tsdb | 19 |
+| bee_orm | 141 |
+| bee_orm_macro | 20 |
 | bee_session | 2 |
-| bee_router | 9 |
-| bee_cli | 16 |
+| bee_router | 40 |
+| bee_cli | 28 |
 
 ## Support
 

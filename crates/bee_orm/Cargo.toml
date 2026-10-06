@@ -13,22 +13,60 @@ async-trait = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-bee_orm_macro = { version="1.1.5", path = "../bee_orm_macro" }
+bee_orm_macro = { version="1.2.0", path = "../bee_orm_macro" }
 
 [features]
-sqlite = ["dep:rusqlite"]
-postgres = ["dep:tokio-postgres"]
-mysql = ["dep:mysql_async"]
+sqlite = ["dep:rusqlite", "dep:r2d2", "dep:r2d2_sqlite", "dep:tokio"]
+postgres = ["dep:tokio-postgres", "dep:deadpool-postgres", "dep:tokio"]
+postgres-tls = ["postgres", "dep:tokio-postgres-rustls", "dep:rustls", "dep:webpki-roots"]
+mysql = ["dep:mysql_async", "dep:tokio"]
 
 [dependencies.rusqlite]
 version = "0.32"
 optional = true
 features = ["bundled"]
 
+[dependencies.r2d2]
+version = "0.8"
+optional = true
+
+[dependencies.r2d2_sqlite]
+version = "0.25"
+optional = true
+
+[dependencies.tokio]
+workspace = true
+optional = true
+
 [dependencies.tokio-postgres]
 version = "0.7"
+optional = true
+features = ["with-serde_json-1"]
+
+[dependencies.deadpool-postgres]
+version = "0.14"
 optional = true
 
 [dependencies.mysql_async]
 version = "0.34"
 optional = true
+default-features = false
+features = ["default-rustls"]
+
+[dependencies.tokio-postgres-rustls]
+version = "0.14"
+optional = true
+default-features = false
+
+[dependencies.rustls]
+version = "0.23"
+optional = true
+default-features = false
+features = ["ring", "std", "tls12"]
+
+[dependencies.webpki-roots]
+version = "1"
+optional = true
+
+[dev-dependencies]
+tokio = { workspace = true }

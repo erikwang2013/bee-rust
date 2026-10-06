@@ -63,21 +63,154 @@ bee_rust = { features = ["security"] }
 ## ORM（bee_orm）
 
 ```rust
+use bee_orm::pool::sqlite::Pool;
+use bee_orm::{Model, Value, migrate, rel};
+
 #[derive(Model)]
 #[bee(table = "users")]
 struct User {
-    id:   i64,
+    #[bee(pk, auto)]
+    id: i64,
+    #[bee(column = "user_name")]
     name: String,
-    age:  i32,
+    age: Option<i32>,
+    active: bool,
+    #[bee(auto_now_add)]
+    created_at: i64,
+    #[bee(soft_delete)]
+    deleted: bool,
+    #[bee(ignore)]
+    cache: Vec<u8>,
 }
 
-// 链式查询
-let users = User::query()
-    .filter("age > 18")
-    .order_by("created_at DESC")
-    .limit(20)
-    .to_sql();
-// → SELECT * FROM users WHERE age > 18 ORDER BY created_at DESC LIMIT 20
+#[derive(Model)]
+#[bee(table = "posts")]
+struct Post {
+    #[bee(pk, auto)]
+    id: i64,
+    #[bee(fk = User)]
+    user_id: Option<i64>,
+    title: String,
+    #[bee(soft_delete)]
+    deleted: bool,
+}
+
+async fn demo() -> Result<(), bee_orm::OrmError> {
+    let pool = Pool::connect("app.db", 8)?;      // sqlite / postgres / mysql 接口同形
+
+    // 建表——migrate::sync 按模型元数据生成非破坏性 DDL
+    migrate::sync::<User, _>(&pool).await?;
+    migrate::sync::<Post, _>(&pool).await?;
+
+    // 插入——auto 主键由数据库分配
+    let user = User { id: 0, name: "alice".into(), age: Some(30), active: true, created_at: 0, deleted: false, cache: vec![] };
+    user.insert(&pool).await?;
+
+    // 查询——链式过滤 + 执行：all / one / count / exists / sum / avg
+    let alice = User::query().filter_eq("user_name", "alice")?.one(&pool).await?.expect("inserted above");
+    let adults = User::query().filter_gt("age", 18)?.order_by("id").limit(20).all(&pool).await?;
+    let total = User::query().filter_lt("age", 65)?.count(&pool).await?;
+    let any = User::query().filter_contains("user_name", "a")?.exists(&pool).await?;
+    let avg_age = User::query().avg(&pool, "age").await?;
+
+    // 关系——children 取 has_many，belongs_to 取父行；FK 强制下先删子行再删父行
+    Post { id: 0, user_id: Some(alice.id), title: "hello".into(), deleted: false }.insert(&pool).await?;
+    let posts = rel::children::<Post, User, _>(&pool, &alice).await?;
+    let author = rel::belongs_to::<User, _>(&pool, alice.id).await?;
+    let matching = Post::query().filter_in("title", &[Value::Text("hello".into())])?.all(&pool).await?;
+
+    // 更新 / 删除——delete 为软删除（翻转标记），with_deleted() / hard_delete() 可绕过
+    Post::query().filter_eq("title", "hello")?.hard_delete(&pool).await?;
+    if let Some(mut u) = author {
+        u.age = Some(31);
+        u.update(&pool).await?;
+        u.delete(&pool).await?;
+        let live = User::query().count(&pool).await?;
+        let every = User::query().with_deleted().count(&pool).await?;
+        u.hard_delete(&pool).await?;
+    }
+    User::query().filter_eq("user_name", "bob")?.update(&pool, &[("user_name", "bobby".into())]).await?;
+
+    // 事务——先 get() 取出连接；sqlite 的 CheckedConn 为同步接口
+    let conn = pool.get()?;
+    conn.begin()?;
+    conn.execute("INSERT INTO users (user_name, active) VALUES (?, ?)", &[Value::from("carol"), Value::from(true)])?;
+    conn.commit()?;
+
+    Ok(())
+}
+```
+
+> 迁移可用：`bee_orm::migrate`（`create_table` / `add_missing_columns` / `sync`）按方言生成 DDL，只建表与补列，绝不删改。关系读取覆盖 `belongs_to`、has_many（`children*`）与多对多（`m2m`）；`#[bee(fk = …)]` 生成 FK DDL：postgres 与 sqlite（bundled 构建）强制外键，mysql 可用表级外键 opt-in 开启（见下）。
+
+### 多对多（`m2m`）
+
+结构体级 `#[bee(m2m(Target))]` 声明；join 表随 `create_table` / `sync` 自动创建（先同步目标模型，再同步声明方）：
+
+```rust
+use bee_orm::m2m;
+
+#[derive(Model)]
+#[bee(table = "users")]
+#[bee(m2m(Tag))]                             // join 表 user_tag，列 user_id / tag_id
+struct User {
+    #[bee(pk, auto)]
+    id: i64,
+    name: String,
+}
+
+migrate::sync::<Tag, _>(&pool).await?;       // 目标模型先建
+migrate::sync::<User, _>(&pool).await?;      // 声明方创建 join 表
+
+// auto 主键由数据库分配：插入后查询取回实例，再读写关联
+User { id: 0, name: "alice".into() }.insert(&pool).await?;
+let user = User::query().filter_eq("name", "alice")?.one(&pool).await?.expect("inserted");
+Tag { id: 0, name: "rust".into() }.insert(&pool).await?;
+let tag = Tag::query().filter_eq("name", "rust")?.one(&pool).await?.expect("inserted");
+
+m2m::attach::<User, Tag, _>(&pool, &user, &tag).await?;   // 重复 attach → 复合主键错误
+let tags = m2m::related::<User, Tag, _>(&pool, &user).await?;
+m2m::detach::<User, Tag, _>(&pool, &user, &tag).await?;   // 幂等：再次调用返回 0 行
+```
+
+> 覆盖命名：`#[bee(m2m(Tag, table = "user_tag", local = "user_id", foreign = "tag_id"))]`；join 表只随 `create_table` / `sync` 创建，`add_missing_columns` 不触碰。
+
+### JSON 列
+
+`serde_json::Value` 字段映射为 sqlite `TEXT` / postgres `JSONB` / mysql `JSON`：
+
+```rust
+#[derive(Model)]
+#[bee(table = "docs")]
+struct Doc {
+    #[bee(pk, auto)]
+    id: i64,
+    body: serde_json::Value,           // 必填
+    extra: Option<serde_json::Value>,  // 可空
+}
+```
+
+> NULL 语义：SQL `NULL` 解码为 `None`；存储过的 JSON `null` 文档解码为 `Some(Json::Null)`——二者不同。
+
+### mysql 表级外键（opt-in）
+
+```rust
+use bee_orm::{MigrateOptions, migrate};
+
+let opts = MigrateOptions { table_level_fk: true };       // 仅 mysql 生效
+migrate::sync_with::<User, _>(&pool, opts).await?;
+```
+
+> 开启后新建表与新增列携带表级 `FOREIGN KEY`（约束名 `{table}_{column}_fk`）；已有孤儿数据会让 `ADD CONSTRAINT` 报错（不静默跳过，也不 retrofit 既有列）；pg / sqlite 下该选项为无操作（inline 已强制）。
+
+### postgres TLS
+
+```rust
+use bee_orm::pool::postgres::Pool;
+
+// connect_tls 使用内置 webpki 根；自定义 rustls 配置用 connect_tls_with：
+let pool = Pool::connect_tls_with(dsn, 8, my_rustls_config)?;
+// my_rustls_config: bee_orm::rustls::ClientConfig（重导出，版本与 crate 一致）
 ```
 
 ## 配置管理（bee_config）
@@ -99,32 +232,65 @@ let cfg = AppConfig::load("conf/app.conf")?;
 **KV/Cache：**
 ```rust
 let kv = RedisStore::new("redis://localhost:6379").await?;
-kv.set("key", b"value", Some(Duration::from_secs(60))).await?;
+kv.set("key", "value").await?;
+kv.expire("key", 60).await?;
 let val = kv.get("key").await?;
+
+// memcached 后端（feature `memcached`）
+let kv = MemcacheStore::new("127.0.0.1:11211")?;
 ```
 
-**搜索引擎（计划中）：**
+> `RedisStore` 内部是 `ConnectionManager`：断线自动重连（按命令触发、指数退避 + 抖动，无后台健康检查线程）——撞上断线的那条命令会报错，下一条自动等待新连接。memcached：`incr` 先建计数器（缺键为 0）再增减；计数器无符号，减到 0 封底（Redis 可为负）；`expire(≤0)` 等价删除。
+
+**缓存后端（bee_cache）：**
 ```rust
-// 驱动实现计划中，当前为 trait stub
-let engine = ElasticsearchEngine::new("http://localhost:9200")?;
-let result = engine.search("my_index", &SearchQuery {
-    q: Some("keyword".into()), ..Default::default()
+use bee_cache::{Cache, RedisCache};
+
+let cache = RedisCache::new("redis://localhost:6379").await?;  // feature `redis`
+cache.set("k", b"v".to_vec(), Some(60)).await?;
+let v = cache.get("k").await?;
+```
+
+> `MemcacheCache`（feature `memcache`）接口相同；TTL `Some(0)` 在 Redis 后端走 `DEL`（`SET … EX 0` 会被拒绝），memcached 后端同样按删除处理（其 0 表示永不过期）；`incr` 对非数值报序列化错误。
+
+**搜索引擎（已实现，opt-in）：**
+```rust
+use bee_search::SearchEngine;
+use bee_search::elasticsearch::Elasticsearch;   // 需启用 feature `elasticsearch`
+let engine = Elasticsearch::new("http://localhost:9200");   // 同步构造（无 `?`）
+let result = engine.search("my_index", serde_json::json!({"query": {"match_all": {}}})).await?;
+```
+
+> 其余驱动写法相同，均须按需启用：`opensearch`, `clickhouse`（feature 同名）。
+
+**图数据库（已实现，opt-in）：**
+```rust
+use bee_graph::{GraphDB, Vertex};
+use bee_graph::neo4j::Neo4j;   // 需启用 feature `neo4j`
+let db = Neo4j::new("http://localhost:7474");   // 同步构造（无 `?`）
+let v = db.add_vertex(Vertex {
+    id: "p1".into(),
+    label: "Person".into(),
+    properties: [("name".to_string(), serde_json::json!("Alice"))].into_iter().collect(),
 }).await?;
 ```
 
-**图数据库（计划中）：**
+> 其余驱动写法相同，均须按需启用：`nebulagraph`, `arangodb`（feature 同名）。
+
+**时序数据库（已实现，opt-in）：**
 ```rust
-// 驱动实现计划中，当前为 trait stub
-let db = Neo4jDB::new("bolt://localhost:7687").await?;
-let vid = db.add_vertex("Person", &[("name", "Alice")]).await?;
+use bee_tsdb::{Point, TimeSeriesDB};
+use bee_tsdb::influxdb::InfluxDB;   // 需启用 feature `influxdb`
+let tsdb = InfluxDB::new("http://localhost:8086");   // 同步构造（无 `?`）
+tsdb.write_point(Point {
+    measurement: "cpu".into(),
+    tags: [("host".to_string(), "srv1".to_string())].into_iter().collect(),
+    fields: [("value".to_string(), serde_json::json!(0.85))].into_iter().collect(),
+    timestamp: chrono::Utc::now(),
+}).await?;
 ```
 
-**时序数据库（计划中）：**
-```rust
-// 驱动实现计划中，当前为 trait stub
-let tsdb = InfluxDB::new("http://localhost:8086").await?;
-tsdb.write_point("cpu", &[("host", "srv1")], &[("value", 0.85)], Utc::now()).await?;
-```
+> 其余驱动写法相同，均须按需启用：`iotdb`, `questdb`（feature 同名）。
 
 ## Session
 
@@ -134,6 +300,8 @@ let mut session = Session::new(cache, Duration::from_secs(3600));
 session.set("user_id", &"123")?;
 let uid: String = session.get("user_id")?.unwrap();
 ```
+
+> 后端由实现了 `bee_cache::Cache` 的任意缓存提供：`MemoryCache` / `RedisCache` / `MemcacheCache`。
 
 ## 日志
 
@@ -170,8 +338,9 @@ bee-rust run --watch
 # 打包部署（cargo build --release + 复制到 dist/）
 bee-rust pack
 
-# 数据库迁移（未实现，规划中）
-bee-rust migrate up
+# 数据库迁移（在目标 crate 生成迁移入口并运行）
+bee-rust migrate init    # 生成 src/bin/bee_migrate.rs（已存在则拒绝，不覆盖）
+bee-rust migrate run     # cargo run --bin bee_migrate
 ```
 
 > 说明：`pack --target` 参数为预留接口，当前打包流程不区分目标平台。

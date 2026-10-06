@@ -17,7 +17,7 @@ cargo add bee_rust
 
 ```toml
 [dependencies]
-bee_rust = "1.1.5"
+bee_rust = "1.2.0"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -59,10 +59,11 @@ curl http://localhost:8080/api/v1/health    # OK
 |---------|-----------|-------|
 | `full` *(기본)* | router, orm, kv, config, logs, cache, session, security, template | 올인원 |
 | `router` | bee_router, bee_session, bee_template, bee_config, bee_logs | Web 코어: 라우팅 + 컨트롤러 + 필터 체인 |
-| `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet |
+| `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet + CRUD + 풀 + 마이그레이션 + 관계 |
+| `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` | bee_orm backend | `bee_rust`를 통해 `bee_orm` 백엔드를 전달(`full`에 미포함) |
 | `kv` | bee_kv | KV 추상화 |
 | `cache` | bee_cache, bee_config | 캐시 추상화 |
-| `session` | bee_session, bee_cache | 다중 백엔드 세션 |
+| `session` | bee_session, bee_cache | 세션 (Memory/Redis 구현됨, Cookie/Database 계획 중) |
 | `config` | bee_config | INI / YAML / ENV + 핫 리로드 |
 | `logs` | bee_logs | 레벨별 로깅 + tracing |
 | `template` | bee_template | tera 템플릿 |
@@ -74,7 +75,7 @@ curl http://localhost:8080/api/v1/health    # OK
 최소 구성(ORM과 데이터베이스 드라이버 제외)：
 
 ```toml
-bee_rust = { version = "1.1.5", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.2.0", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## 서브 크레이트
@@ -85,11 +86,11 @@ bee_rust = { version = "1.1.5", default-features = false, features = ["router", 
 |-------|--------------|-------------------|
 | `bee_rust` | 메타 크레이트, 단일 진입점 | — |
 | `bee_router` | 라우팅 + 컨트롤러 + `Context` + 필터 | `server/web`, `context` |
-| `bee_orm` | ORM + QuerySet + 마이그레이션 | `client/orm` |
+| `bee_orm` | ORM + QuerySet + CRUD + 커넥션 풀 + 비파괴 마이그레이션 + belongs_to/has_many 관계 | `client/orm` |
 | `bee_config` | 설정 + 핫 리로드 | `client/config` |
 | `bee_logs` | 로깅 | `logs` |
 | `bee_cache` | 캐시 추상화 | `client/cache` |
-| `bee_session` | 세션 관리 | `server/web/session` |
+| `bee_session` | 세션 관리 (Memory/Redis 구현됨, Cookie/Database 계획 중) | `server/web/session` |
 | `bee_template` | 템플릿 렌더링 | — (확장) |
 | `bee_kv` | KV/캐시 추상화 | `client/cache` (확장) |
 | `bee_search` | 검색 / 분석 엔진 | — (신규) |
@@ -100,15 +101,15 @@ bee_rust = { version = "1.1.5", default-features = false, features = ["router", 
 이들은 개별적으로 의존할 수도 있습니다. 예를 들어 Elasticsearch 클라이언트만 쓰는 경우：
 
 ```toml
-bee_search = { version = "1.1.5", features = ["elasticsearch"] }
+bee_search = { version = "1.2.0", features = ["elasticsearch"] }
 ```
 
 ## 지원 데이터베이스
 
 | 종류 | 데이터베이스 | Crate | Feature |
 |------|-----------|-------|---------|
-| 관계형 | SQLite / PostgreSQL / MySQL / TiDB | `bee_orm` | `sqlite` / `postgres` / `mysql` |
-| KV / 캐시 | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcache` |
+| 관계형 | SQLite / PostgreSQL / MySQL / TiDB | `bee_orm` | `sqlite` / `postgres` / `postgres-tls` / `mysql` |
+| KV / 캐시 | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcached` / `memcache` |
 | 검색 / 분석 | Elasticsearch / OpenSearch / ClickHouse | `bee_search` | `elasticsearch` / `opensearch` / `clickhouse` |
 | 그래프 | Neo4j / NebulaGraph / ArangoDB | `bee_graph` | `neo4j` / `nebulagraph` / `arangodb` |
 | 시계열 | InfluxDB / Apache IoTDB / QuestDB | `bee_tsdb` | `influxdb` / `iotdb` / `questdb` |

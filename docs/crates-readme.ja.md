@@ -17,7 +17,7 @@ cargo add bee_rust
 
 ```toml
 [dependencies]
-bee_rust = "1.1.5"
+bee_rust = "1.2.0"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -59,10 +59,11 @@ curl http://localhost:8080/api/v1/health    # OK
 |---------|-----------|-------|
 | `full` *(既定)* | router, orm, kv, config, logs, cache, session, security, template | オールインワン |
 | `router` | bee_router, bee_session, bee_template, bee_config, bee_logs | Web コア：ルーティング + コントローラ + フィルタチェーン |
-| `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet |
+| `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet + CRUD + プール + マイグレーション + リレーション |
+| `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` | bee_orm backend | `bee_rust` 経由で `bee_orm` バックエンドを転送（`full` には含まれない） |
 | `kv` | bee_kv | KV 抽象 |
 | `cache` | bee_cache, bee_config | キャッシュ抽象 |
-| `session` | bee_session, bee_cache | マルチバックエンドセッション |
+| `session` | bee_session, bee_cache | セッション（Memory/Redis 実装済み、Cookie/Database 計画中） |
 | `config` | bee_config | INI / YAML / ENV + ホットリロード |
 | `logs` | bee_logs | レベル別ログ + tracing |
 | `template` | bee_template | tera テンプレート |
@@ -74,7 +75,7 @@ curl http://localhost:8080/api/v1/health    # OK
 最小構成（ORM もデータベースドライバも不要）：
 
 ```toml
-bee_rust = { version = "1.1.5", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.2.0", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## サブクレート
@@ -85,11 +86,11 @@ bee_rust = { version = "1.1.5", default-features = false, features = ["router", 
 |-------|--------------|-------------------|
 | `bee_rust` | メタクレート、単一の入口 | — |
 | `bee_router` | ルーティング + コントローラ + `Context` + フィルタ | `server/web`, `context` |
-| `bee_orm` | ORM + QuerySet + マイグレーション | `client/orm` |
+| `bee_orm` | ORM + QuerySet + CRUD + コネクションプール + 非破壊マイグレーション + belongs_to/has_many リレーション | `client/orm` |
 | `bee_config` | 設定 + ホットリロード | `client/config` |
 | `bee_logs` | ログ | `logs` |
 | `bee_cache` | キャッシュ抽象 | `client/cache` |
-| `bee_session` | セッション管理 | `server/web/session` |
+| `bee_session` | セッション管理 （Memory/Redis 実装済み、Cookie/Database 計画中） | `server/web/session` |
 | `bee_template` | テンプレートレンダリング | — （拡張） |
 | `bee_kv` | KV/キャッシュ抽象 | `client/cache` （拡張） |
 | `bee_search` | 検索 / 分析エンジン | — （新規） |
@@ -100,15 +101,15 @@ bee_rust = { version = "1.1.5", default-features = false, features = ["router", 
 これらは個別に依存することもできます。たとえば Elasticsearch クライアントだけを使う場合：
 
 ```toml
-bee_search = { version = "1.1.5", features = ["elasticsearch"] }
+bee_search = { version = "1.2.0", features = ["elasticsearch"] }
 ```
 
 ## 対応データベース
 
 | 種別 | データベース | Crate | Feature |
 |------|-----------|-------|---------|
-| リレーショナル | SQLite / PostgreSQL / MySQL / TiDB | `bee_orm` | `sqlite` / `postgres` / `mysql` |
-| KV / キャッシュ | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcache` |
+| リレーショナル | SQLite / PostgreSQL / MySQL / TiDB | `bee_orm` | `sqlite` / `postgres` / `postgres-tls` / `mysql` |
+| KV / キャッシュ | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcached` / `memcache` |
 | 検索 / 分析 | Elasticsearch / OpenSearch / ClickHouse | `bee_search` | `elasticsearch` / `opensearch` / `clickhouse` |
 | グラフ | Neo4j / NebulaGraph / ArangoDB | `bee_graph` | `neo4j` / `nebulagraph` / `arangodb` |
 | 時系列 | InfluxDB / Apache IoTDB / QuestDB | `bee_tsdb` | `influxdb` / `iotdb` / `questdb` |

@@ -63,21 +63,154 @@ bee_rust = { features = ["security"] }
 ## ORM (bee_orm)
 
 ```rust
+use bee_orm::pool::sqlite::Pool;
+use bee_orm::{Model, Value, migrate, rel};
+
 #[derive(Model)]
 #[bee(table = "users")]
 struct User {
-    id:   i64,
+    #[bee(pk, auto)]
+    id: i64,
+    #[bee(column = "user_name")]
     name: String,
-    age:  i32,
+    age: Option<i32>,
+    active: bool,
+    #[bee(auto_now_add)]
+    created_at: i64,
+    #[bee(soft_delete)]
+    deleted: bool,
+    #[bee(ignore)]
+    cache: Vec<u8>,
 }
 
-// Consulta encadeada
-let users = User::query()
-    .filter("age > 18")
-    .order_by("created_at DESC")
-    .limit(20)
-    .to_sql();
-// → SELECT * FROM users WHERE age > 18 ORDER BY created_at DESC LIMIT 20
+#[derive(Model)]
+#[bee(table = "posts")]
+struct Post {
+    #[bee(pk, auto)]
+    id: i64,
+    #[bee(fk = User)]
+    user_id: Option<i64>,
+    title: String,
+    #[bee(soft_delete)]
+    deleted: bool,
+}
+
+async fn demo() -> Result<(), bee_orm::OrmError> {
+    let pool = Pool::connect("app.db", 8)?;      // sqlite / postgres / mysql têm a mesma forma
+
+    // Esquema — migrate::sync gera DDL não destrutivo a partir dos metadados do modelo
+    migrate::sync::<User, _>(&pool).await?;
+    migrate::sync::<Post, _>(&pool).await?;
+
+    // INSERT — a chave primária `auto` é atribuída pelo banco
+    let user = User { id: 0, name: "alice".into(), age: Some(30), active: true, created_at: 0, deleted: false, cache: vec![] };
+    user.insert(&pool).await?;
+
+    // SELECT — filtros encadeados + execução: all / one / count / exists / sum / avg
+    let alice = User::query().filter_eq("user_name", "alice")?.one(&pool).await?.expect("inserted above");
+    let adults = User::query().filter_gt("age", 18)?.order_by("id").limit(20).all(&pool).await?;
+    let total = User::query().filter_lt("age", 65)?.count(&pool).await?;
+    let any = User::query().filter_contains("user_name", "a")?.exists(&pool).await?;
+    let avg_age = User::query().avg(&pool, "age").await?;
+
+    // Relações — children para has_many, belongs_to para o pai; com FK aplicada, exclua o filho antes do pai
+    Post { id: 0, user_id: Some(alice.id), title: "hello".into(), deleted: false }.insert(&pool).await?;
+    let posts = rel::children::<Post, User, _>(&pool, &alice).await?;
+    let author = rel::belongs_to::<User, _>(&pool, alice.id).await?;
+    let matching = Post::query().filter_in("title", &[Value::Text("hello".into())])?.all(&pool).await?;
+
+    // UPDATE / DELETE — delete é lógico (inverte a flag); with_deleted() / hard_delete() contornam
+    Post::query().filter_eq("title", "hello")?.hard_delete(&pool).await?;
+    if let Some(mut u) = author {
+        u.age = Some(31);
+        u.update(&pool).await?;
+        u.delete(&pool).await?;
+        let live = User::query().count(&pool).await?;
+        let every = User::query().with_deleted().count(&pool).await?;
+        u.hard_delete(&pool).await?;
+    }
+    User::query().filter_eq("user_name", "bob")?.update(&pool, &[("user_name", "bobby".into())]).await?;
+
+    // Transações — mantenha uma conexão de `get()`; o `CheckedConn` do sqlite é síncrono
+    let conn = pool.get()?;
+    conn.begin()?;
+    conn.execute("INSERT INTO users (user_name, active) VALUES (?, ?)", &[Value::from("carol"), Value::from(true)])?;
+    conn.commit()?;
+
+    Ok(())
+}
+```
+
+> As migrações já estão disponíveis: `bee_orm::migrate` (`create_table` / `add_missing_columns` / `sync`) gera o DDL conforme o dialeto — cria tabelas e adiciona colunas ausentes, nunca remove nem altera. As leituras de relações cobrem `belongs_to`, has_many (`children*`) e many-to-many (`m2m`). `#[bee(fk = …)]` emite DDL de chave estrangeira: postgres e sqlite (build bundled) aplicam a referência, e o mysql pode ativar chaves estrangeiras em nível de tabela via opt-in (abaixo).
+
+### Many-to-many (`m2m`)
+
+Declarado no nível do struct com `#[bee(m2m(Target))]`; a tabela de junção é criada por `create_table` / `sync` (sincronize primeiro o modelo alvo, depois o declarante):
+
+```rust
+use bee_orm::m2m;
+
+#[derive(Model)]
+#[bee(table = "users")]
+#[bee(m2m(Tag))]                             // tabela de junção user_tag, colunas user_id / tag_id
+struct User {
+    #[bee(pk, auto)]
+    id: i64,
+    name: String,
+}
+
+migrate::sync::<Tag, _>(&pool).await?;       // primeiro o modelo alvo
+migrate::sync::<User, _>(&pool).await?;      // o declarante cria a tabela de junção
+
+// Os ids `auto` são atribuídos pelo banco: releia a instância antes de mexer nas relações
+User { id: 0, name: "alice".into() }.insert(&pool).await?;
+let user = User::query().filter_eq("name", "alice")?.one(&pool).await?.expect("inserted");
+Tag { id: 0, name: "rust".into() }.insert(&pool).await?;
+let tag = Tag::query().filter_eq("name", "rust")?.one(&pool).await?.expect("inserted");
+
+m2m::attach::<User, Tag, _>(&pool, &user, &tag).await?;   // attach duplicado -> erro de PK composta
+let tags = m2m::related::<User, Tag, _>(&pool, &user).await?;
+m2m::detach::<User, Tag, _>(&pool, &user, &tag).await?;   // idempotente: a segunda chamada retorna 0 linhas
+```
+
+> Renomeações: `#[bee(m2m(Tag, table = "user_tag", local = "user_id", foreign = "tag_id"))]`; as tabelas de junção só são criadas por `create_table` / `sync` — `add_missing_columns` nunca as toca.
+
+### Colunas JSON
+
+Campos `serde_json::Value` mapeiam para sqlite `TEXT` / postgres `JSONB` / mysql `JSON`:
+
+```rust
+#[derive(Model)]
+#[bee(table = "docs")]
+struct Doc {
+    #[bee(pk, auto)]
+    id: i64,
+    body: serde_json::Value,           // obrigatório
+    extra: Option<serde_json::Value>,  // nullable
+}
+```
+
+> Semântica de NULL: SQL `NULL` decodifica para `None`; um documento JSON `null` armazenado decodifica para `Some(Json::Null)` — os dois são diferentes.
+
+### Chaves estrangeiras em nível de tabela no MySQL (opt-in)
+
+```rust
+use bee_orm::{MigrateOptions, migrate};
+
+let opts = MigrateOptions { table_level_fk: true };       // apenas mysql
+migrate::sync_with::<User, _>(&pool, opts).await?;
+```
+
+> Ativada, tabelas novas e colunas adicionadas carregam `FOREIGN KEY` em nível de tabela (nome da constraint `{table}_{column}_fk`); linhas órfãs preexistentes fazem `ADD CONSTRAINT` falhar (sem omissão silenciosa e sem retrofit de colunas existentes); em pg / sqlite a opção é inócua (inline já aplica).
+
+### postgres TLS
+
+```rust
+use bee_orm::pool::postgres::Pool;
+
+// connect_tls usa as raízes webpki embutidas; para uma config rustls própria, connect_tls_with:
+let pool = Pool::connect_tls_with(dsn, 8, my_rustls_config)?;
+// my_rustls_config: bee_orm::rustls::ClientConfig (reexportado, mesma versão da crate)
 ```
 
 ## Gerenciamento de configuração (bee_config)
@@ -99,32 +232,65 @@ let cfg = AppConfig::load("conf/app.conf")?;
 **KV/Cache:**
 ```rust
 let kv = RedisStore::new("redis://localhost:6379").await?;
-kv.set("key", b"value", Some(Duration::from_secs(60))).await?;
+kv.set("key", "value").await?;
+kv.expire("key", 60).await?;
 let val = kv.get("key").await?;
+
+// backend memcached (feature `memcached`)
+let kv = MemcacheStore::new("127.0.0.1:11211")?;
 ```
 
-**Mecanismo de busca (planejado):**
+> O `RedisStore` usa um `ConnectionManager`: uma conexão derrubada se reconecta sozinha (sob demanda — sem thread em segundo plano — com backoff exponencial e jitter) — o comando que esbarra na queda falha e o próximo espera a conexão nova. memcached: `incr` cria o contador primeiro (0 se ausente) e então aplica o delta; contadores são sem sinal, então decrementar fica em 0 (no Redis vai a negativo); `expire(≤0)` equivale a excluir.
+
+**Backends de cache (bee_cache):**
 ```rust
-// Implementação do driver planejada; atualmente é um stub de trait
-let engine = ElasticsearchEngine::new("http://localhost:9200")?;
-let result = engine.search("my_index", &SearchQuery {
-    q: Some("keyword".into()), ..Default::default()
+use bee_cache::{Cache, RedisCache};
+
+let cache = RedisCache::new("redis://localhost:6379").await?;  // feature `redis`
+cache.set("k", b"v".to_vec(), Some(60)).await?;
+let v = cache.get("k").await?;
+```
+
+> `MemcacheCache` (feature `memcache`) tem a mesma interface; TTL `Some(0)` passa por `DEL` no backend Redis (`SET … EX 0` é rejeitado) e também é tratado como exclusão no memcached (lá 0 significa nunca expirar); `incr` em valor não numérico é erro de serialização.
+
+**Mecanismo de busca (implementado, opt-in):**
+```rust
+use bee_search::SearchEngine;
+use bee_search::elasticsearch::Elasticsearch;   // requer a feature `elasticsearch`
+let engine = Elasticsearch::new("http://localhost:9200");   // construtor síncrono (sem `?`)
+let result = engine.search("my_index", serde_json::json!({"query": {"match_all": {}}})).await?;
+```
+
+> Os demais drivers funcionam igual e também são opt-in: `opensearch`, `clickhouse` (features de mesmo nome).
+
+**Banco de dados de grafos (implementado, opt-in):**
+```rust
+use bee_graph::{GraphDB, Vertex};
+use bee_graph::neo4j::Neo4j;   // requer a feature `neo4j`
+let db = Neo4j::new("http://localhost:7474");   // construtor síncrono (sem `?`)
+let v = db.add_vertex(Vertex {
+    id: "p1".into(),
+    label: "Person".into(),
+    properties: [("name".to_string(), serde_json::json!("Alice"))].into_iter().collect(),
 }).await?;
 ```
 
-**Banco de dados de grafos (planejado):**
+> Os demais drivers funcionam igual e também são opt-in: `nebulagraph`, `arangodb` (features de mesmo nome).
+
+**Banco de dados de séries temporais (implementado, opt-in):**
 ```rust
-// Implementação do driver planejada; atualmente é um stub de trait
-let db = Neo4jDB::new("bolt://localhost:7687").await?;
-let vid = db.add_vertex("Person", &[("name", "Alice")]).await?;
+use bee_tsdb::{Point, TimeSeriesDB};
+use bee_tsdb::influxdb::InfluxDB;   // requer a feature `influxdb`
+let tsdb = InfluxDB::new("http://localhost:8086");   // construtor síncrono (sem `?`)
+tsdb.write_point(Point {
+    measurement: "cpu".into(),
+    tags: [("host".to_string(), "srv1".to_string())].into_iter().collect(),
+    fields: [("value".to_string(), serde_json::json!(0.85))].into_iter().collect(),
+    timestamp: chrono::Utc::now(),
+}).await?;
 ```
 
-**Banco de dados de séries temporais (planejado):**
-```rust
-// Implementação do driver planejada; atualmente é um stub de trait
-let tsdb = InfluxDB::new("http://localhost:8086").await?;
-tsdb.write_point("cpu", &[("host", "srv1")], &[("value", 0.85)], Utc::now()).await?;
-```
+> Os demais drivers funcionam igual e também são opt-in: `iotdb`, `questdb` (features de mesmo nome).
 
 ## Session
 
@@ -134,6 +300,8 @@ let mut session = Session::new(cache, Duration::from_secs(3600));
 session.set("user_id", &"123")?;
 let uid: String = session.get("user_id")?.unwrap();
 ```
+
+> O backend é qualquer cache que implemente `bee_cache::Cache`: `MemoryCache` / `RedisCache` / `MemcacheCache`.
 
 ## Logs
 
@@ -170,8 +338,9 @@ bee-rust run --watch
 # Empacotamento para implantação (cargo build --release + cópia para dist/)
 bee-rust pack
 
-# Migração de banco de dados (não implementada, planejada)
-bee-rust migrate up
+# Migração de banco de dados (gera o ponto de entrada na sua crate e o executa)
+bee-rust migrate init    # cria src/bin/bee_migrate.rs (recusa sobrescrever um arquivo existente)
+bee-rust migrate run     # cargo run --bin bee_migrate
 ```
 
 > Nota: o parâmetro `pack --target` é uma interface reservada; o processo de empacotamento atual não distingue a plataforma de destino.

@@ -82,17 +82,17 @@ Beerust — это производственный веб-фреймворк н
 ```
 bee_rust/           # мета-crate, re-export + feature-флаги
 bee_router/         # маршрутизация + контроллеры + Context + цепочка фильтров
-bee_orm/            # ORM — trait Model + QuerySet + Migration + маппинг связей
-bee_kv/             # единая абстракция KV/кэша — Redis + Memcached
+bee_orm/            # ORM — trait Model + QuerySet
+bee_kv/             # единая абстракция KV/кэша — Redis / Memcached
 bee_search/         # поисковый/аналитический движок — Elasticsearch + OpenSearch + ClickHouse
 bee_graph/          # графовая БД — Neo4j + NebulaGraph + ArangoDB
 bee_tsdb/           # БД временных рядов — InfluxDB + Apache IoTDB + QuestDB
 bee_config/         # управление конфигурацией — INI/YAML/ENV + горячая перезагрузка
-bee_cache/          # абстракция кэша — Memory/Redis/Memcache
-bee_session/        # Session — бэкенды Memory/Redis/Cookie/Database
+bee_cache/          # абстракция кэша — Memory / Redis / Memcache
+bee_session/        # Session — бэкенды Memory, Redis (реализовано) / Cookie, Database (в планах)
 bee_logs/           # логирование — многоуровневые логи + интеграция tracing
 bee_template/       # рендеринг шаблонов — на основе tera
-bee_cli/            # CLI — скаффолдинг/генерация кода/запуск в разработке/упаковка (переезд в планах)
+bee_cli/            # CLI — скаффолдинг/генерация кода/запуск в разработке/упаковка (migrate init/run включены)
 ```
 
 ### Архитектурная схема
@@ -112,7 +112,7 @@ bee_cli/            # CLI — скаффолдинг/генерация кода
   ┌───────────┼───────────┐  ┌───────┼───────┐  ┌───────────┼───────────┐
   │ bee_router            │  │ bee_orm        │  │ bee_cli               │
   │  - route register     │  │  - Model/Query  │  │  - scaffolding        │
-  │  - controller trait   │  │  - Migration   │  │  - hot reload          │
+  │  - controller trait   │  │  - QuerySet    │  │  - hot reload          │
   │  - filter chain       │  │  - Connection   │  │  - code generation    │
   │  - param extract      │  │                 │  │                       │
   ├────────────────────────┤  ├────────────────┤  ├───────────────────────┤
@@ -122,13 +122,13 @@ bee_cli/            # CLI — скаффолдинг/генерация кода
   ├────────────────────────┤  ├────────────────┤  └───────────────────────┘
   │ bee_session            │  │ bee_cache      │
   │  - session management  │  │  - cache trait  │
-  │  - multi-backend       │  │  - Mem/Redis    │
+  │  - Memory/Redis        │  │  - Mem/Redis    │
   └────────────────────────┘  └────────────────┘
 
   ┌─────────────────────────────────────────────────────────┐
   │                   Storage Engine Layer                   │
   ├──────────────────┬──────────────────────────────────────┤
-  │ bee_kv           │  Redis + Memcached                   │
+  │ bee_kv           │  Redis / Memcached                   │
   │ bee_search       │  Elasticsearch + OpenSearch + ClickHouse │
   │ bee_graph        │  Neo4j + NebulaGraph + ArangoDB      │
   │ bee_tsdb         │  InfluxDB + Apache IoTDB + QuestDB   │
@@ -157,12 +157,12 @@ bee_rust   → все перечисленные выше crate (re-export)
 
 | Категория | База данных | Crate | Feature Flag |
 |------|--------|-----------|-------------|
-| **Реляционные** | SQLite | `bee_orm` | `sqlite` |
-| | PostgreSQL | `bee_orm` | `postgres` |
-| | MySQL | `bee_orm` | `mysql` |
+| **Реляционные** | SQLite | `bee_orm` | `sqlite` (bee_rust: `orm-sqlite`) |
+| | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls` (bee_rust: `orm-postgres` / `orm-postgres-tls`) |
+| | MySQL | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **KV / кэш** | Redis | `bee_kv` / `bee_cache` | `redis` |
-| | Memcached | `bee_kv` / `bee_cache` | `memcache` |
+| | Memcached | `bee_kv` / `bee_cache` | `memcached` / `memcache` |
 | **Поиск / аналитика** | Elasticsearch | `bee_search` | `elasticsearch` |
 | | OpenSearch | `bee_search` | `opensearch` |
 | | ClickHouse | `bee_search` | `clickhouse` |
@@ -202,7 +202,7 @@ let security = SecurityFilter::new();  // все 27 детекторов вкл�
 
 ### ORM (bee_orm)
 
-Производный макрос `#[derive(Model)]` + цепочные запросы QuerySet (filter / order_by / limit), поддержка SQLite, PostgreSQL, MySQL, TiDB.
+Производный макрос `#[derive(Model)]` (с `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + цепочные запросы и выполнение QuerySet (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, агрегаты `sum` / `avg` / `min` / `max`) + неразрушающие миграции (`migrate::create_table` / `add_missing_columns` / `sync`) + чтение связей (`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON-колонки (`serde_json::Value`) + пулы соединений для всех трёх бэкендов (с транзакциями и таймаутами), поддержка SQLite, PostgreSQL, MySQL, TiDB.
 
 ### Управление конфигурацией (bee_config)
 
@@ -210,11 +210,11 @@ let security = SecurityFilter::new();  // все 27 детекторов вкл�
 
 ### Движки хранения
 
-Единая trait-абстракция для KV / Cache (Redis + Memcached), поисковых движков (Elasticsearch / OpenSearch / ClickHouse), графовых БД (Neo4j / NebulaGraph / ArangoDB) и БД временных рядов (InfluxDB / IoTDB / QuestDB); драйверы компилируются по feature-флагам.
+Единая trait-абстракция для KV / Cache (Redis / Memcached), поисковых движков (Elasticsearch / OpenSearch / ClickHouse), графовых БД (Neo4j / NebulaGraph / ArangoDB) и БД временных рядов (InfluxDB / IoTDB / QuestDB); драйверы компилируются по feature-флагам.
 
 ### Session, логирование, шаблоны
 
-- Session: несколько бэкендов — Memory / Redis / Cookie / Database
+- Session: Memory, Redis (реализовано) / Cookie, Database (в планах)
 - Логирование: многоуровневые логи + интеграция tracing
 - Шаблоны: рендеринг на основе tera
 
@@ -298,36 +298,37 @@ bee_rust = { git = "https://github.com/erikwang2013/bee-rust", features = ["full
 |-------|------|-----------|
 | `bee_rust` | мета-crate, единая точка входа | — |
 | `bee_router` | маршрутизация + контроллеры + Context + фильтры | `server/web`, `context` |
-| `bee_orm` | ORM + QuerySet + Migration | `client/orm` |
+| `bee_orm` | ORM + QuerySet | `client/orm` |
 | `bee_kv` | единая абстракция KV/кэша | `client/cache` (расширение) |
 | `bee_search` | поисковый/аналитический движок | — (новое) |
 | `bee_graph` | графовая БД | — (новое) |
 | `bee_tsdb` | БД временных рядов | — (новое) |
 | `bee_config` | управление конфигурацией + горячая перезагрузка | `client/config` |
 | `bee_cache` | абстракция кэша | `client/cache` |
-| `bee_session` | управление сессиями | `server/web/session` |
+| `bee_session` | управление сессиями (Memory/Redis реализовано; Cookie/Database в планах) | `server/web/session` |
 | `bee_logs` | логирование | `logs` |
 | `bee_template` | рендеринг шаблонов | — (улучшение) |
 | `bee_cli` | инструменты CLI | утилита `bee` |
 
 ### Покрытие тестами
 
-В репозитории проходят 68 тестов:
+В репозитории проходят 334 тестов:
 
 | Crate | Число тестов |
 |-------|--------|
-| bee_config | 4 |
-| bee_cache | 4 |
+| bee_config | 9 |
+| bee_cache | 15 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 4 |
-| bee_search | 6 |
-| bee_graph | 5 |
-| bee_tsdb | 5 |
-| bee_orm | 7 |
+| bee_kv | 15 |
+| bee_search | 21 |
+| bee_graph | 19 |
+| bee_tsdb | 19 |
+| bee_orm | 141 |
+| bee_orm_macro | 20 |
 | bee_session | 2 |
-| bee_router | 9 |
-| bee_cli | 16 |
+| bee_router | 40 |
+| bee_cli | 28 |
 
 ## Поддержка проекта
 

@@ -17,7 +17,7 @@ cargo add bee_rust
 
 ```toml
 [dependencies]
-bee_rust = "1.1.5"
+bee_rust = "1.2.0"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -59,10 +59,11 @@ curl http://localhost:8080/api/v1/health    # OK
 |---------|-----------|-------|
 | `full` *(डिफ़ॉल्ट)* | router, orm, kv, config, logs, cache, session, security, template | सब कुछ एक साथ |
 | `router` | bee_router, bee_session, bee_template, bee_config, bee_logs | Web कोर: राउटिंग + कंट्रोलर + फ़िल्टर चेन |
-| `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet |
+| `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet + CRUD + पूल + माइग्रेशन + संबंध |
+| `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` | bee_orm backend | `bee_rust` के माध्यम से `bee_orm` बैकएंड अग्रेषित करें (`full` में नहीं) |
 | `kv` | bee_kv | KV अमूर्तन |
 | `cache` | bee_cache, bee_config | कैश अमूर्तन |
-| `session` | bee_session, bee_cache | मल्टी-बैकएंड सेशन |
+| `session` | bee_session, bee_cache | सेशन (Memory/Redis लागू; Cookie/Database योजनाबद्ध) |
 | `config` | bee_config | INI / YAML / ENV + हॉट रीलोड |
 | `logs` | bee_logs | स्तर-आधारित लॉगिंग + tracing |
 | `template` | bee_template | tera टेम्पलेट |
@@ -74,7 +75,7 @@ curl http://localhost:8080/api/v1/health    # OK
 न्यूनतम कोर (ORM और डेटाबेस ड्राइवर के बिना)：
 
 ```toml
-bee_rust = { version = "1.1.5", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.2.0", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## सब-क्रेट
@@ -85,11 +86,11 @@ bee_rust = { version = "1.1.5", default-features = false, features = ["router", 
 |-------|--------------|-------------------|
 | `bee_rust` | मेटा क्रेट, एकल प्रवेश बिंदु | — |
 | `bee_router` | राउटिंग + कंट्रोलर + `Context` + फ़िल्टर | `server/web`, `context` |
-| `bee_orm` | ORM + QuerySet + माइग्रेशन | `client/orm` |
+| `bee_orm` | ORM + QuerySet + CRUD + कनेक्शन पूलिंग + गैर-विनाशकारी माइग्रेशन + belongs_to/has_many संबंध | `client/orm` |
 | `bee_config` | कॉन्फ़िग + हॉट रीलोड | `client/config` |
 | `bee_logs` | लॉगिंग | `logs` |
 | `bee_cache` | कैश अमूर्तन | `client/cache` |
-| `bee_session` | सेशन प्रबंधन | `server/web/session` |
+| `bee_session` | सेशन प्रबंधन (Memory/Redis लागू; Cookie/Database योजनाबद्ध) | `server/web/session` |
 | `bee_template` | टेम्पलेट रेंडरिंग | — (विस्तारित) |
 | `bee_kv` | KV/कैश अमूर्तन | `client/cache` (विस्तारित) |
 | `bee_search` | खोज / विश्लेषण इंजन | — (नया) |
@@ -100,15 +101,15 @@ bee_rust = { version = "1.1.5", default-features = false, features = ["router", 
 इन्हें अलग-अलग भी निर्भरता बनाया जा सकता है — जैसे केवल Elasticsearch क्लाइंट：
 
 ```toml
-bee_search = { version = "1.1.5", features = ["elasticsearch"] }
+bee_search = { version = "1.2.0", features = ["elasticsearch"] }
 ```
 
 ## समर्थित डेटाबेस
 
 | प्रकार | डेटाबेस | Crate | Feature |
 |------|-----------|-------|---------|
-| रिलेशनल | SQLite / PostgreSQL / MySQL / TiDB | `bee_orm` | `sqlite` / `postgres` / `mysql` |
-| KV / कैश | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcache` |
+| रिलेशनल | SQLite / PostgreSQL / MySQL / TiDB | `bee_orm` | `sqlite` / `postgres` / `postgres-tls` / `mysql` |
+| KV / कैश | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcached` / `memcache` |
 | खोज / विश्लेषण | Elasticsearch / OpenSearch / ClickHouse | `bee_search` | `elasticsearch` / `opensearch` / `clickhouse` |
 | ग्राफ़ | Neo4j / NebulaGraph / ArangoDB | `bee_graph` | `neo4j` / `nebulagraph` / `arangodb` |
 | टाइम-सीरीज़ | InfluxDB / Apache IoTDB / QuestDB | `bee_tsdb` | `influxdb` / `iotdb` / `questdb` |

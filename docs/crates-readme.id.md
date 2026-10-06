@@ -17,7 +17,7 @@ Atau tuliskan di `Cargo.toml`：
 
 ```toml
 [dependencies]
-bee_rust = "1.1.5"
+bee_rust = "1.2.0"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -59,10 +59,11 @@ Proyek yang benar-benar bisa dijalankan ada di [examples/hello](https://github.c
 |---------|-----------|-------|
 | `full` *(bawaan)* | router, orm, kv, config, logs, cache, session, security, template | semuanya sekaligus |
 | `router` | bee_router, bee_session, bee_template, bee_config, bee_logs | Inti Web: routing + controller + rantai filter |
-| `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet |
+| `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet + CRUD + pooling + migrasi + relasi |
+| `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` | bee_orm backend | meneruskan backend `bee_orm` melalui `bee_rust` (tidak termasuk `full`) |
 | `kv` | bee_kv | Abstraksi KV |
 | `cache` | bee_cache, bee_config | Abstraksi cache |
-| `session` | bee_session, bee_cache | sesi multi-backend |
+| `session` | bee_session, bee_cache | sesi (Memory/Redis diimplementasikan; Cookie/Database direncanakan) |
 | `config` | bee_config | INI / YAML / ENV + hot reload |
 | `logs` | bee_logs | logging bertingkat + tracing |
 | `template` | bee_template | template tera |
@@ -74,7 +75,7 @@ Proyek yang benar-benar bisa dijalankan ada di [examples/hello](https://github.c
 Inti minimal (tanpa ORM dan driver basis data)：
 
 ```toml
-bee_rust = { version = "1.1.5", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.2.0", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## Sub-crate
@@ -85,11 +86,11 @@ Framework ini terdiri dari crate yang bisa dipakai secara mandiri; `bee_rust` ad
 |-------|--------------|-------------------|
 | `bee_rust` | meta crate, pintu masuk tunggal | — |
 | `bee_router` | routing + controller + `Context` + filter | `server/web`, `context` |
-| `bee_orm` | ORM + QuerySet + migrasi | `client/orm` |
+| `bee_orm` | ORM + QuerySet + CRUD + connection pooling + migrasi non-destruktif + relasi belongs_to/has_many | `client/orm` |
 | `bee_config` | konfigurasi + hot reload | `client/config` |
 | `bee_logs` | logging | `logs` |
 | `bee_cache` | abstraksi cache | `client/cache` |
-| `bee_session` | manajemen sesi | `server/web/session` |
+| `bee_session` | manajemen sesi (Memory/Redis diimplementasikan; Cookie/Database direncanakan) | `server/web/session` |
 | `bee_template` | render template | — (diperluas) |
 | `bee_kv` | abstraksi KV/cache | `client/cache` (diperluas) |
 | `bee_search` | engine pencarian / analitik | — (baru) |
@@ -100,15 +101,15 @@ Framework ini terdiri dari crate yang bisa dipakai secara mandiri; `bee_rust` ad
 Mereka juga bisa dijadikan dependensi terpisah — misalnya hanya klien Elasticsearch：
 
 ```toml
-bee_search = { version = "1.1.5", features = ["elasticsearch"] }
+bee_search = { version = "1.2.0", features = ["elasticsearch"] }
 ```
 
 ## Basis data yang didukung
 
 | Jenis | Basis data | Crate | Feature |
 |------|-----------|-------|---------|
-| Relasional | SQLite / PostgreSQL / MySQL / TiDB | `bee_orm` | `sqlite` / `postgres` / `mysql` |
-| KV / cache | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcache` |
+| Relasional | SQLite / PostgreSQL / MySQL / TiDB | `bee_orm` | `sqlite` / `postgres` / `postgres-tls` / `mysql` |
+| KV / cache | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcached` / `memcache` |
 | Pencarian / analitik | Elasticsearch / OpenSearch / ClickHouse | `bee_search` | `elasticsearch` / `opensearch` / `clickhouse` |
 | Graf | Neo4j / NebulaGraph / ArangoDB | `bee_graph` | `neo4j` / `nebulagraph` / `arangodb` |
 | Time-series | InfluxDB / Apache IoTDB / QuestDB | `bee_tsdb` | `influxdb` / `iotdb` / `questdb` |

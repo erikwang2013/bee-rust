@@ -2,6 +2,28 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.0] — 2026-10-06
+
+### أُضيف
+- `bee_orm`: أصبح الـ ORM يعمل من البداية إلى النهاية — معاملات `Value` مُنمَّطة (Null / Bool / Int / Float / Text / Bytes)، و`#[derive(Model)]` يدعم `#[bee(table / column / pk / auto / ignore)]`، و`insert` / `update` / `delete` على النموذج، وتنفيذ `QuerySet` (`all` / `one` / `count` / `exists` / `update` / `delete`)
+- `bee_orm`: تجمّعات اتصالات للخلفيات الثلاث (`pool::{sqlite, postgres, mysql}::Pool`) — `connect(dsn, max_size)` و`get()` → `CheckedConn` و`query` / `execute` و`status()`، مع معاملات عبر `begin` / `commit` / `rollback`؛ الاتصال المهجور أثناء المعاملة يُرجَع (rollback) في sqlite وpostgres
+- `bee_orm`: ميزة جديدة `postgres-tls` (PostgreSQL عبر TLS بجذور Mozilla المضمّنة) وتقوية التجمّعات — مهلة انتظار 30 ثانية / إنشاء 10 ثوانٍ وذاكرة تخزين مؤقت للعبارات المُجهَّزة في تجمّع postgres
+- `bee_orm`: دورة حياة النموذج — طوابع زمنية عبر `#[bee(auto_now_add)]` / `#[bee(auto_now)]`، وحذف منطقي عبر `#[bee(soft_delete)]` (يصبح delete قلب العلامة، و`with_deleted()` / `hard_delete()` يتجاوزانه)، وخطافات insert/update/delete، و`Model::insert_many` (دفعات من 999 معاملًا، بلا معاملة)، مع `QuerySet::filter_in` وتجميعات `sum` / `avg` / `min` / `max`
+- `bee_orm`: ترحيلات غير مُدمِّرة — تولّد `migrate::{create_table, add_missing_columns, sync}` عبارات DDL حسب اللهجة (sqlite `AUTOINCREMENT` / postgres `IDENTITY` / mysql `AUTO_INCREMENT`)، فتنشئ الجداول وتضيف الأعمدة الناقصة دون حذف أو تعديل أبدًا
+- `bee_orm`: علاقات المفاتيح الأجنبية — ينتج `#[bee(fk = Target)]` (مع `#[bee(sql_type = "…")]`) تعريف FK، وتقرؤها `rel::{fk_column_to, belongs_to, children, children_for}`؛ يعتمد الإلزام على الخلفية: postgres وsqlite (بناء bundled) يفرضان المرجع، بينما mysql يتجاهل `REFERENCES` المضمّن (فجوة في round 5+)
+- `bee_orm`: علاقات متعدد إلى متعدد — `#[bee(m2m(Target))]` تعلن العلاقة، و`m2m::{attach, detach, related, related_for, related_ids}` تقرؤها وتكتبها، وينشئ `create_table` / `sync` جدول الربط (`add_missing_columns` لا يمسه)
+- `bee_orm`: أعمدة JSON — تُعيَّن حقول `serde_json::Value` إلى `TEXT` / `JSONB` / `JSON` حسب الخلفية، بدلالات NULL صادقة: SQL `NULL` → `None`، ومستند JSON `null` المخزَّن → `Some(Json::Null)`
+- `bee_orm`: مفاتيح أجنبية على مستوى الجدول في MySQL (opt-in) — `MigrateOptions { table_level_fk }` مع `sync_with` / `create_table_with` / `add_missing_columns_with`؛ معطّلة افتراضيًا، والصفوف اليتيمة الموجودة مسبقًا تُفشل `ADD CONSTRAINT` بدل تخطيها بصمت
+- `bee_orm`: `Pool::connect_tls_with` لإعداد `rustls::ClientConfig` مخصص، مع إعادة تصدير `bee_orm::rustls` ليتطابق الإصدار دائمًا؛ ويُبقي `connect_tls` على جذور webpki المضمّنة
+- `bee_rust`: أربع features للتمرير — `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` تمرّر خلفية `bee_orm` عبر `bee_rust` (ولا واحدة منها في `full`)
+- `bee_cli`: `bee-rust migrate init` يولّد `src/bin/bee_migrate.rs` (يرفض استبدال ملف موجود)، و`bee-rust migrate run` يشغّله عبر `cargo run --bin bee_migrate`
+- `bee_kv` / `bee_cache`: خلفيات Redis تنجو من الاتصالات المقطوعة — يعيد `ConnectionManager` الداخلي الاتصال عند الطلب (بدون خيط في الخلفية) بتراجع أُسّي مع jitter (الأمر الذي يصادف القطع يفشل، والتالي ينتظر الاتصال الجديد)
+- `bee_kv` / `bee_cache`: خلفيات memcached (`MemcacheStore` في bee_kv و`MemcacheCache` في bee_cache)؛ ينشئ `incr` العدّاد قبل الفرق، وتتوقف العدّادات غير الموقّعة عند 0، وTTL 0 يحذف المفتاح
+
+### تغيّر
+- لم تعد تُوسم في الوثائق بأنها مخطط لها: ترحيلات bee_orm وعلاقاته (بما فيها many-to-many)، وأمر `bee-rust migrate` الفرعي، وخلفيات Redis / Memcached، وfeatures تمرير ORM في `bee_rust`
+- لم تعد مشغلات search / graph / tsdb في الوثائق موسومة كمخططة أو trait-stub، بل كمُنفَّذة (ميزات opt-in)، وصُحّحت الأمثلة القديمة (أسماء أنواع غير موجودة `ElasticsearchEngine` / `Neo4jDB`، ومخطط `bolt://` خاطئ)
+
 ## [1.1.5] — 2026-09-25
 
 ### أُضيف

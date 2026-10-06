@@ -2,6 +2,28 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.0] — 2026-10-06
+
+### 추가됨
+- `bee_orm`: ORM이 엔드투엔드로 동작합니다 — 타입화된 `Value` 파라미터(Null / Bool / Int / Float / Text / Bytes), `#[bee(table / column / pk / auto / ignore)]`를 지원하는 `#[derive(Model)]`, 모델의 `insert` / `update` / `delete`, 그리고 `QuerySet` 실행(`all` / `one` / `count` / `exists` / `update` / `delete`)
+- `bee_orm`: 세 백엔드 모두 커넥션 풀 제공(`pool::{sqlite, postgres, mysql}::Pool`) — `connect(dsn, max_size)`, `get()` → `CheckedConn`, `query` / `execute`, `status()`, `begin` / `commit` / `rollback` 트랜잭션; 트랜잭션 도중 버려진 커넥션은 sqlite와 postgres에서 롤백됩니다
+- `bee_orm`: 새 feature `postgres-tls`(TLS 기반 PostgreSQL, Mozilla 루트 인증서 내장)와 풀 강화 — 30초 대기 / 10초 생성 타임아웃, postgres 풀의 프리페어드 스테이트먼트 캐시
+- `bee_orm`: 모델 라이프사이클 — `#[bee(auto_now_add)]` / `#[bee(auto_now)]` 자동 타임스탬프, `#[bee(soft_delete)]` 소프트 삭제(delete가 플래그를 뒤집고 `with_deleted()` / `hard_delete()`로 우회), insert/update/delete 훅, `Model::insert_many`(999 파라미터 단위 분할, 비트랜잭션), 그리고 `QuerySet::filter_in`과 `sum` / `avg` / `min` / `max` 집계
+- `bee_orm`: 비파괴 마이그레이션 — `migrate::{create_table, add_missing_columns, sync}`가 방언별 DDL(sqlite `AUTOINCREMENT` / postgres `IDENTITY` / mysql `AUTO_INCREMENT`)을 생성해 테이블 생성과 누락 컬럼 추가만 하고 삭제나 변경은 하지 않습니다
+- `bee_orm`: 외래 키 관계 — `#[bee(fk = Target)]`(`#[bee(sql_type = "…")]`와 함께)가 FK DDL을 생성하고 `rel::{fk_column_to, belongs_to, children, children_for}`로 읽습니다. 강제 여부는 백엔드에 따라 다릅니다: postgres와 sqlite(bundled 빌드)는 강제하고, mysql은 inline `REFERENCES`를 무시합니다(round 5+의 gap)
+- `bee_orm`: 다대다 관계 — `#[bee(m2m(Target))]`가 관계를 선언하고 `m2m::{attach, detach, related, related_for, related_ids}`가 읽고 쓰며, 조인 테이블은 `create_table` / `sync`가 생성합니다(`add_missing_columns`는 건드리지 않음)
+- `bee_orm`: JSON 컬럼 — `serde_json::Value` 필드는 백엔드별로 `TEXT` / `JSONB` / `JSON`에 매핑되며 NULL 의미론은 정직합니다: SQL `NULL` → `None`, 저장된 JSON `null` 문서 → `Some(Json::Null)`
+- `bee_orm`: MySQL 테이블 수준 외래 키 opt-in — `MigrateOptions { table_level_fk }`와 `sync_with` / `create_table_with` / `add_missing_columns_with`; 기본은 꺼짐이며, 기존 고아 행은 조용히 건너뛰지 않고 `ADD CONSTRAINT`를 실패시킵니다
+- `bee_orm`: 사용자 정의 `rustls::ClientConfig`를 위한 `Pool::connect_tls_with`와 버전 일치를 보장하는 `bee_orm::rustls` 재수출; `connect_tls`는 내장 webpki 루트 유지
+- `bee_rust`: 네 가지 전달 feature — `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql`이 `bee_rust`를 통해 `bee_orm` 백엔드를 전달합니다(모두 `full`에 미포함)
+- `bee_cli`: `bee-rust migrate init`이 `src/bin/bee_migrate.rs`를 생성하고(기존 파일은 덮어쓰지 않음), `bee-rust migrate run`이 `cargo run --bin bee_migrate`로 실행합니다
+- `bee_kv` / `bee_cache`: Redis 백엔드는 끊긴 연결에서 복구됩니다 — 내부 `ConnectionManager`가 필요할 때(백그라운드 스레드 없이) 지수 백오프와 지터로 재연결(끊김에 걸린 명령은 오류, 다음 명령은 대기)
+- `bee_kv` / `bee_cache`: memcached 백엔드(bee_kv의 `MemcacheStore`, bee_cache의 `MemcacheCache`); `incr`은 델타 전에 카운터를 만들고, 부호 없는 카운터는 0에서 멈추며, TTL 0은 키를 삭제합니다
+
+### 변경됨
+- bee_orm의 마이그레이션, 관계(many-to-many 포함), `bee-rust migrate` 하위 명령, Redis / Memcached 백엔드, `bee_rust`의 ORM 전달 feature는 문서에서 더 이상 '계획 중'으로 표기되지 않습니다
+- 문서에서 search / graph / tsdb 드라이버를 '계획 중 / trait 스텁'에서 구현 완료(opt-in feature)로 바꾸고, 예전 예제의 타입 이름과 연결 방식도 수정(존재하지 않는 `ElasticsearchEngine` / `Neo4jDB`, 잘못된 `bolt://`)
+
 ## [1.1.5] — 2026-09-25
 
 ### 추가됨

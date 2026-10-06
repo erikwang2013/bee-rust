@@ -82,17 +82,17 @@ Beerust は Rust 言語によるプロダクショングレードの Web フレ�
 ```
 bee_rust/           # メタ crate、re-export + feature flags
 bee_router/         # ルーティング + コントローラ + Context + フィルタチェーン
-bee_orm/            # ORM — Model trait + QuerySet + Migration + リレーションマッピング
-bee_kv/             # KV/Cache 統一抽象 — Redis + Memcached
+bee_orm/            # ORM — Model trait + QuerySet
+bee_kv/             # KV/Cache 統一抽象 — Redis、Memcached
 bee_search/         # 検索/分析エンジン — Elasticsearch + OpenSearch + ClickHouse
 bee_graph/          # グラフデータベース — Neo4j + NebulaGraph + ArangoDB
 bee_tsdb/           # 時系列データベース — InfluxDB + Apache IoTDB + QuestDB
 bee_config/         # 設定管理 — INI/YAML/ENV + ホットリロード
-bee_cache/          # キャッシュ抽象 — Memory/Redis/Memcache
-bee_session/        # Session — Memory/Redis/Cookie/Database バックエンド
+bee_cache/          # キャッシュ抽象 — Memory、Redis、Memcache
+bee_session/        # Session — Memory、Redis（実装済み） / Cookie、Database（計画中） バックエンド
 bee_logs/           # ログ — 多段階ログ + tracing 統合
 bee_template/       # テンプレートレンダリング — tera ベース
-bee_cli/            # CLI — スキャフォールディング/コード生成/開発実行/パッケージング（移行計画中）
+bee_cli/            # CLI — スキャフォールディング/コード生成/開発実行/パッケージング（migrate init/run 対応）
 ```
 
 ### アーキテクチャ図
@@ -112,7 +112,7 @@ bee_cli/            # CLI — スキャフォールディング/コード生成/
   ┌───────────┼───────────┐  ┌───────┼───────┐  ┌───────────┼───────────┐
   │ bee_router            │  │ bee_orm        │  │ bee_cli               │
   │  - route register     │  │  - Model/Query  │  │  - scaffolding        │
-  │  - controller trait   │  │  - Migration   │  │  - hot reload          │
+  │  - controller trait   │  │  - QuerySet    │  │  - hot reload          │
   │  - filter chain       │  │  - Connection   │  │  - code generation    │
   │  - param extract      │  │                 │  │                       │
   ├────────────────────────┤  ├────────────────┤  ├───────────────────────┤
@@ -122,13 +122,13 @@ bee_cli/            # CLI — スキャフォールディング/コード生成/
   ├────────────────────────┤  ├────────────────┤  └───────────────────────┘
   │ bee_session            │  │ bee_cache      │
   │  - session management  │  │  - cache trait  │
-  │  - multi-backend       │  │  - Mem/Redis    │
+  │  - Memory/Redis        │  │  - Mem/Redis    │
   └────────────────────────┘  └────────────────┘
 
   ┌─────────────────────────────────────────────────────────┐
   │                   Storage Engine Layer                   │
   ├──────────────────┬──────────────────────────────────────┤
-  │ bee_kv           │  Redis + Memcached                   │
+  │ bee_kv           │  Redis / Memcached                   │
   │ bee_search       │  Elasticsearch + OpenSearch + ClickHouse │
   │ bee_graph        │  Neo4j + NebulaGraph + ArangoDB      │
   │ bee_tsdb         │  InfluxDB + Apache IoTDB + QuestDB   │
@@ -157,12 +157,12 @@ bee_rust   → 上記すべての crate (re-export)
 
 | カテゴリ | データベース | 対応 Crate | Feature Flag |
 |------|--------|-----------|-------------|
-| **リレーショナル** | SQLite | `bee_orm` | `sqlite` |
-| | PostgreSQL | `bee_orm` | `postgres` |
-| | MySQL | `bee_orm` | `mysql` |
+| **リレーショナル** | SQLite | `bee_orm` | `sqlite`（bee_rust：`orm-sqlite`） |
+| | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls`（bee_rust：`orm-postgres` / `orm-postgres-tls`） |
+| | MySQL | `bee_orm` | `mysql`（bee_rust：`orm-mysql`） |
 | | TiDB | `bee_orm` | `mysql` |
 | **KV / キャッシュ** | Redis | `bee_kv` / `bee_cache` | `redis` |
-| | Memcached | `bee_kv` / `bee_cache` | `memcache` |
+| | Memcached | `bee_kv` / `bee_cache` | `memcached` / `memcache` |
 | **検索 / 分析** | Elasticsearch | `bee_search` | `elasticsearch` |
 | | OpenSearch | `bee_search` | `opensearch` |
 | | ClickHouse | `bee_search` | `clickhouse` |
@@ -202,7 +202,7 @@ let security = SecurityFilter::new();  // 27 個の検出器をすべて有効�
 
 ### ORM（bee_orm）
 
-`#[derive(Model)]` 派生マクロ + QuerySet のチェーン式クエリ（filter / order_by / limit）。SQLite、PostgreSQL、MySQL、TiDB をサポート。
+`#[derive(Model)]` 派生マクロ（`#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]` 対応）+ QuerySet のチェーン式クエリと実行（`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`、集計 `sum` / `avg` / `min` / `max`）+ 非破壊マイグレーション（`migrate::create_table` / `add_missing_columns` / `sync`）+ リレーション読み取り（`belongs_to` / has_many `children*` / many-to-many `m2m`）+ JSON カラム（`serde_json::Value`）+ 3 バックエンドのコネクションプール（トランザクション・タイムアウト対応）。SQLite、PostgreSQL、MySQL、TiDB をサポート。
 
 ### 設定管理（bee_config）
 
@@ -210,11 +210,11 @@ let security = SecurityFilter::new();  // 27 個の検出器をすべて有効�
 
 ### ストレージエンジン
 
-KV / Cache（Redis + Memcached）、検索エンジン（Elasticsearch / OpenSearch / ClickHouse）、グラフデータベース（Neo4j / NebulaGraph / ArangoDB）、時系列データベース（InfluxDB / IoTDB / QuestDB）を統一 trait で抽象化し、ドライバは feature gate に応じてコンパイルされます。
+KV / Cache（Redis / Memcached）、検索エンジン（Elasticsearch / OpenSearch / ClickHouse）、グラフデータベース（Neo4j / NebulaGraph / ArangoDB）、時系列データベース（InfluxDB / IoTDB / QuestDB）を統一 trait で抽象化し、ドライバは feature gate に応じてコンパイルされます。
 
 ### Session、ログ、テンプレート
 
-- Session：Memory / Redis / Cookie / Database のマルチバックエンド
+- Session：Memory、Redis（実装済み）/ Cookie、Database（計画中）
 - ログ：多段階ログ + tracing 統合
 - テンプレート：tera ベースのレンダリング
 
@@ -298,36 +298,37 @@ bee_rust = { git = "https://github.com/erikwang2013/bee-rust", features = ["full
 |-------|------|-----------|
 | `bee_rust` | メタ crate、統合エントリポイント | — |
 | `bee_router` | ルーティング + コントローラ + Context + フィルタ | `server/web`, `context` |
-| `bee_orm` | ORM + QuerySet + Migration | `client/orm` |
+| `bee_orm` | ORM + QuerySet | `client/orm` |
 | `bee_kv` | KV/Cache 統一抽象 | `client/cache`（拡張） |
 | `bee_search` | 検索/分析エンジン | —（新規） |
 | `bee_graph` | グラフデータベース | —（新規） |
 | `bee_tsdb` | 時系列データベース | —（新規） |
 | `bee_config` | 設定管理 + ホットリロード | `client/config` |
 | `bee_cache` | キャッシュ抽象 | `client/cache` |
-| `bee_session` | Session 管理 | `server/web/session` |
+| `bee_session` | Session 管理 （Memory/Redis 実装済み、Cookie/Database 計画中） | `server/web/session` |
 | `bee_logs` | ログ | `logs` |
 | `bee_template` | テンプレートレンダリング | —（拡張） |
 | `bee_cli` | CLI ツール | `bee` ツール |
 
 ### テストカバレッジ
 
-リポジトリ全体で 68 個のテストがパス：
+リポジトリ全体で 334 個のテストがパス：
 
 | Crate | テスト数 |
 |-------|--------|
-| bee_config | 4 |
-| bee_cache | 4 |
+| bee_config | 9 |
+| bee_cache | 15 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 4 |
-| bee_search | 6 |
-| bee_graph | 5 |
-| bee_tsdb | 5 |
-| bee_orm | 7 |
+| bee_kv | 15 |
+| bee_search | 21 |
+| bee_graph | 19 |
+| bee_tsdb | 19 |
+| bee_orm | 141 |
+| bee_orm_macro | 20 |
 | bee_session | 2 |
-| bee_router | 9 |
-| bee_cli | 16 |
+| bee_router | 40 |
+| bee_cli | 28 |
 
 ## サポート歓迎
 

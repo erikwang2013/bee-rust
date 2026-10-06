@@ -82,17 +82,17 @@ Beerust는 Go의 Beego 프레임워크에서 디자인 철학을 얻은, Rust �
 ```
 bee_rust/           # 메타 crate, re-export + feature flags
 bee_router/         # 라우팅 + 컨트롤러 + Context + 필터 체인
-bee_orm/            # ORM — Model trait + QuerySet + Migration + 관계 매핑
-bee_kv/             # KV/Cache 통합 추상화 — Redis + Memcached
+bee_orm/            # ORM — Model trait + QuerySet
+bee_kv/             # KV/Cache 통합 추상화 — Redis / Memcached
 bee_search/         # 검색/분석 엔진 — Elasticsearch + OpenSearch + ClickHouse
 bee_graph/          # 그래프 데이터베이스 — Neo4j + NebulaGraph + ArangoDB
 bee_tsdb/           # 시계열 데이터베이스 — InfluxDB + Apache IoTDB + QuestDB
 bee_config/         # 설정 관리 — INI/YAML/ENV + 핫 리로드
-bee_cache/          # 캐시 추상화 — Memory/Redis/Memcache
-bee_session/        # Session — Memory/Redis/Cookie/Database 백엔드
+bee_cache/          # 캐시 추상화 — Memory / Redis / Memcache
+bee_session/        # Session — Memory, Redis (구현됨) / Cookie, Database (계획 중) 백엔드
 bee_logs/           # 로그 — 다중 레벨 로그 + tracing 통합
 bee_template/       # 템플릿 렌더링 — tera 기반
-bee_cli/            # CLI — 스캐폴딩/코드 생성/개발 실행/패키징 (마이그레이션 계획 중)
+bee_cli/            # CLI — 스캐폴딩/코드 생성/개발 실행/패키징 (migrate init/run 포함)
 ```
 
 ### 아키텍처 다이어그램
@@ -112,7 +112,7 @@ bee_cli/            # CLI — 스캐폴딩/코드 생성/개발 실행/패키징
   ┌───────────┼───────────┐  ┌───────┼───────┐  ┌───────────┼───────────┐
   │ bee_router            │  │ bee_orm        │  │ bee_cli               │
   │  - route register     │  │  - Model/Query  │  │  - scaffolding        │
-  │  - controller trait   │  │  - Migration   │  │  - hot reload          │
+  │  - controller trait   │  │  - QuerySet    │  │  - hot reload          │
   │  - filter chain       │  │  - Connection   │  │  - code generation    │
   │  - param extract      │  │                 │  │                       │
   ├────────────────────────┤  ├────────────────┤  ├───────────────────────┤
@@ -122,13 +122,13 @@ bee_cli/            # CLI — 스캐폴딩/코드 생성/개발 실행/패키징
   ├────────────────────────┤  ├────────────────┤  └───────────────────────┘
   │ bee_session            │  │ bee_cache      │
   │  - session management  │  │  - cache trait  │
-  │  - multi-backend       │  │  - Mem/Redis    │
+  │  - Memory/Redis        │  │  - Mem/Redis    │
   └────────────────────────┘  └────────────────┘
 
   ┌─────────────────────────────────────────────────────────┐
   │                   Storage Engine Layer                   │
   ├──────────────────┬──────────────────────────────────────┤
-  │ bee_kv           │  Redis + Memcached                   │
+  │ bee_kv           │  Redis / Memcached                   │
   │ bee_search       │  Elasticsearch + OpenSearch + ClickHouse │
   │ bee_graph        │  Neo4j + NebulaGraph + ArangoDB      │
   │ bee_tsdb         │  InfluxDB + Apache IoTDB + QuestDB   │
@@ -157,12 +157,12 @@ bee_rust   → 위의 모든 crate (re-export)
 
 | 카테고리 | 데이터베이스 | 해당 Crate | Feature Flag |
 |------|--------|-----------|-------------|
-| **관계형** | SQLite | `bee_orm` | `sqlite` |
-| | PostgreSQL | `bee_orm` | `postgres` |
-| | MySQL | `bee_orm` | `mysql` |
+| **관계형** | SQLite | `bee_orm` | `sqlite`(bee_rust: `orm-sqlite`) |
+| | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls`(bee_rust: `orm-postgres` / `orm-postgres-tls`) |
+| | MySQL | `bee_orm` | `mysql`(bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **KV / 캐시** | Redis | `bee_kv` / `bee_cache` | `redis` |
-| | Memcached | `bee_kv` / `bee_cache` | `memcache` |
+| | Memcached | `bee_kv` / `bee_cache` | `memcached` / `memcache` |
 | **검색 / 분석** | Elasticsearch | `bee_search` | `elasticsearch` |
 | | OpenSearch | `bee_search` | `opensearch` |
 | | ClickHouse | `bee_search` | `clickhouse` |
@@ -202,7 +202,7 @@ let security = SecurityFilter::new();  // 27개 탐지기 모두 켜짐
 
 ### ORM (bee_orm)
 
-`#[derive(Model)]` 파생 매크로 + QuerySet 체이닝 쿼리 (filter / order_by / limit), SQLite, PostgreSQL, MySQL, TiDB 지원.
+`#[derive(Model)]` 파생 매크로(`#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]` 지원) + QuerySet 체이닝 쿼리와 실행(`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, 집계 `sum` / `avg` / `min` / `max`) + 비파괴 마이그레이션(`migrate::create_table` / `add_missing_columns` / `sync`) + 관계 읽기(`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON 컬럼(`serde_json::Value`) + 3개 백엔드 커넥션 풀(트랜잭션·타임아웃 포함), SQLite, PostgreSQL, MySQL, TiDB 지원.
 
 ### 설정 관리 (bee_config)
 
@@ -210,11 +210,11 @@ let security = SecurityFilter::new();  // 27개 탐지기 모두 켜짐
 
 ### 스토리지 엔진
 
-KV / Cache (Redis + Memcached), 검색 엔진 (Elasticsearch / OpenSearch / ClickHouse), 그래프 데이터베이스 (Neo4j / NebulaGraph / ArangoDB), 시계열 데이터베이스 (InfluxDB / IoTDB / QuestDB)를 통일된 trait으로 추상화하며, 드라이버는 feature gate에 따라 컴파일됩니다.
+KV / Cache (Redis / Memcached), 검색 엔진 (Elasticsearch / OpenSearch / ClickHouse), 그래프 데이터베이스 (Neo4j / NebulaGraph / ArangoDB), 시계열 데이터베이스 (InfluxDB / IoTDB / QuestDB)를 통일된 trait으로 추상화하며, 드라이버는 feature gate에 따라 컴파일됩니다.
 
 ### Session, 로그, 템플릿
 
-- Session: Memory / Redis / Cookie / Database 다중 백엔드
+- Session: Memory, Redis (구현됨) / Cookie, Database (계획 중)
 - 로그: 다중 레벨 로그 + tracing 통합
 - 템플릿: tera 기반 렌더링
 
@@ -298,36 +298,37 @@ bee_rust = { git = "https://github.com/erikwang2013/bee-rust", features = ["full
 |-------|------|-----------|
 | `bee_rust` | 메타 crate, 통합 진입점 | — |
 | `bee_router` | 라우팅 + 컨트롤러 + Context + 필터 | `server/web`, `context` |
-| `bee_orm` | ORM + QuerySet + Migration | `client/orm` |
+| `bee_orm` | ORM + QuerySet | `client/orm` |
 | `bee_kv` | KV/Cache 통합 추상화 | `client/cache` (확장) |
 | `bee_search` | 검색/분석 엔진 | — (신규) |
 | `bee_graph` | 그래프 데이터베이스 | — (신규) |
 | `bee_tsdb` | 시계열 데이터베이스 | — (신규) |
 | `bee_config` | 설정 관리 + 핫 리로드 | `client/config` |
 | `bee_cache` | 캐시 추상화 | `client/cache` |
-| `bee_session` | Session 관리 | `server/web/session` |
+| `bee_session` | Session 관리 (Memory/Redis 구현됨, Cookie/Database 계획 중) | `server/web/session` |
 | `bee_logs` | 로그 | `logs` |
 | `bee_template` | 템플릿 렌더링 | — (강화) |
 | `bee_cli` | CLI 도구 | `bee` 도구 |
 
 ### 테스트 커버리지
 
-전체 저장소의 68개 테스트 통과:
+전체 저장소의 334개 테스트 통과:
 
 | Crate | 테스트 수 |
 |-------|--------|
-| bee_config | 4 |
-| bee_cache | 4 |
+| bee_config | 9 |
+| bee_cache | 15 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 4 |
-| bee_search | 6 |
-| bee_graph | 5 |
-| bee_tsdb | 5 |
-| bee_orm | 7 |
+| bee_kv | 15 |
+| bee_search | 21 |
+| bee_graph | 19 |
+| bee_tsdb | 19 |
+| bee_orm | 141 |
+| bee_orm_macro | 20 |
 | bee_session | 2 |
-| bee_router | 9 |
-| bee_cli | 16 |
+| bee_router | 40 |
+| bee_cli | 28 |
 
 ## 지원 환영
 

@@ -2,6 +2,28 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.0] — 2026-10-06
+
+### जोड़ा गया
+- `bee_orm`: ORM अब शुरू से अंत तक चलता है — टाइप्ड `Value` पैरामीटर (Null / Bool / Int / Float / Text / Bytes), `#[bee(table / column / pk / auto / ignore)]` के साथ `#[derive(Model)]`, मॉडल पर `insert` / `update` / `delete`, और `QuerySet` निष्पादन (`all` / `one` / `count` / `exists` / `update` / `delete`)
+- `bee_orm`: तीनों बैकएंड के लिए कनेक्शन पूल (`pool::{sqlite, postgres, mysql}::Pool`) — `connect(dsn, max_size)`, `get()` → `CheckedConn`, `query` / `execute`, `status()`, और `begin` / `commit` / `rollback` से ट्रांज़ैक्शन; ट्रांज़ैक्शन के बीच छोड़ा गया कनेक्शन sqlite और postgres पर रोलबैक हो जाता है
+- `bee_orm`: नया `postgres-tls` फ़ीचर (TLS पर PostgreSQL, अंतर्निहित Mozilla रूट) और पूल सुदृढ़ीकरण — 30 सेकंड प्रतीक्षा / 10 सेकंड निर्माण टाइमआउट और postgres पूल में प्रीपेयर्ड-स्टेटमेंट कैश
+- `bee_orm`: मॉडल जीवनचक्र — `#[bee(auto_now_add)]` / `#[bee(auto_now)]` स्वतः टाइमस्टैम्प, `#[bee(soft_delete)]` सॉफ़्ट डिलीट (delete फ़्लैग पलट देता है; `with_deleted()` / `hard_delete()` इसे बायपास करते हैं), insert/update/delete हुक, `Model::insert_many` (999 पैरामीटर के बैच, गैर-ट्रांज़ैक्शनल), और `QuerySet::filter_in` तथा `sum` / `avg` / `min` / `max` एग्रीगेट
+- `bee_orm`: गैर-विनाशकारी माइग्रेशन — `migrate::{create_table, add_missing_columns, sync}` डायलेक्ट के अनुसार DDL (sqlite `AUTOINCREMENT` / postgres `IDENTITY` / mysql `AUTO_INCREMENT`) बनाते हैं: तालिकाएँ बनाते और छूटे कॉलम जोड़ते हैं, कभी हटाते या बदलते नहीं
+- `bee_orm`: विदेशी-कुंजी संबंध — `#[bee(fk = Target)]` (`#[bee(sql_type = "…")]` के साथ) FK DDL बनाता है और `rel::{fk_column_to, belongs_to, children, children_for}` उन्हें पढ़ते हैं; प्रवर्तन बैकएंड पर निर्भर है: postgres और sqlite (bundled बिल्ड) लागू करते हैं, mysql inline `REFERENCES` को अनदेखा करता है (round 5+ का अंतराल)
+- `bee_orm`: अनेक-से-अनेक संबंध — `#[bee(m2m(Target))]` संबंध घोषित करता है, `m2m::{attach, detach, related, related_for, related_ids}` पढ़ते-लिखते हैं, और join टेबल `create_table` / `sync` बनाते हैं (`add_missing_columns` उसे नहीं छूता)
+- `bee_orm`: JSON कॉलम — `serde_json::Value` फ़ील्ड बैकएंड के अनुसार `TEXT` / `JSONB` / `JSON` में मैप होते हैं, ईमानदार NULL अर्थशास्त्र के साथ: SQL `NULL` → `None`, सहेजा गया JSON `null` दस्तावेज़ → `Some(Json::Null)`
+- `bee_orm`: MySQL टेबल-स्तरीय फ़ॉरेन की (opt-in) — `MigrateOptions { table_level_fk }` के साथ `sync_with` / `create_table_with` / `add_missing_columns_with`; डिफ़ॉल्ट बंद, और पहले से मौजूद अनाथ पंक्तियाँ चुपचाप छोड़े जाने के बजाय `ADD CONSTRAINT` विफल करती हैं
+- `bee_orm`: कस्टम `rustls::ClientConfig` के लिए `Pool::connect_tls_with`, साथ में `bee_orm::rustls` पुनः-निर्यात ताकि संस्करण हमेशा मेल खाए; `connect_tls` बंडल किए webpki रूट रखता है
+- `bee_rust`: चार अग्रेषण feature — `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` `bee_rust` के माध्यम से `bee_orm` बैकएंड अग्रेषित करते हैं (कोई भी `full` में नहीं)
+- `bee_cli`: `bee-rust migrate init` `src/bin/bee_migrate.rs` बनाता है (मौजूद फ़ाइल ओवरराइट नहीं करता), `bee-rust migrate run` उसे `cargo run --bin bee_migrate` से चलाता है
+- `bee_kv` / `bee_cache`: Redis बैकएंड टूटे कनेक्शन से उबरते हैं — भीतरी `ConnectionManager` मांग पर (पृष्ठभूमि थ्रेड के बिना) घातांकीय बैकऑफ़ और जिटर के साथ पुनः जुड़ता है (टूटन पर पड़ने वाला कमांड विफल, अगला नए कनेक्शन की प्रतीक्षा करता है)
+- `bee_kv` / `bee_cache`: memcached बैकएंड (bee_kv में `MemcacheStore`, bee_cache में `MemcacheCache`); `incr` डेल्टा से पहले काउंटर बनाता है, अहस्ताक्षरित काउंटर 0 पर रुकते हैं, और TTL 0 कुंजी हटा देता है
+
+### बदला गया
+- दस्तावेज़ों में bee_orm के माइग्रेशन, संबंध (many-to-many सहित), `bee-rust migrate` सबकमांड, Redis / Memcached बैकएंड और `bee_rust` की ORM अग्रेषण feature अब योजनाबद्ध नहीं हैं
+- दस्तावेज़ों में search / graph / tsdb ड्राइवर अब योजनाबद्ध या trait-stub के बजाय कार्यान्वित (opt-in feature) के रूप में दर्ज हैं, और पुराने उदाहरणों के टाइप नाम व कनेक्शन तरीका सुधारे गए (न मौजूद `ElasticsearchEngine` / `Neo4jDB`, गलत `bolt://`)
+
 ## [1.1.5] — 2026-09-25
 
 ### जोड़ा गया

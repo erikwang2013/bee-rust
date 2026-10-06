@@ -2,6 +2,28 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.0] — 2026-10-06
+
+### Ajouts
+- `bee_orm` : l'ORM s'exécute désormais de bout en bout — paramètres typés `Value` (Null / Bool / Int / Float / Text / Bytes), `#[derive(Model)]` avec `#[bee(table / column / pk / auto / ignore)]`, `insert` / `update` / `delete` sur le modèle et exécution QuerySet (`all` / `one` / `count` / `exists` / `update` / `delete`)
+- `bee_orm` : pools de connexions pour les trois backends (`pool::{sqlite, postgres, mysql}::Pool`) — `connect(dsn, max_size)`, `get()` → `CheckedConn`, `query` / `execute`, `status()` et transactions via `begin` / `commit` / `rollback` ; une connexion abandonnée en pleine transaction est annulée sur sqlite et postgres
+- `bee_orm` : nouvelle feature `postgres-tls` (PostgreSQL en TLS, racines Mozilla embarquées) et durcissement des pools — délais de 30 s (attente) / 10 s (création) et cache de requêtes préparées sur le pool postgres
+- `bee_orm` : cycle de vie des modèles — horodatage via `#[bee(auto_now_add)]` / `#[bee(auto_now)]`, suppression logique via `#[bee(soft_delete)]` (delete bascule le drapeau ; `with_deleted()` / `hard_delete()` le contournent), hooks (before/after insert/update/delete), `Model::insert_many` (lots de 999 paramètres, non transactionnel), ainsi que `QuerySet::filter_in` et les agrégats `sum` / `avg` / `min` / `max`
+- `bee_orm` : migrations non destructives — `migrate::{create_table, add_missing_columns, sync}` génèrent le DDL selon le dialecte (sqlite `AUTOINCREMENT` / postgres `IDENTITY` / mysql `AUTO_INCREMENT`), créent les tables et ajoutent les colonnes manquantes sans jamais supprimer ni modifier
+- `bee_orm` : relations par clé étrangère — `#[bee(fk = Target)]` (avec `#[bee(sql_type = "…")]`) émet le DDL de FK, et `rel::{fk_column_to, belongs_to, children, children_for}` les lisent ; l'application dépend du backend : postgres et sqlite (build bundled) font respecter la référence, mysql ignore `REFERENCES` inline (lacune pour le round 5+)
+- `bee_orm` : relations many-to-many — `#[bee(m2m(Target))]` déclare la relation, `m2m::{attach, detach, related, related_for, related_ids}` la lisent et l'écrivent, et `create_table` / `sync` créent la table de jointure (`add_missing_columns` n'y touche jamais)
+- `bee_orm` : colonnes JSON — les champs `serde_json::Value` sont mappés vers `TEXT` / `JSONB` / `JSON` selon le backend, avec une sémantique NULL honnête : SQL `NULL` → `None`, un document JSON `null` stocké → `Some(Json::Null)`
+- `bee_orm` : clés étrangères au niveau table sous MySQL (opt-in) — `MigrateOptions { table_level_fk }` avec `sync_with` / `create_table_with` / `add_missing_columns_with` ; désactivées par défaut, et des lignes orphelines préexistantes font échouer `ADD CONSTRAINT` au lieu d'être ignorées en silence
+- `bee_orm` : `Pool::connect_tls_with` pour une `rustls::ClientConfig` maison, plus un réexport `bee_orm::rustls` pour que la version corresponde toujours ; `connect_tls` garde les racines webpki embarquées
+- `bee_rust` : quatre features de transmission — `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` transmettent un backend `bee_orm` via `bee_rust` (aucune n'est dans `full`)
+- `bee_cli` : `bee-rust migrate init` génère `src/bin/bee_migrate.rs` (refuse d'écraser un fichier existant) et `bee-rust migrate run` l'exécute via `cargo run --bin bee_migrate`
+- `bee_kv` / `bee_cache` : les backends Redis survivent aux connexions coupées — le `ConnectionManager` sous-jacent se reconnecte à la demande (sans thread d'arrière-plan) avec backoff exponentiel et jitter (la commande sur la coupure échoue, la suivante attend)
+- `bee_kv` / `bee_cache` : backends memcached (`MemcacheStore` dans bee_kv, `MemcacheCache` dans bee_cache) ; `incr` crée le compteur avant le delta, les compteurs non signés s'arrêtent à 0, et TTL 0 supprime la clé
+
+### Modifications
+- Les migrations et relations de bee_orm (many-to-many compris), la sous-commande `bee-rust migrate`, les backends Redis / Memcached et les features de transmission ORM de `bee_rust` ne sont plus marqués comme prévus dans la documentation
+- les drivers recherche / graphe / séries temporelles ne sont plus marqués dans les docs comme prévus ou comme stub de trait, mais comme implémentés (features opt-in) ; les anciens exemples ont été corrigés (noms de types inexistants `ElasticsearchEngine` / `Neo4jDB`, schéma `bolt://` erroné)
+
 ## [1.1.5] — 2026-09-25
 
 ### Ajouts
