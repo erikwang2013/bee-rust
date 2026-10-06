@@ -235,11 +235,13 @@ pub(crate) fn expand(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream
         .map(|def| {
             let target = &def.target;
             let (table, local, foreign) = (&def.table, &def.local, &def.foreign);
+            let target_ident = &def.target_ident;
             quote_spanned! { target.span() =>
                 bee_orm::model::M2mDef {
                     table: #table,
                     local_column: #local,
                     foreign_column: #foreign,
+                    target_ident: #target_ident,
                     target_table: <#target as bee_orm::Model>::table_name,
                     target_columns: <#target as bee_orm::Model>::columns,
                 }

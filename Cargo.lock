@@ -311,11 +311,13 @@ version = "1.2.0"
 dependencies = [
  "async-trait",
  "bee_orm_macro",
+ "chrono",
  "deadpool-postgres",
  "mysql_async",
  "r2d2",
  "r2d2_sqlite",
  "rusqlite",
+ "rust_decimal",
  "rustls",
  "serde",
  "serde_json",
@@ -331,6 +333,7 @@ name = "bee_orm_macro"
 version = "1.2.0"
 dependencies = [
  "bee_orm",
+ "chrono",
  "proc-macro2",
  "quote",
  "serde_json",
@@ -2044,6 +2047,7 @@ dependencies = [
  "byteorder",
  "bytes",
  "cc",
+ "chrono",
  "cmake",
  "crc32fast",
  "flate2",
@@ -2374,6 +2378,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "851ca9db4932932d69f3ea811b1abe63087a0f740a47692619dd40d4899b68be"
 dependencies = [
  "bytes",
+ "chrono",
  "fallible-iterator 0.2.0",
  "postgres-protocol",
  "serde_core",
@@ -2774,6 +2779,7 @@ dependencies = [
  "borsh",
  "bytes",
  "num-traits",
+ "postgres-types",
  "rand 0.8.8",
  "rand 0.9.5",
  "serde",

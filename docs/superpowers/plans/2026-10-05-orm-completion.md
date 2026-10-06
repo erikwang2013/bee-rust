@@ -3260,3 +3260,181 @@ green against real containers on both crates (redis + memcache, both env
 vars inert when unset). Duplicated store wiring between the two crates is
 deliberate per §53 (String vs `Vec<u8>` trait surfaces). Tester's quiet
 window: §50 mutation + these suites + full-crate runs.
+
+---
+
+## 55. Batch-7A: m2m 错误提示按类型 ident 拼写（reviewer backlog ①）
+
+reviewer 收口 LOW 观察项（m2m.rs:180）：`def_or_err` 的 `#[bee(m2m({}))]` 建议片段取 `R::table_name()` —— 目标模型经 `#[bee(table = "…")]` 改名后，按表名拼出的属性不可编译（属性位要类型 ident）。`src/tests/m2m.rs:149-160` 的 `Reader`/`Author` 恰好都是改名表（表 `readers`/`authors`），天然可钉。
+
+**机制裁定（M2mDef 携带 ident + 反向 def 拼提示）**：失败查询 `def_or_err::<L, R>()` 在正向无 def 时，运行时没有任何途径拿到 `R` 的**类型 ident** —— `Model` trait（model.rs:163 起）不带 ident，为它加 trait 项会破坏手写 impl 面。唯一可读的 ident 是**反向声明** `m2m_def::<R, L>()` 那条 def 的 target ident：它拼出的正是提示里要展示的 `#[bee(m2m(Author))]` 片段。因此：宏在 emission 侧把 target ident 字符串写入 `M2mDef`；`def_or_err` 正向失败时读反向 def 的该字段拼提示；两向都无 def 时没有 ident 可拼——用字面占位符给形状，**绝不把表名放进 `m2m(…)` 片段位**（表名看着可复制、复制即编译错，正是被报的坑）。
+
+**宏侧（coder-macro，先动）**：
+- `M2mDef` 新增 `target_ident: &'static str`。取 plain str（ident 宏期即知，不需要 target_table/target_columns 那样经 fn 指针延后到目标类型解析）；其余字段形式不动。
+- 取值语义：属性 target 路径**最后一节 ident、`unraw()`、保留原大小写**（`Tag`→`"Tag"`；`crate::models::Tag`→`"Tag"`；`r#type`→`"type"`）；`Self` → 声明侧结构体名（同 expand.rs:264-269 断言拼写的既有 Self 语义）。注意 parse.rs:165-174 已有的 `target_ident` 是**小写**默认值拼写（table/local/foreign 默认用）——§55 是新字段、**原样**拼写，同源不同物，不得复用混写。落点建议：parse.rs 的 `M2m` 存原样 ident（String），expand.rs 的 M2mDef 字面量（:239-245）发字面量。
+- 宏单测/token 基线覆盖三拼写（裸 ident / 全路径末节 / Self）与 unraw。
+- Landed（coder-macro，2026-10-06）：`M2m` 落点存 **LitStr**（自带 target span、与 table/local/foreign 同型；小写默认改由 verbatim 派生，§43 三默认逐字不变）；单测四拼写含 unraw（显式断言字面量**永不出现** `"r#type"`）与 §43 小写默认对照；trybuild pass 用例升级 `crate::Category` 全路径 + `target_ident` 运行期断言。宏侧门禁：单测 21/21、trybuild 7 fail + 3 pass、fmt/clippy rc=0。
+
+**ORM 侧（coder-orm）**：
+- `model.rs` `M2mDef`（:136-148）加同名字段；手写 `PartialEq`（:150-160）加 `self.target_ident == other.target_ident`（直接比 str，不是 fn 指针；派生模型互比不回归）。
+- `def_or_err::<L, R>`（m2m.rs:176-185）：
+
+```rust
+m2m_def::<L, R>().ok_or_else(|| {
+    let hint = match m2m_def::<R, L>() {
+        Some(reverse) => format!(
+            "`{}` declares the reverse `#[bee(m2m({}))]` — call from `{}`, or declare `#[bee(m2m(<Target>))]` on `{}`",
+            R::table_name(), reverse.target_ident, R::table_name(), L::table_name()
+        ),
+        None => format!(
+            "declare `#[bee(m2m(<Target>))]` on `{}` (or the reverse on `{}`)",
+            L::table_name(), R::table_name()
+        ),
+    };
+    OrmError::QueryError(format!(
+        "m2m: no relation from `{}` to `{}`; {hint}",
+        L::table_name(), R::table_name()
+    ))
+})
+```
+
+  措辞可微调顺序，断言以 contains 为准（下）。
+- 测试（src/tests/m2m.rs:149-160 扩展）：既有断言全保留（`authors`/`readers`/`#[bee(m2m(`）；新增：`related::<Author, Reader>` 错误信息 `contains("m2m(Author)")` 且 `!contains("m2m(readers")` —— Reader 声明 `m2m(Author)`、两表皆改名，"提示按 ident 拼写"的钉（`Author` 的表名是 `authors`，泄表名即红）；再钉一处反向提示词（按最终措辞）；无声明方向的对（如 `related::<Reader, Tag>`）无表名内嵌片段。
+- 验收取**单测**（消息是运行期字符串；lead 的 "trybuild line or unit test" 二选一）——`cargo test -p bee_orm` 全绿即可。
+- Landed（coder-orm，2026-10-06）：model.rs :151 字段 + :164 PartialEq 直比（非 fn 指针）；m2m.rs :189 反向读 def 拼 `target_ident`；tests/m2m.rs 三组断言（正向 `contains("m2m(Author)")`、`!contains("m2m(readers")`、反向 `<Target>` 占位）。默认关门禁 lib 52 全绿。
+
+**排程**：bee_orm 侧字段与 bee_orm_macro 侧 emission 必须同树落地才编译（struct 字面量缺字段即红）；两 crate 文件互不重叠，双侧同时动、后落地者跑全门禁。§55 并入下一批提交。
+
+---
+
+## 56. Batch-7B scope: chrono / rust_decimal 类型映射轮
+
+补齐日期时间与 Decimal 的端到端映射（现状债务：pg TIMESTAMP/TIMESTAMPTZ/DATE、mysql DATETIME/DATE、DECIMAL/NUMERIC 读回 null、写不进）。feature-gated：`bee_orm` 新增 `chrono` / `rust_decimal` 两个 feature。
+
+硬约束（lead 定，逐条可验）：
+- **feature 关 = 零新依赖、零行为变化**：`Cargo.lock` 零 diff；`cargo tree -p bee_orm` 与轮前逐字节一致；新臂全 cfg，关闭时既有路径逐字节不动。
+- **feature 开 = 只加 chrono / rust_decimal 本体**（常规 serde 组合），不加别的直接依赖；引入的包名已全在锁里（§57），故锁仍零 diff。
+- feature 关时模型带日期字段 → **编译期**报错（拼写映射无条件，缺 `From<NaiveDate> for Value` 即报）——契约写文档（lead 终刷清单）。
+- 范围外：NaiveTime / 时间列（pg postgres-types chrono_04 就没有 NaiveTime impl，三后端无一致载体）；`DateTime<Local>` / `DateTime<FixedOffset>`（只做 UTC；spelling 对非 Utc 泛型参不给映射）；纳秒/typmod 精度参数。
+
+交付面：① Value 扩展（cfg 变体 + From）；② 三后端 bind/read、migrate DDL、SqlType 无条件变体、宏拼写表（§58）；③ bee_rust 转发 feature `orm-chrono` / `orm-rust_decimal`（§41 面一致性，照 `orm-sqlite` 模式）；④ §54 式语义钉子（§59）与真库门（tester）。
+
+---
+
+## 57. 锁定源码事实（2026-10-06 逐一核实，feature 代数成立的前提）
+
+- `mysql_async-0.34.2`：feature `chrono = ["mysql_common/chrono"]`、`rust_decimal = ["mysql_common/rust_decimal"]`；**`default-rustls`（bee_orm 已在用）已含 rust_decimal** → `mysql_common/rust_decimal` 今天就在依赖树里。`mysql_common-0.32.4`：`FromValue for NaiveDate/NaiveTime/NaiveDateTime`、`impl From<NaiveDateTime> for Value`（convert/chrono.rs:186）与 `From<NaiveDate> for Value`（:204）、`impl From<Decimal> for Value`（convert/decimal.rs:62，值转即长度编码文本）——bind 直接用 `mysql_async::Value::from(x)`。binary protocol 的 `Value::Date(u16,u8,u8,u8,u8,u8,u32)` = 年/月/日/时/分/秒/微秒，时间列无 chrono 也已解析成字段。
+- `tokio-postgres-0.7.18`：`with-chrono-0_4 = ["postgres-types/with-chrono-0_4"]`。`postgres-types-0.2.14` `chrono_04.rs`：`NaiveDate/NaiveDateTime/DateTime<Utc|Local|FixedOffset>` 有 FromSql/ToSql——**无 NaiveTime**；其 chrono 依赖 default-features=false + clock。
+- `rust_decimal-1.43.0`：default = `["serde","std"]`（serde 默认**字符串**形，保精度）；`db-tokio-postgres = ["dep:bytes","dep:postgres-types","std"]`；`src/postgres/driver.rs` `impl FromSql for Decimal`（:20）/ `impl ToSql for Decimal`（:119）——pg NUMERIC 原生收发；无 mysql_async 原生集成（mysql 走文本，见上）。
+- `chrono-0.4.45`：default = clock/std/oldtime/wasmbind——**serde 不在默认**：bee_orm 的 chrono dep 必须显式 `features = ["serde"]`。`Cargo.lock` 已含 chrono 0.4.45 / mysql_common 0.32.4 / postgres-types 0.2.14 / rust_decimal 1.43.0 → 本轮 **Cargo.lock 零新 package**（钉子 §59#6）——锁是 feature 无关的：新增 optional 依赖会在锁里落依赖边（实作期实测终态 **6 行、全为既有 package 依赖边追加**：bee_orm +2（chrono、rust_decimal）、bee_orm_macro +1（fail 例 dev-dep）、mysql_common +1（chrono，弱激活链落点——非 mysql_async）、postgres-types +1（chrono）、rust_decimal +1（postgres-types）；零 `[[package]]` 增删、零版本漂移——架构师 `git diff Cargo.lock` 逐行复核）。
+- `rusqlite-0.32.1` 带可选 chrono feature——**不用**：sqlite 读写全走显式文本转换与文本解码，少一个 feature 面。
+- **读取面关键结论**：chrono/rust_decimal 开 serde 后即 `DeserializeOwned` → 直接走 value.rs 既有 blanket `impl<T: DeserializeOwned> FromValue`（:104-108）：**无需新 FromValue impl、无 E0119、value.rs 零改动**。读取单元格由 `serde_json::to_value(typed)` 产出——与 decode 的 serde 解析天然对称（往返 by construction）。
+
+---
+
+## 58. 设计：Value / feature 代数学 / 三后端映射
+
+### Value（value.rs）
+- `#[cfg(feature = "chrono")]`：`Date(NaiveDate)` / `DateTime(NaiveDateTime)` / `DateTimeUtc(DateTime<Utc>)` + 三个 `From`。
+- `#[cfg(feature = "rust_decimal")]`：`Decimal(Decimal)` + `From`。
+- 命名贴既有短名（Int/Float/Text/Bytes/Json）；`DateTimeUtc` 显式标 UTC（mysql 无时区类型、pg timestamptz 归一）。
+- 现有 match 点（pool/sqlite.rs ToSql :168-181、pool/mysql.rs to_mysql :145-156、pool/postgres.rs ToSql :322-392）加 cfg 臂；**不要**以 `_` 兜底吞新变体（类型不匹配须走既有 TypeMismatch 报错，不能静默走错路）。
+
+### feature 代数学（bee_orm/Cargo.toml，:18-22）
+
+```toml
+chrono = ["dep:chrono", "tokio-postgres?/with-chrono-0_4", "mysql_async?/chrono"]
+rust_decimal = ["dep:rust_decimal"]
+postgres = ["dep:tokio-postgres", "dep:deadpool-postgres", "dep:tokio", "rust_decimal?/db-tokio-postgres"]
+
+[dependencies.chrono]
+version = "0.4"
+features = ["serde"]
+optional = true
+
+[dependencies.rust_decimal]
+version = "1"
+optional = true
+```
+
+- `?/` 弱激活：sqlite-only + rust_decimal 不引入 postgres-types；chrono 关闭时 pg/mysql 编译面不动。**tokio-postgres 既有 dep 行不得改**（把 `with-chrono-0_4` 写进 dep features 会 postgres 一开就强拉 chrono，违"关=零变化"）。
+- bee_rust（:26-41）：`orm-chrono = ["orm", "bee_orm/chrono"]`、`orm-rust_decimal = ["orm", "bee_orm/rust_decimal"]`。
+
+### SqlType / 迁移（无条件）
+- `SqlType`（model.rs:69-81，`#[non_exhaustive]`）加 `Date/DateTime/DateTimeTz/Decimal`——纯数据变体，DDL 渲染不需要 chrono/decimal 类型在场。
+- `migrate::sql_type()`（:341）新臂：
+
+| SqlType | sqlite | pg | mysql |
+|---|---|---|---|
+| Date | TEXT | date | date |
+| DateTime | TEXT | timestamp | datetime(6) |
+| DateTimeTz | TEXT | timestamptz | timestamp(6) |
+| Decimal | TEXT | numeric | decimal(65,30) |
+
+- sqlite 一律 TEXT（iso8601 文本存储；**Decimal 尤其**：声明 DECIMAL 得 NUMERIC 亲和，文本 "1.50" 会被转 REAL 1.5 丢精度——§59#4 钉）。
+- mysql `decimal(65,30)`：对齐 pg 无约束 numeric 的"任意精度"意图（读回定标填充串，Decimal 数值相等成立；钱型请 `#[bee(sql_type = Raw("decimal(12,2)"))]` 逃生口）；`datetime(6)`/`timestamp(6)` 微秒精度；timestamp 有 2038 上限与会话时区口径（文档注）。
+- 既有 `migrate sync` 幂等语义不受影响（ALTER ADD COLUMN 走同一 sql_type）。
+
+### 宏拼写（bee_orm_macro/src/types.rs `spelling()` :24；expand.rs :133-155 应用）
+- `"NaiveDate"→"Date"`；`"NaiveDateTime"→"DateTime"`；`"Decimal"→"Decimal"`。
+- `"DateTime"`：仅当唯一泛型参末节为 `Utc` → `"DateTimeTz"`；否则 None（逼 `#[bee(sql_type = …)]` 显式覆盖）。`spelling()` 现按末节匹配，需扩到看 `Type::Path` 泛型参。
+- 拼写表无条件、与 feature 无关；`Option<T>` 走既有 nullable 拆解路径（确认四拼写透传）。
+- 既有拼写表单测（tests.rs 的 `spelling_table_maps_every_supported_type`）扩：三新拼写 + `DateTime<Utc>` → DateTimeTz + 裸 `DateTime` → None 两例。
+- Landed（coder-macro，2026-10-06）：判定 `utc_datetime` = 唯一泛型参且其末节为 `Utc`；裸 `DateTime`/`DateTime<Local>`/`NaiveTime`（范围外）/`Option<DateTime<Local>>` 四例均走既有 "no SQL type mapping … add #[bee(sql_type = …)]" 提示。基线纪律：§34 巨型拼写基线**逐字未动**，§56 五列（Date/DateTime/Decimal/DateTimeTz×nullable 两态）以第二条 assert 追加——旧钉零风险。
+
+### 三后端
+
+**pg**（pool/postgres.rs）
+- read `value()`（:278-291）在 `_ => opt::<String>`（:289）前插 cfg 臂：`"date" => serde_opt::<NaiveDate>`、`"timestamp" => serde_opt::<NaiveDateTime>`、`"timestamptz" => serde_opt::<DateTime<Utc>>`、`"numeric" => serde_opt::<Decimal>`。新 helper `serde_opt<T: serde::Serialize>`（既有 `opt()` 是 `Into<Json>` 面；chrono/decimal 是 serde 面）：DB 错/`to_value` 失败 → `Json::Null`（既有 opt 约定）。cfg 关时维持落 `_` 臂的 null 现状。
+- ToSql for Value（:322-392）加臂：`(Value::Date(d), "date")`、`(Value::DateTime(dt), "timestamp")`、`(Value::DateTimeUtc(dt), "timestamptz")`、`(Value::Decimal(d), "numeric")` → 各自 `to_sql`；其余组合落既有不匹配报错。
+- 单元格 = `to_value` 的 serde 形（date "2026-10-06"、naive "…T…%.f"、Utc RFC3339 Z）——decode 由用户 serde 对称解析。
+
+**mysql**（pool/mysql.rs）
+- read：`row_to_json`（:158）已在读 `columns_ref()`；`value(v)`（:169）改为收列信息（列型），cfg(chrono) 臂按**列型**分派（`V::Date` 变体不带列型，DATETIME 与 TIMESTAMP 必须靠 column type 区分）：
+  - `MYSQL_TYPE_DATE` → `"YYYY-MM-DD"`；
+  - `MYSQL_TYPE_DATETIME` → naive `"YYYY-MM-DDTHH:MM:SS[.ffffff]"`；
+  - `MYSQL_TYPE_TIMESTAMP` → 同 naive 形 + `Z`（RFC3339 Z——mysql 无时区类型：TIMESTAMP 视为 UTC，DateTimeUtc 字段对口 TIMESTAMP 列）；
+  - `V::Time(..)` 仍 `Json::Null`（范围外，无条件）。cfg 关 → 全体维持现状 null。
+  - 口径：DATETIME 单元格解 `NaiveDateTime` ✓、解 `DateTime<Utc>` ✗（无偏移，serde 拒）；TIMESTAMP 反相。列型对口、错配 decode 显式报错，文档写清。
+- bind（`to_mysql` :145-156）cfg 臂：`Value::Date(d) → Value::from(d)`；`Value::DateTime(dt) → Value::from(dt)`；`Value::DateTimeUtc(dt) → Value::from(dt.naive_utc())`（归 UTC 存 naive）；`Value::Decimal(d) → Value::from(d)`（mysql_common 的 From 即长度编码文本）。**会话时区口径**：TIMESTAMP 列按会话时区转换读写，严格 UTC 往返要求会话时区=UTC（容器默认即 UTC；文档注）。
+- 拼写/DDL 见上表。
+
+**sqlite**（pool/sqlite.rs）
+- read 零改动（`value()` :183-194 Text→String 单元格即文本，serde 解码在 decode 侧）。
+- bind（`impl rusqlite::ToSql for Value` :168-181）cfg 臂，显式文本转换（不用 rusqlite chrono feature）：
+  - `Date(d) → d.format("%Y-%m-%d")`；
+  - `DateTime(dt) → dt.format("%Y-%m-%dT%H:%M:%S%.f")`（`%.f` 无小数时不留点）；
+  - `DateTimeUtc(dt) → format!("{}Z", dt.naive_utc().format("%Y-%m-%dT%H:%M:%S%.f"))`；
+  - `Decimal(d) → d.to_string()`。
+- 存储格式即上述字面量（§59#4 钉）。
+
+### Landed（coder-orm，2026-10-06）
+
+- 文件面：model.rs（SqlType 四变体、M2mDef.target_ident）、m2m.rs、value.rs（四 cfg 变体 + 四 From + 2 往返单测，decimal 定值钉 `row["v"]=="1.50"`）、rel.rs、migrate.rs、pool/{sqlite,postgres,mysql}.rs、tests/{m2m,mod}.rs、tests/datetime_types.rs（新，188 行）、bee_orm/Cargo.toml（feature 代数逐字如 §58；tokio-postgres dep 块未动）、bee_rust/Cargo.toml（orm-chrono / orm-rust_decimal）。
+- 双跑：默认关 lib 52 + orm_tests 18 + doctests 1；`--all-features` lib 77（70 基线 + value 2 + datetime_types 3 + mysql 单元格 2）+ orm_tests 18 + doctests 5 + 集成 5/2/8/2/6/2/6/6/11（此列表为 coder-orm 时点；tester 真库增补 +4 后 pg 10 / mysql 7，见 §59#8）；clippy 双跑 / fmt rc=0；bee_orm_macro 21 unit + trybuild（8 fail + 3 pass）联测绿。**口径订正（tester，2026-10-06）**：简报原文 "doctests 18" 实为 `tests/orm_tests.rs` 目标 18（两跑法均 18）；真 doctests 为 bare 1 / all-features 5（`cargo test -p bee_orm --doc` 实测）——以 tester 实测为准。
+- 树证：默认关 `cargo tree -p bee_orm` grep `chrono|decimal` 零命中；`--all-features` 两者在。
+- 变异证伪（逐字节还原后 cmp sqlite.rs 同）：① migrate.rs sqlite Decimal `"TEXT"`→`"DECIMAL"` → DDL 钉红（datetime_types.rs:148）；② sqlite bind `to_string()`→`normalize().to_string()` → 两 decimal 定值钉红（"1.5" vs "1.50"）。
+- **历史修订（设计段未列、feature 开才暴露的两处 E0004 必修）**：① pool/postgres.rs `mismatch_error` kind 串加 cfg 臂——诊断只报变体名、不带数据；② rel.rs `json_of` 加 cfg 臂，走 `serde_json::to_value`（与读取单元格同形 → "绑定值 vs 解码 cell" 分组键一致）。两处 cfg 关时逐字节不存在（"关=零变化"不变式不破）。
+- 小项：mysql `date_cell` 八参→元组形参（过 clippy too_many_arguments，未用 allow）；datetime_types 夹具四类型列可空（各 feature 只插自己子集）；真库文件 coder-orm 未动——真列型分派钉与 §59#8 归 tester（已落，见 §59#8 Landed）。
+- **tester 真库实测补记（2026-10-06）**：mysql `decimal(65,30)` 回填 30 位小数文本读回无损——rust_decimal 解析器按 estimated_max_precision 截断系数并四舍五入，尾零填充不触发 >28 scale 守卫（一度怀疑的缺陷经实测否定）；DECIMAL(35,0) 30 位大数 mysql 保持文本 cell、decode 才 err，与 pg Null cell 的不对称如 §59#3 所述。
+
+---
+
+## 59. 验收与钉子（§54 式语料）
+
+1. **pg TIMESTAMPTZ 时区往返**：`DateTime<Utc>`（源可造自 `parse_from_rfc3339("…+05:30")`）写入→读回同瞬时（微秒）；raw SQL 写 `+05:30` 的 timestamptz → decode `DateTime<Utc>` 为同瞬时 UTC。原生路径（driver impls），无文本中转。
+2. **DATE 无时区**：三后端 `NaiveDate` 往返精确（pg date / mysql date / sqlite TEXT），无时间成分。
+3. **Decimal 精度损失路径**：pg 原生——超 96-bit 尾数（>29 有效位）的 numeric → FromSql 错 → 单元格 `Json::Null`（文档化天花板，钉 null）；界内 "1.50" 往返数值等（pg numeric 无 typmod 保留 scale）。mysql 文本——>29 位串到 **decode** 才由用户 serde 报错（口径不对称，文档写明）；界内往返数值等。sqlite `to_string()` 文本、TEXT 亲和不变形。
+4. **sqlite 存储格式**：raw 读 `typeof(col)=="text"`；定值样本逐字相等（"2026-10-06" / naive "…%.f" / "…Z" / decimal 串）；`sqlite_master` DDL 中 Decimal 列声明为 TEXT（NUMERIC 亲和陷阱守门钉——若声明 DECIMAL，"1.50" 会被转 REAL 1.5，此钉必须能红）。Landed（coder-orm）：已证能红——`"TEXT"→"DECIMAL"` 变异使本钉红于 datetime_types.rs:148，逐字节还原复绿（全记录见 §58 Landed）。独立复验（tester 实做，2026-10-06）：`"TEXT"→"DECIMAL"`（migrate.rs:394 一臂）→ 红 @datetime_types.rs:148:5、红点单一无级联；逐字节还原（sha 回 `2c1a91f2…`）+ touch 后重编译复绿。另 reviewer 收口 M-A 同钉同语义先行证（红 @datetime_types.rs:148、红点单一【2 passed/1 failed，:149 反证钉未触发】→ cmp 还原复绿；写入瞬间 python 锚计数==1 证落笔前为原始态）；mysql 真列型分派独立证伪见 §59#8 Landed——本钉三方证伪闭环（coder-orm + tester + reviewer），原定 reviewer 候选①据此撤下。
+5. **mysql 微秒 + TIMESTAMP 归一**：datetime(6)/timestamp(6) 含 `.123456` 往返精确；`DateTimeUtc` ↔ TIMESTAMP 往返（会话 UTC 前提，文档注）。
+6. **feature 代数钉子**：`Cargo.lock` 零新 package（唯一 diff = optional 依赖边记录——锁 feature 无关，属预期；**终态 6 行、构成见 §57**；逐条核无 `[[package]]` 增删/版本漂移，架构师已 `git diff Cargo.lock` 逐行复核）；feature 关时 `cargo tree -p bee_orm` 与轮前逐字节一致（取证）；`cargo test -p bee_orm`（默认关）与 `--all-features`（chrono+rust_decimal+全后端）双绿；无 feature 带日期字段的编译失败例——**已裁定**：trybuild **fail 例**（bee_orm_macro 加 chrono **dev-dep** 使类型可解析，触发 `Value: From<NaiveDate>` 不满足；trybuild 生成 crate 无法按用例开关 feature，故 pass 面不做成 trybuild 例），pass 面由 coder-orm 的 `--features chrono` 单测覆盖。Landed（coder-macro，2026-10-06）：`tests/ui/date_field_without_chrono_feature.rs` + `.stderr` 钉住 E0277（`Value: From<NaiveDate>` 不满足；derive 的两处写路径折叠为**单错、无级联**）；bee_orm_macro 仅 [dev-dependencies] 加 chrono（serde 开）、[dependencies] 未动；锁 0 新 package（宏条目 +1 chrono 边）。**`.stderr` 稳定性口径**：help 段完整枚举 17 条 `From<T> for Value`（无截断）——§56 新增的 From 全在 cfg 下，feature 关的 scratch 编译里不存在，故该文件在 §56 落地后应**逐字节不变**；若届时 trybuild 变红且 diff 是枚举多出 chrono/decimal 行——那不是重生成信号，是 **cfg 泄漏缺陷**（feature 关面被改），路由架构师按缺陷处理。trybuild scratch 始终按宏 crate dev-dep 集编译（外层 `--all-features` 不传入），任何门禁跑法下此钉稳定。
+7. **零回归**：lib 70 / m2m_json 6 / assembly 2 / 真库既有用例全绿；§55 测试扩展绿；fmt/clippy 全 rc=0。
+8. **真库门（tester）**：扩展 `tests/integration_pg.rs` / `integration_mysql.rs`（DSN 门控，复用 bee-pg-x 5432 / bee-mysql-x 3407 模式）；sqlite 钉在 lib 单测。Landed（tester，2026-10-06）：pg +2 / mysql +2 用例（timestamptz 两向、date、微秒 + 真列型分派、文本 decimal 路径）；前提断言进测试（pg `SHOW timezone`=UTC；mysql SYSTEM→系统 UTC）；`--test integration_pg --test integration_mysql` rc=0（pg 10/10、mysql 7/7）。C 抽查：mysql `date_cell` DATETIME→Utc 泄漏变异 → 红 @integration_mysql.rs:313（left `…123456Z` vs right `…123456`）→ 逐字节还原（sha256 回 f3e6e98…）+ touch 后重编译复绿。A3 复核：`.stderr` sha256 `a6767dd1…` 与基线逐字节同（untracked 文件以 sha 为基线口径、`git diff` 为空属 vacuous——正确指认）；trybuild 绿本身即 cfg 泄漏检查通过。
+
+**分工/排程**：coder-macro（§55 宏半，先；§56 拼写表随后）→ coder-orm（§55 ORM 半；§56 主体）→ tester（真库门 + 证伪）→ reviewer（收口）。§56 独立推进（不并 §55 提交）。文档终刷（api 注：feature 表、sqlite TEXT 格式、mysql 时区口径、pg 精度天花板、编译期契约）lead 触发——本文件仅记录。
+
+**决策日志（batch 7）**：M2mDef.target_ident 取 plain `&'static str`（宏期已知，无需 fn 指针延后；PartialEq 直比 str）。提示修复走反向 def 的 target_ident（正向无 def 无 ident 可拼；占位符 `<Target>` 给形状不给错拼写；Model trait 不加 ident 项——保手写 impl 面）。chrono 显式开 serde（默认为关）；rust_decimal 默认即带。rusqlite chrono feature 不用（自文本转换）。mysql 按列型分派 DATE/DATETIME/TIMESTAMP（`V::Date` 无列型信息，必须读 `columns_ref()`）；TIMESTAMP ↔ DateTimeUtc 归 UTC（会话时区前提文档化）。sqlite 全 TEXT 声明（Decimal NUMERIC 亲和陷阱）。mysql decimal(65,30)（范围对齐 pg numeric 意图）。解码头走 serde blanket（value.rs 零改动、by construction 对称）。NaiveTime / 本地时区 / 纳秒精度范围外。
+
+**收口（reviewer，2026-10-06；4/4 变异 + 1 LOW finding）**：F-7.1（LOW，随 §56 修）=mysql.rs:185 `column_type` 参数在 chrono 关配置 unused → `cargo clippy -p bee_orm --features mysql --all-targets -- -D warnings` rc=101（bee_rust `orm-mysql` 裸配置面；CI 不踩——CI clippy=零 feature 默认面/all-features 含 chrono）；修复 Landed（coder-orm，2026-10-06）：`#[cfg_attr(not(feature = "chrono"), allow(unused_variables))]` 落地（留名未改名、零行为差）；该配置 rc=101→0；单后端裸配置扫描（sqlite / postgres / mysql+rust_decimal 等组合）全 rc=0。覆盖观察：rel.rs `json_of` 四 cfg 臂无测试钉（变异候选③证死）→ 已补：src/tests/rel.rs 两钉（chrono：date/naive/utc 逐字；rust_decimal："1.50"）——补钉自证变异（两臂改 `Json::Null`）两钉 FAILED（left Null / right String(…)）→ cmp 还原 → 2 passed；all-features lib 77→79、默认关 52 不变。变异：M-A sqlite TEXT→DECIMAL 红 datetime_types.rs:148；M-B m2m 反向 ident→表名 红 m2m.rs:164；M-C mysql TIMESTAMP 去 Utc 红 integration_mysql.rs:313-317；M-D pg timestamptz→NaiveDateTime 红 integration_pg.rs:406；均逐字节还原（基线=冻结副本非 HEAD，树未提交；CODE_DELTA_IDENTICAL=crates/+Cargo.lock 对冻结 delta.patch 去 docs 段逐字节同）；`.stderr` sha 一致、无 cfg 泄漏；弱激活面复核（sqlite,rust_decimal 下 postgres-types=0）。**下轮候选**：sqlite Decimal 绑定臂钉 / macro DateTimeTz 泛型校验放宽 / pg numeric 读臂换 f64 变异 / m2m 占位符 UX（表名不得进 `m2m( )` 片段位——§55 约束仍在）。**环境教训（团队级）**：本机 shell `diff` 为 OpenHarmony 二进制、静默无输出——核验一律 `cmp`/`git diff`。
+
+**F-7.1 终验（reviewer，2026-10-06，闭合）**：修复配置 clippy rc=101→0；`--all-features --lib` 79 passed（=77+2）、默认 `--lib` 52；漂移面恰两文件（mysql.rs 单处 cfg_attr 签名拆 3 行；tests/rel.rs 纯文末追加，vs HEAD 单 hunk `@@ -110,3 +110,25 @@` 零既有行改动），其余 24/24 冻结副本逐文件 MATCH；`sha256sum -c SHA256SUMS` 26/26；三未跟踪文件逐一 cmp 冻结副本 OK（datetime_types.rs 本轮零触碰）。补钉非空性独立变异已授权 reviewer 补跑（json_of 臂→`Json::Null`，期望恰 2 钉红、单点无级联 → 逐字节还原 → 复绿）——完成后批次 7 无遗留。

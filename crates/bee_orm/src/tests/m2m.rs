@@ -5,7 +5,7 @@
 
 use serde_json::json;
 
-use super::{Author, Mock, Reader, row_of};
+use super::{Author, Mock, Reader, Setting, row_of};
 use crate::{Dialect, MigrateOptions, OrmError, Value, m2m, migrate};
 
 #[tokio::test]
@@ -151,10 +151,26 @@ async fn a_missing_relation_is_an_error_naming_both_models() {
     assert!(m2m::m2m_def::<Reader, Author>().is_some());
     assert!(m2m::m2m_def::<Author, Reader>().is_none());
 
+    // Author -> Reader: no forward def, but Reader declares the reverse, so the
+    // hint names the target by its *ident* ("Author"), not its table ("authors").
     let err = m2m::related::<Author, Reader, _>(&mock, &Author { id: 1 }).await.err().unwrap();
     assert!(
         matches!(&err, OrmError::QueryError(msg)
             if msg.contains("authors") && msg.contains("readers") && msg.contains("#[bee(m2m(")),
         "{err}"
     );
+    let OrmError::QueryError(msg) = &err else { panic!("expected QueryError, got {err}") };
+    assert!(msg.contains("declares the reverse"), "{msg}");
+    assert!(msg.contains("m2m(Author)"), "{msg}");
+    // The old hint spliced the *table* name in (`#[bee(m2m(readers))]`), which
+    // is not a type and does not compile — Author's table is `authors`.
+    assert!(!msg.contains("m2m(readers"), "{msg}");
+
+    // Neither direction declares the relation: no ident is available, so the
+    // hint falls back to the `<Target>` placeholder and still splices no table
+    // name into the attribute.
+    let err = m2m::related::<Reader, Setting, _>(&mock, &Reader { id: 1 }).await.err().unwrap();
+    let OrmError::QueryError(msg) = &err else { panic!("expected QueryError, got {err}") };
+    assert!(msg.contains("m2m(<Target>)"), "{msg}");
+    assert!(!msg.contains("m2m(readers") && !msg.contains("m2m(settings"), "{msg}");
 }

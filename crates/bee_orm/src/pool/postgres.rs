@@ -272,9 +272,10 @@ fn row_to_json(row: &tokio_postgres::Row) -> Row {
     out
 }
 
-/// ponytail: decodes the common column types only — numeric, date/time and
-/// array columns come back as null until a model needs them (that would mean
-/// a chrono / rust_decimal dependency).
+/// ponytail: decodes the common column types; array columns and the
+/// timestamp-without-time-zone relatives still come back as null. Date/time
+/// and numeric decode with the `chrono` / `rust_decimal` features on, and
+/// fall back to the `_` arm's null when they are off (unchanged behavior).
 fn value(row: &tokio_postgres::Row, i: usize) -> Json {
     match row.columns()[i].type_().name() {
         "bool" => opt::<bool>(row.try_get(i)),
@@ -285,6 +286,14 @@ fn value(row: &tokio_postgres::Row, i: usize) -> Json {
         "float8" => opt::<f64>(row.try_get(i)),
         "json" | "jsonb" => json_pass(row.try_get(i)),
         "bytea" => opt::<Vec<u8>>(row.try_get(i)),
+        #[cfg(feature = "chrono")]
+        "date" => serde_opt::<chrono::NaiveDate>(row.try_get(i)),
+        #[cfg(feature = "chrono")]
+        "timestamp" => serde_opt::<chrono::NaiveDateTime>(row.try_get(i)),
+        #[cfg(feature = "chrono")]
+        "timestamptz" => serde_opt::<chrono::DateTime<chrono::Utc>>(row.try_get(i)),
+        #[cfg(feature = "rust_decimal")]
+        "numeric" => serde_opt::<rust_decimal::Decimal>(row.try_get(i)),
         // text, varchar, char(n), name, enums-as-text …
         _ => opt::<String>(row.try_get(i)),
     }
@@ -292,6 +301,19 @@ fn value(row: &tokio_postgres::Row, i: usize) -> Json {
 
 fn opt<T: Into<Json>>(v: std::result::Result<Option<T>, tokio_postgres::Error>) -> Json {
     v.ok().flatten().map(Into::into).unwrap_or(Json::Null)
+}
+
+/// [`opt`] for the serde-typed cells (chrono / rust_decimal): the cell is the
+/// value's serde JSON form, which `decode` parses back symmetrically. A
+/// driver read failure reads as `Json::Null`, like a failed [`opt`].
+#[cfg(any(feature = "chrono", feature = "rust_decimal"))]
+fn serde_opt<T: serde::Serialize>(
+    v: std::result::Result<Option<T>, tokio_postgres::Error>,
+) -> Json {
+    match v {
+        Ok(Some(value)) => serde_json::to_value(value).unwrap_or(Json::Null),
+        _ => Json::Null,
+    }
 }
 
 /// [`opt`] for `json` / `jsonb`, with one normalisation: a JSON *string* is
@@ -369,6 +391,14 @@ impl ToSql for Value {
             // serde_json impl emits the text form (jsonb gets its version
             // byte), so `Value::Json` binds to both json and jsonb columns.
             (Value::Json(v), "json" | "jsonb") => v.to_sql(ty, out),
+            #[cfg(feature = "chrono")]
+            (Value::Date(d), "date") => d.to_sql(ty, out),
+            #[cfg(feature = "chrono")]
+            (Value::DateTime(dt), "timestamp") => dt.to_sql(ty, out),
+            #[cfg(feature = "chrono")]
+            (Value::DateTimeUtc(dt), "timestamptz") => dt.to_sql(ty, out),
+            #[cfg(feature = "rust_decimal")]
+            (Value::Decimal(d), "numeric") => d.to_sql(ty, out),
             (value, target) => Err(mismatch_error(value, target)),
         }
     }
@@ -418,6 +448,14 @@ fn mismatch_error(value: &Value, target: &str) -> Box<dyn std::error::Error + Sy
         Value::Text(_) => "Text",
         Value::Bytes(_) => "Bytes",
         Value::Json(_) => "Json",
+        #[cfg(feature = "chrono")]
+        Value::Date(_) => "Date",
+        #[cfg(feature = "chrono")]
+        Value::DateTime(_) => "DateTime",
+        #[cfg(feature = "chrono")]
+        Value::DateTimeUtc(_) => "DateTimeUtc",
+        #[cfg(feature = "rust_decimal")]
+        Value::Decimal(_) => "Decimal",
     };
     format!("cannot bind Value::{kind} as PostgreSQL {target}").into()
 }

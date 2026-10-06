@@ -7,7 +7,7 @@ use super::{expand_str, expect_error};
 fn m2m_expands_with_convention_defaults() {
     let expanded = expand_str("#[bee(m2m(Tag))] struct User { id: i64 }").expect("must expand");
     assert!(expanded.contains(
-        "fn m2m () -> & 'static [bee_orm :: model :: M2mDef] { & [bee_orm :: model :: M2mDef { table : \"user_tag\" , local_column : \"user_id\" , foreign_column : \"tag_id\" , target_table : < Tag as bee_orm :: Model > :: table_name , target_columns : < Tag as bee_orm :: Model > :: columns , }] }"
+        "fn m2m () -> & 'static [bee_orm :: model :: M2mDef] { & [bee_orm :: model :: M2mDef { table : \"user_tag\" , local_column : \"user_id\" , foreign_column : \"tag_id\" , target_ident : \"Tag\" , target_table : < Tag as bee_orm :: Model > :: table_name , target_columns : < Tag as bee_orm :: Model > :: columns , }] }"
     ));
     // The target must be a `Model` for the derive to compile.
     assert!(expanded.contains(
@@ -27,14 +27,30 @@ fn m2m_overrides_and_repeated_targets() {
     .expect("must expand");
 
     assert!(expanded.contains(
-        "M2mDef { table : \"user_tag\" , local_column : \"user_id\" , foreign_column : \"tag_id\" ,"
+        "M2mDef { table : \"user_tag\" , local_column : \"user_id\" , foreign_column : \"tag_id\" , target_ident : \"Tag\" ,"
     ));
     assert!(expanded.contains(
-        "M2mDef { table : \"user_category\" , local_column : \"u_id\" , foreign_column : \"c_id\" ,"
+        "M2mDef { table : \"user_category\" , local_column : \"u_id\" , foreign_column : \"c_id\" , target_ident : \"Category\" ,"
     ));
     // One slice, one associated function, whatever the attribute count.
     assert_eq!(expanded.matches("fn m2m ()").count(), 1);
     assert_eq!(expanded.matches("assert_model :: < ").count(), 2);
+}
+
+#[test]
+fn m2m_target_ident_keeps_the_attribute_spelling() {
+    // §55: `target_ident` is the verbatim last-segment ident — case kept,
+    // `unraw` — while §43's defaults stay lowercased. Same path, two values.
+    let expanded =
+        expand_str("#[bee(m2m(crate::models::Tag))] #[bee(m2m(r#type))] struct User { id: i64 }")
+            .expect("must expand");
+    assert!(expanded.contains("target_ident : \"Tag\" ,"));
+    assert!(expanded.contains("target_ident : \"type\" ,"));
+    // The same two paths through the §43 default path: lowercased, and the
+    // raw `r#` prefix never reaches a literal.
+    assert!(expanded.contains("table : \"user_tag\" ,"));
+    assert!(expanded.contains("table : \"user_type\" ,"));
+    assert!(!expanded.contains("\"r#type\""));
 }
 
 #[test]
@@ -47,7 +63,7 @@ fn m2m_self_target_and_omit_when_unused() {
     )
     .expect("must expand");
     assert!(expanded.contains(
-        "M2mDef { table : \"user_user\" , local_column : \"manager_id\" , foreign_column : \"report_id\" , target_table : < Self as bee_orm :: Model > :: table_name , target_columns : < Self as bee_orm :: Model > :: columns , }"
+        "M2mDef { table : \"user_user\" , local_column : \"manager_id\" , foreign_column : \"report_id\" , target_ident : \"User\" , target_table : < Self as bee_orm :: Model > :: table_name , target_columns : < Self as bee_orm :: Model > :: columns , }"
     ));
     assert!(expanded.contains("assert_model :: < User > () ; } ;"));
 

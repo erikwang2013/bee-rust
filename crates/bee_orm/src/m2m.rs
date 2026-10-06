@@ -173,12 +173,32 @@ pub async fn detach<L: Model, R: Model, D: Db + ?Sized>(
 }
 
 /// The def or the loud error naming both models and the attribute to add.
+///
+/// The attribute hint must spell the *target ident*, not its table name (a
+/// renamed table is not a type and would not compile). The forward direction
+/// being absent leaves no way to read `R`'s ident, so the hint takes it from
+/// the reverse declaration `R` → `L` when that exists, and falls back to a
+/// `<Target>` placeholder otherwise.
 fn def_or_err<L: Model, R: Model>() -> Result<&'static M2mDef> {
     m2m_def::<L, R>().ok_or_else(|| {
+        let hint = match m2m_def::<R, L>() {
+            Some(reverse) => format!(
+                "`{}` declares the reverse `#[bee(m2m({}))]` — call from `{}`, or declare \
+                 `#[bee(m2m(<Target>))]` on `{}`",
+                R::table_name(),
+                reverse.target_ident,
+                R::table_name(),
+                L::table_name()
+            ),
+            None => format!(
+                "declare `#[bee(m2m(<Target>))]` on `{}` (or the reverse on `{}`)",
+                L::table_name(),
+                R::table_name()
+            ),
+        };
         OrmError::QueryError(format!(
-            "m2m: no relation from `{}` to `{}`; add #[bee(m2m({}))] to the declaring model",
+            "m2m: no relation from `{}` to `{}`; {hint}",
             L::table_name(),
-            R::table_name(),
             R::table_name()
         ))
     })

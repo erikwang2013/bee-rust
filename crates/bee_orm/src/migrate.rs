@@ -372,6 +372,29 @@ fn sql_type(sql: SqlType, dialect: Dialect) -> &'static str {
             Dialect::Sqlite => "TEXT",
             Dialect::Mysql => "JSON",
         },
+        // sqlite stores the date/time/decimal types as text — a `DECIMAL`
+        // declaration would get NUMERIC affinity and turn `"1.50"` into the
+        // `REAL` 1.5, so `TEXT` everywhere here.
+        SqlType::Date => match dialect {
+            Dialect::Sqlite => "TEXT",
+            Dialect::Postgres => "date",
+            Dialect::Mysql => "date",
+        },
+        SqlType::DateTime => match dialect {
+            Dialect::Sqlite => "TEXT",
+            Dialect::Postgres => "timestamp",
+            Dialect::Mysql => "datetime(6)",
+        },
+        SqlType::DateTimeTz => match dialect {
+            Dialect::Sqlite => "TEXT",
+            Dialect::Postgres => "timestamptz",
+            Dialect::Mysql => "timestamp(6)",
+        },
+        SqlType::Decimal => match dialect {
+            Dialect::Sqlite => "TEXT",
+            Dialect::Postgres => "numeric",
+            Dialect::Mysql => "decimal(65,30)",
+        },
     }
 }
 

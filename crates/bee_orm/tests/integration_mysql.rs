@@ -243,3 +243,135 @@ async fn json_columns_round_trip_object_scalar_and_null() -> Result<(), OrmError
     assert_eq!(docs[1].extra, None, "SQL NULL is None");
     Ok(())
 }
+
+// --------------------------------- round 6: §56 chrono + decimal (§59#5, #2, #3)
+
+#[cfg(feature = "chrono")]
+#[derive(Model, Debug, Clone, PartialEq)]
+#[bee(table = "it_mysql_times")]
+struct MyTime {
+    #[bee(pk, auto)]
+    id: i64,
+    dt: chrono::NaiveDateTime,
+    ts: chrono::DateTime<chrono::Utc>,
+    d: chrono::NaiveDate,
+}
+
+/// §59#5/#2: `datetime(6)` / `timestamp(6)` keep microseconds, and the read
+/// side dispatches on the *real* column type — `datetime` is the naive cell,
+/// `timestamp` the UTC one with a `Z`, `date` has no time. The TIMESTAMP ↔
+/// `DateTime<Utc>` mapping assumes the session time zone is UTC: assert that
+/// premise rather than assume it (both measured environments are UTC).
+#[cfg(feature = "chrono")]
+#[tokio::test]
+async fn datetime_timestamp_micros_and_column_type_dispatch() -> Result<(), OrmError> {
+    use chrono::{DateTime, NaiveDate, Utc};
+
+    let Some(dsn) = common::dsn("BEE_ORM_MYSQL_DSN") else { return Ok(()) };
+    let pool = Pool::connect(&dsn, 4)?;
+
+    let rows =
+        pool.query("SELECT @@system_time_zone AS sys, @@session.time_zone AS sess", &[]).await?;
+    assert_eq!(rows[0]["sys"], json!("UTC"), "system tz must be UTC for the Z-cell premise");
+    assert_eq!(rows[0]["sess"], json!("SYSTEM"), "an unnamed session tz follows the system one");
+
+    pool.execute("DROP TABLE IF EXISTS it_mysql_times", &[]).await?;
+    migrate::create_table::<MyTime, _>(&pool).await?;
+    let rows = pool
+        .query(
+            "SELECT column_name AS c, column_type AS t FROM information_schema.columns \
+             WHERE table_schema = DATABASE() AND table_name = 'it_mysql_times'",
+            &[],
+        )
+        .await?;
+    let mut types = std::collections::HashMap::new();
+    for row in &rows {
+        types.insert(row["c"].as_str().unwrap(), row["t"].as_str().unwrap());
+    }
+    assert_eq!(types["dt"], "datetime(6)");
+    assert_eq!(types["ts"], "timestamp(6)");
+    assert_eq!(types["d"], "date");
+
+    let naive = NaiveDate::from_ymd_opt(2026, 10, 6)
+        .unwrap()
+        .and_hms_micro_opt(12, 34, 56, 123456)
+        .unwrap();
+    let utc = DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc);
+    let date = NaiveDate::from_ymd_opt(2026, 10, 6).unwrap();
+    MyTime { id: 0, dt: naive, ts: utc, d: date }.insert(&pool).await?;
+    // The same values through raw SQL, server-side.
+    pool.execute(
+        "INSERT INTO it_mysql_times (dt, ts, d) \
+         VALUES ('2026-10-06 12:34:56.123456', '2026-10-06 12:34:56.123456', '2026-10-06')",
+        &[],
+    )
+    .await?;
+
+    let rows = pool.query("SELECT dt, ts, d FROM it_mysql_times ORDER BY id", &[]).await?;
+    assert_eq!(rows.len(), 2);
+    for (i, row) in rows.iter().enumerate() {
+        assert_eq!(row["dt"], json!("2026-10-06T12:34:56.123456"), "datetime row {i} keeps micros");
+        assert_eq!(
+            row["ts"],
+            json!("2026-10-06T12:34:56.123456Z"),
+            "timestamp row {i} reads as UTC"
+        );
+        assert_eq!(row["d"], json!("2026-10-06"), "date row {i} has no time component");
+    }
+    assert_eq!(bee_orm::decode::<chrono::NaiveDateTime>(&rows[0], "dt")?, naive);
+    assert_eq!(bee_orm::decode::<DateTime<Utc>>(&rows[0], "ts")?, utc);
+    assert_eq!(bee_orm::decode::<NaiveDate>(&rows[0], "d")?, date);
+    let found = MyTime::query().order_by("id").one(&pool).await?.unwrap();
+    assert_eq!(found, MyTime { id: found.id, dt: naive, ts: utc, d: date });
+    Ok(())
+}
+
+#[cfg(feature = "rust_decimal")]
+#[derive(Model, Debug, Clone, PartialEq)]
+#[bee(table = "it_mysql_nums")]
+struct MyNum {
+    #[bee(pk, auto)]
+    id: i64,
+    n: rust_decimal::Decimal,
+}
+
+/// §59#3 (mysql, text): a `Decimal` binds as its decimal string; an in-range
+/// value round-trips numerically equal, while a past-ceiling value stays a
+/// text cell and only fails at decode (the documented asymmetry — pg turns
+/// the same row into a `Json::Null` cell).
+#[cfg(feature = "rust_decimal")]
+#[tokio::test]
+async fn decimal_text_path_round_trips_in_range_and_errors_at_decode_beyond() -> Result<(), OrmError>
+{
+    use rust_decimal::Decimal;
+
+    let Some(dsn) = common::dsn("BEE_ORM_MYSQL_DSN") else { return Ok(()) };
+    let pool = Pool::connect(&dsn, 4)?;
+    pool.execute("DROP TABLE IF EXISTS it_mysql_nums", &[]).await?;
+    migrate::create_table::<MyNum, _>(&pool).await?;
+
+    // Through the generated DDL (decimal(65,30)): an in-range value must read
+    // back numerically equal.
+    let decimal: Decimal = "1.50".parse().unwrap();
+    MyNum { id: 0, n: decimal }.insert(&pool).await?;
+    let found = MyNum::query().order_by("id").one(&pool).await?.unwrap();
+    assert_eq!(found.n, decimal, "in-range round trip is numerically equal");
+
+    // The text path itself, on a scale rust_decimal can represent.
+    pool.execute("DROP TABLE IF EXISTS it_mysql_num_text", &[]).await?;
+    pool.execute("CREATE TABLE it_mysql_num_text (n DECIMAL(28,10))", &[]).await?;
+    pool.execute("INSERT INTO it_mysql_num_text (n) VALUES (?)", &[Value::from(decimal)]).await?;
+    let rows = pool.query("SELECT n FROM it_mysql_num_text", &[]).await?;
+    assert!(rows[0]["n"].is_string(), "decimal cells arrive as text: {}", rows[0]["n"]);
+    assert_eq!(bee_orm::decode::<Decimal>(&rows[0], "n")?, decimal);
+
+    // One past the rust_decimal ceiling (30 significant digits).
+    pool.execute("DROP TABLE IF EXISTS it_mysql_num_big", &[]).await?;
+    pool.execute("CREATE TABLE it_mysql_num_big (n DECIMAL(35,0))", &[]).await?;
+    pool.execute("INSERT INTO it_mysql_num_big (n) VALUES ('123456789012345678901234567890')", &[])
+        .await?;
+    let rows = pool.query("SELECT n FROM it_mysql_num_big", &[]).await?;
+    assert_eq!(rows[0]["n"], json!("123456789012345678901234567890"), "the big value stays text");
+    assert!(bee_orm::decode::<Decimal>(&rows[0], "n").is_err(), "…and errors only at decode");
+    Ok(())
+}

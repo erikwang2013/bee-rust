@@ -37,11 +37,14 @@ pub(crate) struct Column {
     pub(crate) fk: Option<syn::Path>,
 }
 
-/// One struct-level `#[bee(m2m(Target, …))]` after §43 resolution: the three
-/// string literals already carry the convention defaults, so `expand` only
-/// quotes them.
+/// One struct-level `#[bee(m2m(Target, …))]` after §43 resolution: the string
+/// literals already carry the convention defaults, so `expand` only quotes
+/// them. `target_ident` is §55's verbatim spelling (case kept), a different
+/// value from the lowercased defaults below even though both come from the
+/// same path.
 pub(crate) struct M2m {
     pub(crate) target: syn::Path,
+    pub(crate) target_ident: LitStr,
     pub(crate) table: LitStr,
     pub(crate) local: LitStr,
     pub(crate) foreign: LitStr,
@@ -159,19 +162,25 @@ pub(crate) fn parse_struct_attrs(
                     } else {
                         seen_m2m.push(key);
                     }
-                    // §43: defaults are ident-based (lowercased, no snake_case
-                    // pass) so they stay const and survive `#[bee(table = …)]`
-                    // renames. `Self` names the declaring model itself.
-                    let local_ident = input.ident.unraw().to_string().to_lowercase();
-                    let target_ident = if target.is_ident("Self") {
-                        local_ident.clone()
+                    // §55: the target's verbatim spelling — last segment,
+                    // `unraw`, case kept (`Tag` / `crate::models::Tag` →
+                    // "Tag", `r#type` → "type"); `Self` is the declaring
+                    // struct. §43's default names are its lowercased
+                    // derivative, so both spellings share this one source.
+                    let verbatim = if target.is_ident("Self") {
+                        input.ident.unraw().to_string()
                     } else {
                         target
                             .segments
                             .last()
-                            .map(|segment| segment.ident.unraw().to_string().to_lowercase())
+                            .map(|segment| segment.ident.unraw().to_string())
                             .unwrap_or_default()
                     };
+                    // §43: defaults are ident-based (lowercased, no snake_case
+                    // pass) so they stay const and survive `#[bee(table = …)]`
+                    // renames. `Self` names the declaring model itself.
+                    let local_ident = input.ident.unraw().to_string().to_lowercase();
+                    let target_ident = verbatim.to_lowercase();
                     let table = table.unwrap_or_else(|| {
                         LitStr::new(&format!("{local_ident}_{target_ident}"), target.span())
                     });
@@ -189,7 +198,14 @@ pub(crate) fn parse_struct_attrs(
                             "bee_orm: m2m columns collide: add explicit local and foreign overrides",
                         ));
                     }
-                    m2m_defs.push(M2m { target, table, local, foreign });
+                    let target_ident = LitStr::new(&verbatim, target.span());
+                    m2m_defs.push(M2m {
+                        target,
+                        target_ident,
+                        table,
+                        local,
+                        foreign,
+                    });
                 } else {
                     // `m2m()` with no target at all is an authoring bug, not a
                     // silent no-op.

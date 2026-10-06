@@ -17,9 +17,15 @@ bee_orm_macro = { version="1.2.0", path = "../bee_orm_macro" }
 
 [features]
 sqlite = ["dep:rusqlite", "dep:r2d2", "dep:r2d2_sqlite", "dep:tokio"]
-postgres = ["dep:tokio-postgres", "dep:deadpool-postgres", "dep:tokio"]
+postgres = ["dep:tokio-postgres", "dep:deadpool-postgres", "dep:tokio", "rust_decimal?/db-tokio-postgres"]
 postgres-tls = ["postgres", "dep:tokio-postgres-rustls", "dep:rustls", "dep:webpki-roots"]
 mysql = ["dep:mysql_async", "dep:tokio"]
+# `?/` weak activation: the chrono/decimal driver integrations turn on only
+# when the matching backend feature is also on. The `tokio-postgres` dep line
+# below must not gain `with-chrono-0_4`: that would pull chrono whenever
+# postgres is on, breaking "feature off = no new dependencies".
+chrono = ["dep:chrono", "tokio-postgres?/with-chrono-0_4", "mysql_async?/chrono"]
+rust_decimal = ["dep:rust_decimal"]
 
 [dependencies.rusqlite]
 version = "0.32"
@@ -65,6 +71,17 @@ default-features = false
 features = ["ring", "std", "tls12"]
 
 [dependencies.webpki-roots]
+version = "1"
+optional = true
+
+# `serde` is not in chrono's default features; without it the read path
+# (serde blanket) would not compile.
+[dependencies.chrono]
+version = "0.4"
+features = ["serde"]
+optional = true
+
+[dependencies.rust_decimal]
 version = "1"
 optional = true
 

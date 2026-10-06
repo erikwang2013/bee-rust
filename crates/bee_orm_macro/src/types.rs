@@ -20,7 +20,8 @@ pub(crate) fn strip_option(ty: &Type) -> (bool, &Type) {
 }
 
 /// The `SqlType` variant name for a spelling, matched on the last path segment
-/// (§34 table). `Option` must already be stripped by [`strip_option`].
+/// (§34 table) — `DateTime` also inspects its generic argument (§56).
+/// `Option` must already be stripped by [`strip_option`].
 pub(crate) fn spelling(ty: &Type) -> Option<&'static str> {
     let Type::Path(path) = ty else {
         return None;
@@ -38,8 +39,31 @@ pub(crate) fn spelling(ty: &Type) -> Option<&'static str> {
         // §45: only a path that actually names `serde_json` — a bare `Value`
         // is ambiguous with `bee_orm::Value` and stays unmapped.
         "Value" if plain && json_path(&path.path) => Some("Json"),
+        // §56: the date/time and decimal spellings are unconditional here even
+        // though the `bee_orm` feature backing them is opt-in — the `SqlType`
+        // variants always exist, so the table needs no cfg. A model using them
+        // without the feature fails at compile time on the missing conversion,
+        // which is the documented contract.
+        "NaiveDate" if plain => Some("Date"),
+        "NaiveDateTime" if plain => Some("DateTime"),
+        "Decimal" if plain => Some("Decimal"),
+        // Only UTC maps: any other time zone needs the explicit override.
+        "DateTime" if utc_datetime(segment) => Some("DateTimeTz"),
         _ => None,
     }
+}
+
+/// Whether the segment is spelled `DateTime<Utc>` — §56's only mapped time
+/// zone: exactly one generic argument, its last path segment `Utc` (so
+/// `chrono::Utc` counts and `Local` / `FixedOffset` / `Utc` aliases do not).
+fn utc_datetime(segment: &PathSegment) -> bool {
+    let PathArguments::AngleBracketed(arguments) = &segment.arguments else {
+        return false;
+    };
+    arguments.args.len() == 1
+        && matches!(arguments.args.first(),
+            Some(GenericArgument::Type(Type::Path(inner)))
+                if inner.path.segments.last().is_some_and(|segment| segment.ident == "Utc"))
 }
 
 /// Whether any segment of the path is spelled `serde_json` (covers

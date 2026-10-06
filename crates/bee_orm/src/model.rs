@@ -77,6 +77,16 @@ pub enum SqlType {
     /// A JSON document (`serde_json::Value`): `TEXT` on sqlite, `JSONB` on
     /// postgres, `JSON` on mysql.
     Json,
+    /// A calendar date (`chrono::NaiveDate`): `TEXT` on sqlite.
+    Date,
+    /// A timezone-less timestamp (`chrono::NaiveDateTime`): `TEXT` on sqlite.
+    DateTime,
+    /// An instant (`chrono::DateTime<Utc>`): `TEXT` on sqlite.
+    DateTimeTz,
+    /// An arbitrary-precision decimal (`rust_decimal::Decimal`): `TEXT` on
+    /// sqlite — a `DECIMAL` declaration would get NUMERIC affinity and turn
+    /// the stored text into a `REAL`, losing the scale.
+    Decimal,
     Raw(&'static str),
 }
 
@@ -145,17 +155,23 @@ pub struct M2mDef {
     pub target_table: fn() -> &'static str,
     /// The target's [`Model::columns`] (its pk name and [`SqlType`] for DDL).
     pub target_columns: fn() -> &'static [ColumnDef],
+    /// The target's spelling as written in `#[bee(m2m(…))]`: last path
+    /// segment, unrawed, case preserved. This is what the error hint splices
+    /// into the attribute — never the (possibly renamed) table name.
+    pub target_ident: &'static str,
 }
 
 impl PartialEq for M2mDef {
     /// Compares what the fns resolve to, never fn addresses (see
-    /// [`Reference`]'s impl — same reason).
+    /// [`Reference`]'s impl — same reason). `target_ident` is a plain `str`,
+    /// so it compares directly.
     fn eq(&self, other: &Self) -> bool {
         self.table == other.table
             && self.local_column == other.local_column
             && self.foreign_column == other.foreign_column
             && (self.target_table)() == (other.target_table)()
             && (self.target_columns)() == (other.target_columns)()
+            && self.target_ident == other.target_ident
     }
 }
 

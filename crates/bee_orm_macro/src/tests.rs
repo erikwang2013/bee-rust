@@ -318,6 +318,8 @@ fn spelling_table_maps_every_supported_type() {
         "struct Row4 { #[bee(pk, auto)] id: i64, note: Option<String>, data: Vec<u8>, \
              score: f32, ratio: f64, flag: bool, small: i16, amount: i32, wide: u32, \
              title: String, parent: i64, #[bee(column = \"custom\")] extra: f64, \
+             born: NaiveDate, stamp: NaiveDateTime, money: Decimal, at: DateTime<Utc>, \
+             opt_at: Option<DateTime<Utc>>, \
              #[bee(ignore)] cache: String }",
     )
     .expect("must expand");
@@ -325,7 +327,16 @@ fn spelling_table_maps_every_supported_type() {
     // §34 spelling table: bool → Bool, i8/i16/i32/u8/u16/u32 → Int, i64 →
     // BigInt, f32 → Real, f64 → Double, String → Text, Vec<u8> → Blob;
     // `Option` only clears the NOT NULL, and `ignore` is not a column at all.
-    assert!(expanded.contains("fn columns () -> & 'static [bee_orm :: model :: ColumnDef] { & [bee_orm :: model :: ColumnDef { name : \"id\" , sql : bee_orm :: model :: SqlType :: BigInt , nullable : false , primary_key : true , auto_increment : true , default : None , references : None , } , bee_orm :: model :: ColumnDef { name : \"note\" , sql : bee_orm :: model :: SqlType :: Text , nullable : true , primary_key : false , auto_increment : false , default : None , references : None , } , bee_orm :: model :: ColumnDef { name : \"data\" , sql : bee_orm :: model :: SqlType :: Blob , nullable : false , primary_key : false , auto_increment : false , default : None , references : None , } , bee_orm :: model :: ColumnDef { name : \"score\" , sql : bee_orm :: model :: SqlType :: Real , nullable : false , primary_key : false , auto_increment : false , default : None , references : None , } , bee_orm :: model :: ColumnDef { name : \"ratio\" , sql : bee_orm :: model :: SqlType :: Double , nullable : false , primary_key : false , auto_increment : false , default : None , references : None , } , bee_orm :: model :: ColumnDef { name : \"flag\" , sql : bee_orm :: model :: SqlType :: Bool , nullable : false , primary_key : false , auto_increment : false , default : None , references : None , } , bee_orm :: model :: ColumnDef { name : \"small\" , sql : bee_orm :: model :: SqlType :: Int , nullable : false , primary_key : false , auto_increment : false , default : None , references : None , } , bee_orm :: model :: ColumnDef { name : \"amount\" , sql : bee_orm :: model :: SqlType :: Int , nullable : false , primary_key : false , auto_increment : false , default : None , references : None , } , bee_orm :: model :: ColumnDef { name : \"wide\" , sql : bee_orm :: model :: SqlType :: Int , nullable : false , primary_key : false , auto_increment : false , default : None , references : None , } , bee_orm :: model :: ColumnDef { name : \"title\" , sql : bee_orm :: model :: SqlType :: Text , nullable : false , primary_key : false , auto_increment : false , default : None , references : None , } , bee_orm :: model :: ColumnDef { name : \"parent\" , sql : bee_orm :: model :: SqlType :: BigInt , nullable : false , primary_key : false , auto_increment : false , default : None , references : None , } , bee_orm :: model :: ColumnDef { name : \"custom\" , sql : bee_orm :: model :: SqlType :: Double , nullable : false , primary_key : false , auto_increment : false , default : None , references : None , }] }"));
+    assert!(expanded.contains("fn columns () -> & 'static [bee_orm :: model :: ColumnDef] { & [bee_orm :: model :: ColumnDef { name : \"id\" , sql : bee_orm :: model :: SqlType :: BigInt , nullable : false , primary_key : true , auto_increment : true , default : None , references : None , } , bee_orm :: model :: ColumnDef { name : \"note\" , sql : bee_orm :: model :: SqlType :: Text , nullable : true , primary_key : false , auto_increment : false , default : None , references : None , } , bee_orm :: model :: ColumnDef { name : \"data\" , sql : bee_orm :: model :: SqlType :: Blob , nullable : false , primary_key : false , auto_increment : false , default : None , references : None , } , bee_orm :: model :: ColumnDef { name : \"score\" , sql : bee_orm :: model :: SqlType :: Real , nullable : false , primary_key : false , auto_increment : false , default : None , references : None , } , bee_orm :: model :: ColumnDef { name : \"ratio\" , sql : bee_orm :: model :: SqlType :: Double , nullable : false , primary_key : false , auto_increment : false , default : None , references : None , } , bee_orm :: model :: ColumnDef { name : \"flag\" , sql : bee_orm :: model :: SqlType :: Bool , nullable : false , primary_key : false , auto_increment : false , default : None , references : None , } , bee_orm :: model :: ColumnDef { name : \"small\" , sql : bee_orm :: model :: SqlType :: Int , nullable : false , primary_key : false , auto_increment : false , default : None , references : None , } , bee_orm :: model :: ColumnDef { name : \"amount\" , sql : bee_orm :: model :: SqlType :: Int , nullable : false , primary_key : false , auto_increment : false , default : None , references : None , } , bee_orm :: model :: ColumnDef { name : \"wide\" , sql : bee_orm :: model :: SqlType :: Int , nullable : false , primary_key : false , auto_increment : false , default : None , references : None , } , bee_orm :: model :: ColumnDef { name : \"title\" , sql : bee_orm :: model :: SqlType :: Text , nullable : false , primary_key : false , auto_increment : false , default : None , references : None , } , bee_orm :: model :: ColumnDef { name : \"parent\" , sql : bee_orm :: model :: SqlType :: BigInt , nullable : false , primary_key : false , auto_increment : false , default : None , references : None , } , bee_orm :: model :: ColumnDef { name : \"custom\" , sql : bee_orm :: model :: SqlType :: Double , nullable : false , primary_key : false , auto_increment : false , default : None , references : None , }"));
+    // §56 additions: the chrono / rust_decimal spellings, declared after the
+    // §34 fields so the frozen baseline above stays a literal prefix.
+    assert!(expanded.contains(
+        "bee_orm :: model :: ColumnDef { name : \"born\" , sql : bee_orm :: model :: SqlType :: Date , nullable : false , primary_key : false , auto_increment : false , default : None , references : None , } , \
+         bee_orm :: model :: ColumnDef { name : \"stamp\" , sql : bee_orm :: model :: SqlType :: DateTime , nullable : false , primary_key : false , auto_increment : false , default : None , references : None , } , \
+         bee_orm :: model :: ColumnDef { name : \"money\" , sql : bee_orm :: model :: SqlType :: Decimal , nullable : false , primary_key : false , auto_increment : false , default : None , references : None , } , \
+         bee_orm :: model :: ColumnDef { name : \"at\" , sql : bee_orm :: model :: SqlType :: DateTimeTz , nullable : false , primary_key : false , auto_increment : false , default : None , references : None , } , \
+         bee_orm :: model :: ColumnDef { name : \"opt_at\" , sql : bee_orm :: model :: SqlType :: DateTimeTz , nullable : true , primary_key : false , auto_increment : false , default : None , references : None , }] }"
+    ));
     assert!(!expanded.contains("cache\""));
 }
 
@@ -399,5 +410,29 @@ fn round5_json_compile_errors() {
     expect_error(
         "struct User { id: i64, meta: bee_orm::Value }",
         "bee_orm: no SQL type mapping for `bee_orm::Value`: use `serde_json::Value` or add #[bee(sql_type = \"...\")] to override",
+    );
+}
+
+#[test]
+fn round7_date_time_spellings_need_utc() {
+    // §56: `DateTime` maps only in UTC — the bare spelling and every other
+    // zone fall to the explicit-override error, never a silently wrong column.
+    expect_error(
+        "struct Row { #[bee(pk)] id: i64, at: DateTime }",
+        "bee_orm: no SQL type mapping for `DateTime`: add #[bee(sql_type = \"...\")] to override",
+    );
+    expect_error(
+        "struct Row { #[bee(pk)] id: i64, at: DateTime<Local> }",
+        "bee_orm: no SQL type mapping for `DateTime<Local>`: add #[bee(sql_type = \"...\")] to override",
+    );
+    // A `NaiveTime` (out of §56 scope) stays unmapped too, and `Option` does
+    // not smuggle a mapping in.
+    expect_error(
+        "struct Row { #[bee(pk)] id: i64, at: NaiveTime }",
+        "bee_orm: no SQL type mapping for `NaiveTime`: add #[bee(sql_type = \"...\")] to override",
+    );
+    expect_error(
+        "struct Row { #[bee(pk)] id: i64, at: Option<DateTime<Local>> }",
+        "bee_orm: no SQL type mapping for `DateTime<Local>`: add #[bee(sql_type = \"...\")] to override",
     );
 }

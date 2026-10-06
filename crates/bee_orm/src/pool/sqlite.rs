@@ -164,7 +164,9 @@ impl Drop for CheckedConn {
 
 /// Bind `Value` through rusqlite; booleans are stored as the integers 0 / 1
 /// and JSON as its serialized `TEXT` form (SQLite has no JSON type — the
-/// `json1` functions read that text).
+/// `json1` functions read that text). Dates, datetimes and decimals bind
+/// their explicit text forms; the conversions are spelled out here rather
+/// than pulled from rusqlite's own chrono feature.
 impl rusqlite::ToSql for Value {
     fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
         use rusqlite::types::{ToSqlOutput, ValueRef};
@@ -176,6 +178,21 @@ impl rusqlite::ToSql for Value {
             Value::Float(f) => ToSqlOutput::Borrowed(ValueRef::Real(*f)),
             Value::Text(s) => ToSqlOutput::Borrowed(ValueRef::Text(s.as_bytes())),
             Value::Bytes(b) => ToSqlOutput::Borrowed(ValueRef::Blob(b)),
+            #[cfg(feature = "chrono")]
+            Value::Date(d) => {
+                ToSqlOutput::Owned(rusqlite::types::Value::Text(d.format("%Y-%m-%d").to_string()))
+            }
+            #[cfg(feature = "chrono")]
+            Value::DateTime(dt) => ToSqlOutput::Owned(rusqlite::types::Value::Text(
+                dt.format("%Y-%m-%dT%H:%M:%S%.f").to_string(),
+            )),
+            #[cfg(feature = "chrono")]
+            Value::DateTimeUtc(dt) => ToSqlOutput::Owned(rusqlite::types::Value::Text(format!(
+                "{}Z",
+                dt.naive_utc().format("%Y-%m-%dT%H:%M:%S%.f")
+            ))),
+            #[cfg(feature = "rust_decimal")]
+            Value::Decimal(d) => ToSqlOutput::Owned(rusqlite::types::Value::Text(d.to_string())),
         })
     }
 }

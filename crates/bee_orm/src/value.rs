@@ -20,6 +20,23 @@ pub enum Value {
     /// Reading works in the other direction through
     /// [`decode`] / [`FromValue`] for a `serde_json::Value` field.
     Json(serde_json::Value),
+    /// A calendar date without a time zone (pg `date`, mysql `date`); sqlite
+    /// stores its ISO-8601 `TEXT`.
+    #[cfg(feature = "chrono")]
+    Date(chrono::NaiveDate),
+    /// A timezone-less timestamp (pg `timestamp`, mysql `datetime`); sqlite
+    /// stores its ISO-8601 `TEXT`.
+    #[cfg(feature = "chrono")]
+    DateTime(chrono::NaiveDateTime),
+    /// An instant, always held in UTC (pg `timestamptz`, mysql `timestamp`
+    /// under a UTC session — mysql has no timezone-aware column type).
+    #[cfg(feature = "chrono")]
+    DateTimeUtc(chrono::DateTime<chrono::Utc>),
+    /// An arbitrary-precision decimal (pg `numeric`, mysql `decimal`); sqlite
+    /// stores its text form — a `DECIMAL` declaration would get NUMERIC
+    /// affinity and silently turn `"1.50"` into `REAL` 1.5.
+    #[cfg(feature = "rust_decimal")]
+    Decimal(rust_decimal::Decimal),
 }
 
 macro_rules! value_from_int {
@@ -82,6 +99,36 @@ impl From<serde_json::Value> for Value {
 impl From<&[u8]> for Value {
     fn from(value: &[u8]) -> Self {
         Value::Bytes(value.to_vec())
+    }
+}
+
+#[cfg(feature = "chrono")]
+impl From<chrono::NaiveDate> for Value {
+    fn from(value: chrono::NaiveDate) -> Self {
+        Value::Date(value)
+    }
+}
+
+#[cfg(feature = "chrono")]
+impl From<chrono::NaiveDateTime> for Value {
+    fn from(value: chrono::NaiveDateTime) -> Self {
+        Value::DateTime(value)
+    }
+}
+
+/// Only `DateTime<Utc>` maps: local / fixed-offset datetimes have no
+/// timezone-neutral column to bind to.
+#[cfg(feature = "chrono")]
+impl From<chrono::DateTime<chrono::Utc>> for Value {
+    fn from(value: chrono::DateTime<chrono::Utc>) -> Self {
+        Value::DateTimeUtc(value)
+    }
+}
+
+#[cfg(feature = "rust_decimal")]
+impl From<rust_decimal::Decimal> for Value {
+    fn from(value: rust_decimal::Decimal) -> Self {
+        Value::Decimal(value)
     }
 }
 
@@ -276,5 +323,42 @@ mod tests {
         let row = Row::new();
         assert_eq!(decode::<Option<i32>>(&row, "age").unwrap(), None);
         assert!(decode::<i32>(&row, "age").is_err());
+    }
+
+    #[cfg(feature = "chrono")]
+    #[test]
+    fn chrono_values_convert_and_round_trip() {
+        use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
+        let date = NaiveDate::from_ymd_opt(2026, 10, 6).unwrap();
+        let naive = date.and_hms_micro_opt(12, 34, 56, 123456).unwrap();
+        let utc = DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc);
+
+        assert_eq!(Value::from(date), Value::Date(date));
+        assert_eq!(Value::from(naive), Value::DateTime(naive));
+        assert_eq!(Value::from(utc), Value::DateTimeUtc(utc));
+
+        // Reads go through the serde blanket: the cell a backend hands over is
+        // the value's serde JSON form, and it decodes back to the same value.
+        let mut row = Row::new();
+        row.insert("v".into(), serde_json::to_value(date).unwrap());
+        assert_eq!(decode::<NaiveDate>(&row, "v").unwrap(), date);
+        row.insert("v".into(), serde_json::to_value(naive).unwrap());
+        assert_eq!(decode::<NaiveDateTime>(&row, "v").unwrap(), naive);
+        row.insert("v".into(), serde_json::to_value(utc).unwrap());
+        assert_eq!(decode::<DateTime<Utc>>(&row, "v").unwrap(), utc);
+    }
+
+    #[cfg(feature = "rust_decimal")]
+    #[test]
+    fn decimal_values_convert_and_round_trip() {
+        use rust_decimal::Decimal;
+        let value: Decimal = "1.50".parse().unwrap();
+        assert_eq!(Value::from(value), Value::Decimal(value));
+
+        let mut row = Row::new();
+        row.insert("v".into(), serde_json::to_value(value).unwrap());
+        // The serde form is the exact string, so the scale survives the trip.
+        assert_eq!(row["v"], json!("1.50"));
+        assert_eq!(decode::<Decimal>(&row, "v").unwrap(), value);
     }
 }

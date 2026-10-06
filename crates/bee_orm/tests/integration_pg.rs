@@ -361,3 +361,98 @@ async fn m2m_end_to_end_against_the_real_server() -> Result<(), OrmError> {
     assert_eq!(m2m::detach(&pool, &post, &rust).await?, 0, "detach is idempotent");
     Ok(())
 }
+
+// -------------------------------- round 6: §56 chrono + decimal (§59#1-3 pg)
+
+#[cfg(feature = "chrono")]
+#[derive(Model, Debug, Clone, PartialEq)]
+#[bee(table = "it_pg_times")]
+struct PgTime {
+    #[bee(pk, auto)]
+    id: i64,
+    t: chrono::DateTime<chrono::Utc>,
+    d: chrono::NaiveDate,
+}
+
+/// §59#1/#2: TIMESTAMPTZ ↔ `DateTime<Utc>` goes through the driver types (no
+/// text round-trip) and normalizes to the same microsecond instant no matter
+/// which offset spelling it arrived from; DATE keeps no time component.
+#[cfg(feature = "chrono")]
+#[tokio::test]
+async fn timestamptz_normalizes_to_utc_and_date_has_no_time() -> Result<(), OrmError> {
+    use chrono::{DateTime, NaiveDate, Utc};
+
+    let Some(dsn) = common::dsn("BEE_ORM_PG_DSN") else { return Ok(()) };
+    let pool = Pool::connect(&dsn, 4)?;
+    pool.execute("DROP TABLE IF EXISTS it_pg_times", &[]).await?;
+    migrate::create_table::<PgTime, _>(&pool).await?;
+
+    // The source instant is spelled with a +05:30 offset — the round trip must
+    // keep the instant, not the spelling.
+    let source = DateTime::parse_from_rfc3339("2026-10-06T17:04:56.123456+05:30").unwrap();
+    let utc = source.with_timezone(&Utc);
+    let date = NaiveDate::from_ymd_opt(2026, 10, 6).unwrap();
+    PgTime { id: 0, t: utc, d: date }.insert(&pool).await?;
+    // A raw-SQL row with the same non-UTC spelling, server-side.
+    pool.execute(
+        "INSERT INTO it_pg_times (t, d) \
+         VALUES (TIMESTAMPTZ '2026-10-06 17:04:56.123456+05:30', DATE '2026-10-06')",
+        &[],
+    )
+    .await?;
+
+    let rows = pool.query("SELECT t, d FROM it_pg_times ORDER BY id", &[]).await?;
+    assert_eq!(rows.len(), 2);
+    assert_eq!(rows[0]["t"], json!("2026-10-06T11:34:56.123456Z"), "bind side is the UTC instant");
+    assert_eq!(rows[1]["t"], rows[0]["t"], "the raw +05:30 row is the same instant");
+    assert_eq!(bee_orm::decode::<DateTime<Utc>>(&rows[0], "t")?, utc);
+    assert_eq!(bee_orm::decode::<DateTime<Utc>>(&rows[1], "t")?, utc);
+    for row in &rows {
+        assert_eq!(row["d"], json!("2026-10-06"), "date keeps no time component");
+        assert_eq!(bee_orm::decode::<NaiveDate>(row, "d")?, date);
+    }
+    // The derived Model read path agrees (insert skipped the auto pk).
+    let found = PgTime::query().order_by("id").one(&pool).await?.unwrap();
+    assert_eq!(found, PgTime { id: found.id, t: utc, d: date });
+    assert_ne!(found.id, 0);
+    Ok(())
+}
+
+#[cfg(feature = "rust_decimal")]
+#[derive(Model, Debug, Clone, PartialEq)]
+#[bee(table = "it_pg_nums")]
+struct PgNum {
+    #[bee(pk, auto)]
+    id: i64,
+    n: rust_decimal::Decimal,
+}
+
+/// §59#3 (pg, native): an in-range `Decimal` round-trips numerically equal and
+/// keeps its scale text (`numeric` has no typmod); a value past the 96-bit
+/// mantissa ceiling fails `FromSql` and reads as the documented `Json::Null`
+/// cell — no decode-time error on the pg side (that asymmetry is mysql's).
+#[cfg(feature = "rust_decimal")]
+#[tokio::test]
+async fn numeric_round_trips_and_the_precision_ceiling_is_a_null_cell() -> Result<(), OrmError> {
+    use rust_decimal::Decimal;
+
+    let Some(dsn) = common::dsn("BEE_ORM_PG_DSN") else { return Ok(()) };
+    let pool = Pool::connect(&dsn, 4)?;
+    pool.execute("DROP TABLE IF EXISTS it_pg_nums", &[]).await?;
+    migrate::create_table::<PgNum, _>(&pool).await?;
+
+    let decimal: Decimal = "1.50".parse().unwrap();
+    PgNum { id: 0, n: decimal }.insert(&pool).await?;
+    let found = PgNum::query().order_by("id").one(&pool).await?.unwrap();
+    assert_eq!(found.n, decimal, "in-range round trip is numerically equal");
+    let rows = pool.query("SELECT n FROM it_pg_nums ORDER BY id", &[]).await?;
+    assert_eq!(rows[0]["n"], json!("1.50"), "pg numeric keeps the scale text");
+
+    // 30 nines: one significant digit past the 96-bit mantissa (<= 29 digits).
+    pool.execute("INSERT INTO it_pg_nums (n) VALUES (999999999999999999999999999999)", &[]).await?;
+    let rows = pool.query("SELECT n FROM it_pg_nums ORDER BY id", &[]).await?;
+    assert_eq!(rows[0]["n"], json!("1.50"));
+    assert_eq!(rows[1]["n"], json!(null), "beyond the ceiling the cell is Json::Null");
+    assert!(bee_orm::decode::<Decimal>(&rows[1], "n").is_err(), "…and decoding it errors");
+    Ok(())
+}

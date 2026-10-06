@@ -159,5 +159,15 @@ pub(crate) fn json_of(value: &Value) -> Json {
         Value::Text(text) => Json::from(text.clone()),
         Value::Bytes(bytes) => Json::from(bytes.clone()),
         Value::Json(json) => json.clone(),
+        // The same serde form the read path hands over, so a bound value and
+        // a decoded cell group on one key.
+        #[cfg(feature = "chrono")]
+        Value::Date(date) => serde_json::to_value(date).unwrap_or(Json::Null),
+        #[cfg(feature = "chrono")]
+        Value::DateTime(datetime) => serde_json::to_value(datetime).unwrap_or(Json::Null),
+        #[cfg(feature = "chrono")]
+        Value::DateTimeUtc(datetime) => serde_json::to_value(datetime).unwrap_or(Json::Null),
+        #[cfg(feature = "rust_decimal")]
+        Value::Decimal(decimal) => serde_json::to_value(decimal).unwrap_or(Json::Null),
     }
 }

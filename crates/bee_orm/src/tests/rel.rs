@@ -110,3 +110,25 @@ fn grouping_key_bridges_bool_and_integer_spellings() {
     assert_eq!(grouping_key(&serde_json::json!("1")), "\"1\"");
     assert_eq!(grouping_key(&serde_json::Value::Null), "null");
 }
+
+/// `json_of` must hand back the same serde form the read path produces, so a
+/// bound value and a decoded cell land on one grouping key.
+#[cfg(feature = "chrono")]
+#[test]
+fn json_of_chrono_values_matches_the_read_cell() {
+    use chrono::{DateTime, NaiveDate, Utc};
+    let date = NaiveDate::from_ymd_opt(2026, 10, 6).unwrap();
+    let naive = date.and_hms_micro_opt(12, 34, 56, 123456).unwrap();
+    let utc = DateTime::<Utc>::from_naive_utc_and_offset(naive, Utc);
+
+    assert_eq!(rel::json_of(&Value::from(date)), serde_json::json!("2026-10-06"));
+    assert_eq!(rel::json_of(&Value::from(naive)), serde_json::json!("2026-10-06T12:34:56.123456"));
+    assert_eq!(rel::json_of(&Value::from(utc)), serde_json::json!("2026-10-06T12:34:56.123456Z"));
+}
+
+#[cfg(feature = "rust_decimal")]
+#[test]
+fn json_of_decimal_matches_the_read_cell() {
+    let decimal: rust_decimal::Decimal = "1.50".parse().unwrap();
+    assert_eq!(rel::json_of(&Value::from(decimal)), serde_json::json!("1.50"));
+}

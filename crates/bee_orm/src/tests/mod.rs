@@ -5,6 +5,7 @@
 //! and [`rel`](crate::rel). Behavior against real backends lives in
 //! `tests/**`.
 
+mod datetime_types;
 mod m2m;
 mod migrate;
 mod model_ops;
@@ -425,6 +426,7 @@ impl Model for Reader {
             foreign_column: "author_id",
             target_table: Author::table_name,
             target_columns: Author::columns,
+            target_ident: "Author",
         }]
     }
 }
