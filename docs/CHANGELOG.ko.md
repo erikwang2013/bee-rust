@@ -2,6 +2,16 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.1] — 2026-10-06
+
+### 추가됨
+- `bee_orm`: opt-in feature로 제어하는 날짜 / Decimal 필드 — `chrono`(`NaiveDate` / `NaiveDateTime` / `DateTime<Utc>`)와 `rust_decimal`(`Decimal`)이 세 백엔드에서 `Date` / `DateTime` / `DateTimeTz` / `Decimal` SQL 타입으로 매핑; `bee_rust`는 `orm-chrono` / `orm-rust_decimal`로 전달(`full` 미포함)
+- `bee_orm`: 이 타입들의 솔직한 경계 — sqlite는 TEXT 저장 (`typeof` = `text`; DECIMAL 선언은 NUMERIC 친화도를 얻어 `"1.50"`을 조용히 REAL 1.5로 만듭니다), mysql은 `datetime(6)` / `timestamp(6)` 마이크로초 유지(TIMESTAMP는 UTC로 읽고 DATETIME은 naive 유지), pg `numeric`은 유효 자릿수 29 초과 시 `NULL`로 읽힘; `NaiveTime` / `DateTime<Local>` / `FixedOffset` / 나노초는 범위 밖이라 `#[bee(sql_type = "…")]` 필요, feature를 끄면 모델이 컴파일되지 않음(E0277)
+
+### 수정됨
+- `bee_orm`: m2m 관계 미선언 힌트가 이제 테이블 이름이 아닌 타입 ident(`#[bee(m2m(Author))]`)를 쓰므로 이름이 바뀐 테이블에서도 그대로 컴파일됩니다
+- CI: `rust-toolchain`에 명시적 `toolchain: stable` 입력 추가; feature 없는 구성에서 `clippy --all-targets`를 깨뜨리던 테스트 파일 두 개에 파일 단위 cfg 게이트(bee_cache / bee_kv), `bee_orm` m2m doctest는 백엔드 비의존으로 변경; CLI `migrate` E2E 테스트는 내부 빌드를 온라인으로(오프라인은 따뜻한 로컬 캐시에서만 통과) 바꾸고 `BEE_CLI_E2E=1`로 CI에 연결
+
 ## [1.2.0] — 2026-10-06
 
 ### 추가됨

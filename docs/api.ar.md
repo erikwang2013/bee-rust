@@ -213,6 +213,35 @@ let pool = Pool::connect_tls_with(dsn, 8, my_rustls_config)?;
 // my_rustls_config: bee_orm::rustls::ClientConfig (معاد تصديره، نفس إصدار الـcrate)
 ```
 
+### أنواع التاريخ و Decimal
+
+حقول التاريخ و Decimal محكومة بـ feature: فعِّل `chrono` (`NaiveDate` / `NaiveDateTime` / `DateTime<Utc>`) و`rust_decimal` (`Decimal`) في `bee_orm`؛ وعبر `bee_rust` فميزات التمرير هي `orm-chrono` / `orm-rust_decimal`.
+
+```rust
+use chrono::NaiveDateTime;
+use rust_decimal::Decimal;
+
+#[derive(Model)]
+#[bee(table = "events")]
+struct Event {
+    #[bee(pk, auto)]
+    id: i64,
+    at: NaiveDateTime,      // NaiveDate -> Date و‏DateTime<Utc> -> DateTimeTz
+    amount: Decimal,        // -> Decimal (متطابق على الواجهات الثلاث)
+}
+
+// الكتابة: يتحول الحقل إلى متغير Value المناسب؛ القراءة: تُفكَّك الخلية عبر serde
+let at = "2026-10-06T12:00:00".parse::<NaiveDateTime>().expect("valid");
+let amount = "1.50".parse::<Decimal>().expect("valid");
+Event { id: 0, at, amount }.insert(&pool).await?;
+let back = Event::query().all(&pool).await?;   // "1.50" يعود بقيمة مساوية
+```
+
+> المدعوم: `NaiveDate` / `NaiveDateTime` / `DateTime<Utc>` / `Decimal`. خارج النطاق — الماكرو لا يولّد تعيين SQL، استخدم `#[bee(sql_type = "…")]`: `NaiveTime` / `DateTime<Local>` / `FixedOffset` / `DateTime` المجرد، ودقة النانوثانية.
+> التخزين: sqlite دائمًا TEXT (`typeof(col)` تساوي `text`؛ وDecimal كذلك — إعلان DECIMAL يمنح ألفة NUMERIC فيبتلع "1.50" ليصبح REAL 1.5)؛ mysql يستخدم `datetime(6)` / `timestamp(6)` بميكروثوانٍ — TIMESTAMP يُقرأ كـ UTC (RFC3339 مع `Z`؛ والذهاب والإياب الصارم يتطلب منطقة زمنية للجلسة UTC)، وDATETIME يبقى naive بلا لاحقة، والتوزيع حسب نوع العمود؛ وpg `timestamptz` يُطبَّع إلى UTC.
+> سقف الدقة: في pg يُقرأ `numeric` فوق 29 رقمًا معنويًا كـ `NULL` (يرفضه FromSql الأصلي)؛ وفي mysql يمر النص، والزيادة تفشل عند فك الترميز في serde لديك؛ للمبالغ يُفضَّل `#[bee(sql_type = Raw("decimal(12,2)"))]`.
+> عقد الترجمة: مع إيقاف feature يفشل نموذج يحمل حقل تاريخ بـ E0277 (`Value: From<NaiveDate>` غير متحقق) — لا عمود خاطئ بصمت.
+
 ## إدارة التكوين (bee_config)
 
 ```rust

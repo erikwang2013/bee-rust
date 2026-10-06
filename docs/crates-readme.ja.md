@@ -61,6 +61,7 @@ curl http://localhost:8080/api/v1/health    # OK
 | `router` | bee_router, bee_session, bee_template, bee_config, bee_logs | Web コア：ルーティング + コントローラ + フィルタチェーン |
 | `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet + CRUD + プール + マイグレーション + リレーション |
 | `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` | bee_orm backend | `bee_rust` 経由で `bee_orm` バックエンドを転送（`full` には含まれない） |
+| `orm-chrono` / `orm-rust_decimal` | bee_orm type mapping | `chrono` / `rust_decimal` フィールド型を `bee_rust` 経由で転送（`full` には含まれない） |
 | `kv` | bee_kv | KV 抽象 |
 | `cache` | bee_cache, bee_config | キャッシュ抽象 |
 | `session` | bee_session, bee_cache | セッション（Memory/Redis 実装済み、Cookie/Database 計画中） |

@@ -2,6 +2,16 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.1] — 2026-10-06
+
+### 新增
+- `bee_orm`：opt-in feature 门控的日期 / Decimal 字段——`chrono`（`NaiveDate` / `NaiveDateTime` / `DateTime<Utc>`）与 `rust_decimal`（`Decimal`）在三后端映射为 `Date` / `DateTime` / `DateTimeTz` / `Decimal` SQL 类型；`bee_rust` 以 `orm-chrono` / `orm-rust_decimal` 转发（不在 `full` 内）
+- `bee_orm`：上述类型的语义边界如实记录——sqlite 一律 TEXT 存储（`typeof` = `text`；声明 DECIMAL 会得到 NUMERIC 亲和并把 `"1.50"` 静默变成 REAL 1.5），mysql 保持 `datetime(6)` / `timestamp(6)` 微秒（TIMESTAMP 读回为 UTC，DATETIME 保持 naive），pg `numeric` 超 29 位有效精度读回 `NULL`；`NaiveTime` / `DateTime<Local>` / `FixedOffset` 与纳秒精度属范围外，需 `#[bee(sql_type = "…")]`；feature 关闭时该模型报 E0277 编译错
+
+### 修复
+- `bee_orm`：多对多缺失关系提示改为按目标**类型名**拼写（`#[bee(m2m(Author))]`），不再拼表名——改过名的表也能直接复制使用
+- CI：`rust-toolchain` 补显式 `toolchain: stable` 输入；无 feature 配置下 `clippy --all-targets` 失败的两个测试文件加了文件级 cfg 门（bee_cache / bee_kv），`bee_orm` 的 m2m doctest 改为后端无关；CLI `migrate` 端到端测试的内层构建改为在线（离线只在热本地缓存下通过），并以 `BEE_CLI_E2E=1` 接入 CI
+
 ## [1.2.0] — 2026-10-06
 
 ### 新增

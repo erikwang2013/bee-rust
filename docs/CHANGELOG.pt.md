@@ -2,6 +2,16 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.1] — 2026-10-06
+
+### Adicionado
+- `bee_orm`: campos de data e Decimal atrás de features opt-in — `chrono` (`NaiveDate` / `NaiveDateTime` / `DateTime<Utc>`) e `rust_decimal` (`Decimal`) mapeiam para os tipos SQL `Date` / `DateTime` / `DateTimeTz` / `Decimal` nos três backends; o `bee_rust` encaminha como `orm-chrono` / `orm-rust_decimal` (fora do `full`)
+- `bee_orm`: limites honestos desses tipos — sqlite guarda como TEXT (`typeof` = `text`; declarar DECIMAL daria afinidade NUMERIC e viraria `"1.50"` em REAL 1.5 sem aviso), mysql mantém microssegundos em `datetime(6)` / `timestamp(6)` (TIMESTAMP volta como UTC, DATETIME segue naive) e no pg um `numeric` acima de 29 dígitos significativos volta `NULL`; `NaiveTime` / `DateTime<Local>` / `FixedOffset` / nanossegundos ficam fora e exigem `#[bee(sql_type = "…")]`, e com a feature desligada o modelo não compila (E0277)
+
+### Corrigido
+- `bee_orm`: o aviso de relação m2m ausente agora escreve o ident do tipo (`#[bee(m2m(Author))]`) em vez do nome da tabela — a sugestão compila mesmo com a tabela renomeada
+- CI: `rust-toolchain` ganhou o input explícito `toolchain: stable`; os dois arquivos de teste que quebravam `clippy --all-targets` sem features receberam gates cfg de arquivo (bee_cache / bee_kv) e o doctest m2m do `bee_orm` ficou agnóstico de backend; o teste ponta a ponta de `migrate` do CLI agora compila o crate scratch online (offline só passava com cache local quente) e roda no CI via `BEE_CLI_E2E=1`
+
 ## [1.2.0] — 2026-10-06
 
 ### Adicionado

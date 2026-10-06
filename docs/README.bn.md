@@ -161,6 +161,7 @@ bee_rust   → উপরের সব crate (re-export)
 | | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls` (bee_rust: `orm-postgres` / `orm-postgres-tls`) |
 | | MySQL | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
+| **ফিল্ডের ধরন** | তারিখ / Decimal | `bee_orm` | `chrono` / `rust_decimal` (bee_rust: `orm-chrono` / `orm-rust_decimal`) |
 | **KV / ক্যাশ** | Redis | `bee_kv` / `bee_cache` | `redis` |
 | | Memcached | `bee_kv` / `bee_cache` | `memcached` / `memcache` |
 | **সার্চ / অ্যানালিটিক্স** | Elasticsearch | `bee_search` | `elasticsearch` |

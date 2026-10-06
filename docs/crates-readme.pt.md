@@ -61,6 +61,7 @@ Há um projeto totalmente executável em [examples/hello](https://github.com/eri
 | `router` | bee_router, bee_session, bee_template, bee_config, bee_logs | Núcleo Web: roteamento + controladores + cadeia de filtros |
 | `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet + CRUD + pool + migrações + relações |
 | `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` | bee_orm backend | encaminha um backend do `bee_orm` através do `bee_rust` (fora do `full`) |
+| `orm-chrono` / `orm-rust_decimal` | bee_orm type mapping | encaminha os tipos de campo `chrono` / `rust_decimal` através do `bee_rust` (fora do `full`) |
 | `kv` | bee_kv | Abstração de KV |
 | `cache` | bee_cache, bee_config | Abstração de cache |
 | `session` | bee_session, bee_cache | sessões (Memory/Redis implementado; Cookie/Database planejados) |

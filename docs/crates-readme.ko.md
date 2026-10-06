@@ -61,6 +61,7 @@ curl http://localhost:8080/api/v1/health    # OK
 | `router` | bee_router, bee_session, bee_template, bee_config, bee_logs | Web 코어: 라우팅 + 컨트롤러 + 필터 체인 |
 | `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet + CRUD + 풀 + 마이그레이션 + 관계 |
 | `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` | bee_orm backend | `bee_rust`를 통해 `bee_orm` 백엔드를 전달(`full`에 미포함) |
+| `orm-chrono` / `orm-rust_decimal` | bee_orm type mapping | `chrono` / `rust_decimal` 필드 타입을 `bee_rust`로 전달(`full`에 미포함) |
 | `kv` | bee_kv | KV 추상화 |
 | `cache` | bee_cache, bee_config | 캐시 추상화 |
 | `session` | bee_session, bee_cache | 세션 (Memory/Redis 구현됨, Cookie/Database 계획 중) |

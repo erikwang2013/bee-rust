@@ -161,6 +161,7 @@ bee_rust   → todos los crates anteriores (re-export)
 | | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls` (bee_rust: `orm-postgres` / `orm-postgres-tls`) |
 | | MySQL | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
+| **Tipos de campo** | Fecha / Decimal | `bee_orm` | `chrono` / `rust_decimal` (bee_rust: `orm-chrono` / `orm-rust_decimal`) |
 | **KV / caché** | Redis | `bee_kv` / `bee_cache` | `redis` |
 | | Memcached | `bee_kv` / `bee_cache` | `memcached` / `memcache` |
 | **Búsqueda / análisis** | Elasticsearch | `bee_search` | `elasticsearch` |

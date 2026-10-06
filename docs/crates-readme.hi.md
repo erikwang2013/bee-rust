@@ -61,6 +61,7 @@ curl http://localhost:8080/api/v1/health    # OK
 | `router` | bee_router, bee_session, bee_template, bee_config, bee_logs | Web कोर: राउटिंग + कंट्रोलर + फ़िल्टर चेन |
 | `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet + CRUD + पूल + माइग्रेशन + संबंध |
 | `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` | bee_orm backend | `bee_rust` के माध्यम से `bee_orm` बैकएंड अग्रेषित करें (`full` में नहीं) |
+| `orm-chrono` / `orm-rust_decimal` | bee_orm type mapping | `bee_rust` के माध्यम से `chrono` / `rust_decimal` फ़ील्ड प्रकार अग्रेषित करें (`full` में नहीं) |
 | `kv` | bee_kv | KV अमूर्तन |
 | `cache` | bee_cache, bee_config | कैश अमूर्तन |
 | `session` | bee_session, bee_cache | सेशन (Memory/Redis लागू; Cookie/Database योजनाबद्ध) |

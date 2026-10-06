@@ -2,6 +2,16 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.1] — 2026-10-06
+
+### जोड़ा गया
+- `bee_orm`: opt-in features के पीछे टाइप्ड दिनांक / Decimal फ़ील्ड — `chrono` (`NaiveDate` / `NaiveDateTime` / `DateTime<Utc>`) और `rust_decimal` (`Decimal`) तीनों बैकएंड पर `Date` / `DateTime` / `DateTimeTz` / `Decimal` SQL प्रकारों में मैप होते हैं; `bee_rust` इन्हें `orm-chrono` / `orm-rust_decimal` के रूप में अग्रेषित करता है (`full` में नहीं)
+- `bee_orm`: इन प्रकारों की स्पष्ट सीमाएँ — sqlite TEXT में रखता है (`typeof` = `text`; DECIMAL घोषित करने पर NUMERIC एफ़िनिटी मिलती और `"1.50"` चुपचाप REAL 1.5 बन जाता), mysql `datetime(6)` / `timestamp(6)` का माइक्रोसेकंड रखता है (TIMESTAMP UTC के रूप में पढ़ा जाता है, DATETIME naive रहता है), और pg `numeric` 29 सार्थक अंकों से ऊपर `NULL` पढ़ा जाता है; `NaiveTime` / `DateTime<Local>` / `FixedOffset` / नैनोसेकंड दायरे से बाहर हैं और `#[bee(sql_type = "…")]` चाहिए, और feature बंद होने पर मॉडल कंपाइल नहीं होता (E0277)
+
+### ठीक किया गया
+- `bee_orm`: m2m संबंध-अनुपस्थिति का संकेत अब टेबल नाम की जगह टाइप ident (`#[bee(m2m(Author))]`) लिखता है, इसलिए नाम बदली टेबल पर भी सुझाव कंपाइल होता है
+- CI: `rust-toolchain` में स्पष्ट `toolchain: stable` इनपुट जोड़ा गया; बिना features में `clippy --all-targets` तोड़ने वाली दो टेस्ट फ़ाइलों को फ़ाइल-स्तरीय cfg गेट मिले (bee_cache / bee_kv) और `bee_orm` का m2m doctest बैकएंड-निरपेक्ष बना; CLI `migrate` का एंड-टू-एंड टेस्ट अब अपना scratch crate ऑनलाइन बनाता है (ऑफ़लाइन केवल गर्म लोकल कैश पर चलता था) और CI में `BEE_CLI_E2E=1` से जुड़ा
+
 ## [1.2.0] — 2026-10-06
 
 ### जोड़ा गया

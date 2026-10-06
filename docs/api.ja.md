@@ -213,6 +213,35 @@ let pool = Pool::connect_tls_with(dsn, 8, my_rustls_config)?;
 // my_rustls_config: bee_orm::rustls::ClientConfig（再エクスポート、crate と同じバージョン）
 ```
 
+### 日付と Decimal 型
+
+日付と Decimal フィールドは feature で制御します：`bee_orm` で `chrono`（`NaiveDate` / `NaiveDateTime` / `DateTime<Utc>`）と `rust_decimal`（`Decimal`）を有効化；`bee_rust` 経由では転送 feature `orm-chrono` / `orm-rust_decimal` が対応します。
+
+```rust
+use chrono::NaiveDateTime;
+use rust_decimal::Decimal;
+
+#[derive(Model)]
+#[bee(table = "events")]
+struct Event {
+    #[bee(pk, auto)]
+    id: i64,
+    at: NaiveDateTime,      // NaiveDate -> Date、DateTime<Utc> -> DateTimeTz
+    amount: Decimal,        // -> Decimal（3 バックエンド共通）
+}
+
+// 書き込み：フィールドは対応する Value 変体に；読み込み：セルは serde で復元
+let at = "2026-10-06T12:00:00".parse::<NaiveDateTime>().expect("valid");
+let amount = "1.50".parse::<Decimal>().expect("valid");
+Event { id: 0, at, amount }.insert(&pool).await?;
+let back = Event::query().all(&pool).await?;   // 「1.50」は数値として等しく往復
+```
+
+> 対応：`NaiveDate` / `NaiveDateTime` / `DateTime<Utc>` / `Decimal`。範囲外——マクロは SQL マッピングを出しません。`#[bee(sql_type = "…")]` が逃げ道です：`NaiveTime` / `DateTime<Local>` / `FixedOffset` / 素の `DateTime`、およびナノ秒精度。
+> 保存形式：sqlite は常に TEXT（`typeof(col)` は `text`。Decimal も同様——DECIMAL 宣言は NUMERIC アフィニティになり「1.50」を REAL 1.5 に吞みます）；mysql は `datetime(6)` / `timestamp(6)` でマイクロ秒保持——TIMESTAMP は UTC として読み戻し（RFC3339 の `Z` 付き。厳密な往復にはセッションタイムゾーン UTC が前提）、DATETIME は naive のまま接尾辞なし、列型で分派；pg の `timestamptz` は UTC に正規化。
+> 精度の天井：pg の `numeric` は有効桁 29 を超えると `NULL` で読み戻り（ネイティブ FromSql が拒否）；mysql はテキスト経由なので超過分はデコード時に serde でエラー；金額には `#[bee(sql_type = Raw("decimal(12,2)"))]` を推奨。
+> コンパイル時契約：feature を切ると日付フィールドのモデルは E0277（`Value: From<NaiveDate>` 未充足）で失敗——黙って誤った列にはなりません。
+
 ## 設定管理（bee_config）
 
 ```rust

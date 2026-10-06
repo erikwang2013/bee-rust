@@ -213,6 +213,35 @@ let pool = Pool::connect_tls_with(dsn, 8, my_rustls_config)?;
 // my_rustls_config: bee_orm::rustls::ClientConfig（重导出，版本与 crate 一致）
 ```
 
+### 日期与 Decimal 类型
+
+日期与 Decimal 字段按 feature 门控：`bee_orm` 开 `chrono`（`NaiveDate` / `NaiveDateTime` / `DateTime<Utc>`）与 `rust_decimal`（`Decimal`）；经 `bee_rust` 使用时对应转发 feature `orm-chrono` / `orm-rust_decimal`。
+
+```rust
+use chrono::NaiveDateTime;
+use rust_decimal::Decimal;
+
+#[derive(Model)]
+#[bee(table = "events")]
+struct Event {
+    #[bee(pk, auto)]
+    id: i64,
+    at: NaiveDateTime,      // NaiveDate -> Date；DateTime<Utc> -> DateTimeTz
+    amount: Decimal,        // -> Decimal（三后端一致）
+}
+
+// 写：字段值转成对应 Value 变体；读：单元格按 serde 形解码回字段类型
+let at = "2026-10-06T12:00:00".parse::<NaiveDateTime>().expect("valid");
+let amount = "1.50".parse::<Decimal>().expect("valid");
+Event { id: 0, at, amount }.insert(&pool).await?;
+let back = Event::query().all(&pool).await?;   // "1.50" 往返数值仍相等
+```
+
+> 支持面：`NaiveDate` / `NaiveDateTime` / `DateTime<Utc>` / `Decimal`；范围外（宏不给 SQL 映射，需 `#[bee(sql_type = "…")]` 逃生舱）：`NaiveTime` / `DateTime<Local>` / `FixedOffset` / 裸 `DateTime`，以及纳秒精度。
+> 存储口径：sqlite 一律 TEXT（`typeof(col)` 为 `text`；Decimal 也存文本——声明 DECIMAL 会得到 NUMERIC 亲和，把 "1.50" 吞成 REAL 1.5）；mysql `datetime(6)` / `timestamp(6)` 带微秒，TIMESTAMP 读回按 UTC（RFC3339 带 `Z`，严格往返要求会话时区为 UTC），DATETIME 保持 naive 无后缀，两者按列型分派；pg `timestamptz` 归一 UTC。
+> 精度天花板：pg `numeric` 超 29 位有效精度读回 `NULL`（原生 FromSql 拒绝）；mysql 走文本，超精度到解码时才由用户 serde 报错；钱型建议 `#[bee(sql_type = Raw("decimal(12,2)"))]`。
+> 编译期契约：feature 关闭时带日期字段的模型报 E0277（`Value: From<NaiveDate>` 不满足），不会静默落错列。
+
 ## 配置管理（bee_config）
 
 ```rust

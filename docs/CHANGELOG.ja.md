@@ -2,6 +2,16 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.1] — 2026-10-06
+
+### 追加
+- `bee_orm`：opt-in feature で制御する日付 / Decimal フィールド——`chrono`（`NaiveDate` / `NaiveDateTime` / `DateTime<Utc>`）と `rust_decimal`（`Decimal`）が三バックエンドで `Date` / `DateTime` / `DateTimeTz` / `Decimal` SQL 型にマップ；`bee_rust` は `orm-chrono` / `orm-rust_decimal` で転送（`full` には含まれない）
+- `bee_orm`：これらの型の正直な境界——sqlite は TEXT 保存（`typeof` = `text`。DECIMAL 宣言は NUMERIC アフィニティを得て `"1.50"` を黙って REAL 1.5 にします）、mysql は `datetime(6)` / `timestamp(6)` のマイクロ秒を保持（TIMESTAMP は UTC として読み戻し、DATETIME は naive のまま）、pg `numeric` は有効桁 29 超で `NULL` の読み戻し；`NaiveTime` / `DateTime<Local>` / `FixedOffset` / ナノ秒は範囲外で `#[bee(sql_type = "…")]` が必要、feature を切るとモデルはコンパイル不可（E0277）
+
+### 修正
+- `bee_orm`：m2m の関係未宣言ヒントは表名ではなく型 ident（`#[bee(m2m(Author))]`）を綴るようになり、改名した表でもそのままコンパイルできます
+- CI：`rust-toolchain` に明示的な `toolchain: stable` 入力を追加；feature なし構成で `clippy --all-targets` を壊していた 2 つのテストファイルにファイル単位 cfg ゲート（bee_cache / bee_kv）、`bee_orm` の m2m doctest はバックエンド非依存に；CLI `migrate` の E2E テストは内側ビルドをオンライン化（オフラインは温まったローカルキャッシュでのみ通っていました）し、`BEE_CLI_E2E=1` で CI に接続
+
 ## [1.2.0] — 2026-10-06
 
 ### 追加

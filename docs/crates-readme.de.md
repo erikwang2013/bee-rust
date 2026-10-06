@@ -61,6 +61,7 @@ Ein vollständig lauffähiges Projekt liegt in [examples/hello](https://github.c
 | `router` | bee_router, bee_session, bee_template, bee_config, bee_logs | Web-Kern: Routing + Controller + Filterkette |
 | `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet + CRUD + Pooling + Migrationen + Beziehungen |
 | `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` | bee_orm backend | ein `bee_orm`-Backend über `bee_rust` durchreichen (nicht in `full`) |
+| `orm-chrono` / `orm-rust_decimal` | bee_orm type mapping | `chrono` / `rust_decimal`-Feldtypen über `bee_rust` durchreichen (nicht in `full`) |
 | `kv` | bee_kv | KV-Abstraktion |
 | `cache` | bee_cache, bee_config | Cache-Abstraktion |
 | `session` | bee_session, bee_cache | Sessions (Memory/Redis implementiert; Cookie/Database geplant) |

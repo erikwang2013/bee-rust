@@ -213,6 +213,35 @@ let pool = Pool::connect_tls_with(dsn, 8, my_rustls_config)?;
 // my_rustls_config: bee_orm::rustls::ClientConfig (पुनः-निर्यात, crate जैसा संस्करण)
 ```
 
+### दिनांक और Decimal प्रकार
+
+दिनांक और Decimal फ़ील्ड feature-नियंत्रित हैं: `bee_orm` पर `chrono` (`NaiveDate` / `NaiveDateTime` / `DateTime<Utc>`) और `rust_decimal` (`Decimal`) चालू करें; `bee_rust` से होकर जाने पर अग्रेषण feature `orm-chrono` / `orm-rust_decimal` हैं।
+
+```rust
+use chrono::NaiveDateTime;
+use rust_decimal::Decimal;
+
+#[derive(Model)]
+#[bee(table = "events")]
+struct Event {
+    #[bee(pk, auto)]
+    id: i64,
+    at: NaiveDateTime,      // NaiveDate -> Date; DateTime<Utc> -> DateTimeTz
+    amount: Decimal,        // -> Decimal (तीनों बैकएंड पर समान)
+}
+
+// लेखन: फ़ील्ड संगत Value वेरिएंट में बदलता है; पठन: सेल serde से डिकोड होता है
+let at = "2026-10-06T12:00:00".parse::<NaiveDateTime>().expect("valid");
+let amount = "1.50".parse::<Decimal>().expect("valid");
+Event { id: 0, at, amount }.insert(&pool).await?;
+let back = Event::query().all(&pool).await?;   // "1.50" बराबर मान में लौटता है
+```
+
+> समर्थित: `NaiveDate` / `NaiveDateTime` / `DateTime<Utc>` / `Decimal`. दायरे से बाहर — मैक्रो SQL मैपिंग नहीं देता, `#[bee(sql_type = "…")]` एस्केप हैच है: `NaiveTime` / `DateTime<Local>` / `FixedOffset` / नंगा `DateTime`, और नैनोसेकंड परिशुद्धता।
+> भंडारण: sqlite सदैव TEXT (`typeof(col)` = `text`; Decimal भी — DECIMAL घोषित करने पर NUMERIC एफ़िनिटी मिलती और "1.50" REAL 1.5 बन जाता); mysql में `datetime(6)` / `timestamp(6)` माइक्रोसेकंड सहित — TIMESTAMP UTC के रूप में पढ़ा जाता है (RFC3339 में `Z`; कड़े राउंड-ट्रिप के लिए सत्र टाइमज़ोन UTC चाहिए), DATETIME naive बिना प्रत्यय, कॉलम-प्रकार से वितरण; pg `timestamptz` UTC में सामान्यीकृत।
+> परिशुद्धता की सीमा: pg में `numeric` 29 सार्थक अंकों से ऊपर `NULL` पढ़ा जाता है (मूल FromSql अस्वीकार करता है); mysql टेक्स्ट से जाता है, अतिरिक्त परिशुद्धता डिकोड के समय आपके serde में विफल होती है; पैसे के लिए `#[bee(sql_type = Raw("decimal(12,2)"))]` श्रेयस्कर।
+> कंपाइल-टाइम अनुबंध: feature बंद होने पर दिनांक फ़ील्ड वाला मॉडल E0277 (`Value: From<NaiveDate>` असंतुष्ट) से विफल — चुपचाप गलत कॉलम कभी नहीं।
+
 ## कॉन्फ़िगरेशन प्रबंधन (bee_config)
 
 ```rust

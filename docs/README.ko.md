@@ -161,6 +161,7 @@ bee_rust   → 위의 모든 crate (re-export)
 | | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls`(bee_rust: `orm-postgres` / `orm-postgres-tls`) |
 | | MySQL | `bee_orm` | `mysql`(bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
+| **필드 타입** | 날짜 / Decimal | `bee_orm` | `chrono` / `rust_decimal` (bee_rust: `orm-chrono` / `orm-rust_decimal`) |
 | **KV / 캐시** | Redis | `bee_kv` / `bee_cache` | `redis` |
 | | Memcached | `bee_kv` / `bee_cache` | `memcached` / `memcache` |
 | **검색 / 분석** | Elasticsearch | `bee_search` | `elasticsearch` |

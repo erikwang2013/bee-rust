@@ -213,6 +213,35 @@ let pool = Pool::connect_tls_with(dsn, 8, my_rustls_config)?;
 // my_rustls_config: bee_orm::rustls::ClientConfig (reekspor, versi sama dengan crate)
 ```
 
+### Tipe tanggal dan Decimal
+
+Field tanggal dan Decimal digate oleh feature: aktifkan `chrono` (`NaiveDate` / `NaiveDateTime` / `DateTime<Utc>`) dan `rust_decimal` (`Decimal`) di `bee_orm`; lewat `bee_rust`, feature penerusnya `orm-chrono` / `orm-rust_decimal`.
+
+```rust
+use chrono::NaiveDateTime;
+use rust_decimal::Decimal;
+
+#[derive(Model)]
+#[bee(table = "events")]
+struct Event {
+    #[bee(pk, auto)]
+    id: i64,
+    at: NaiveDateTime,      // NaiveDate -> Date; DateTime<Utc> -> DateTimeTz
+    amount: Decimal,        // -> Decimal (sama di ketiga backend)
+}
+
+// tulis: field menjadi varian Value yang sesuai; baca: sel didekode lewat serde
+let at = "2026-10-06T12:00:00".parse::<NaiveDateTime>().expect("valid");
+let amount = "1.50".parse::<Decimal>().expect("valid");
+Event { id: 0, at, amount }.insert(&pool).await?;
+let back = Event::query().all(&pool).await?;   // "1.50" kembali dengan nilai yang sama
+```
+
+> Didukung: `NaiveDate` / `NaiveDateTime` / `DateTime<Utc>` / `Decimal`. Di luar cakupan — makro tidak memetakan SQL, pakai pintu keluar `#[bee(sql_type = "…")]`: `NaiveTime` / `DateTime<Local>` / `FixedOffset` / `DateTime` telanjang, dan presisi nanodetik.
+> Penyimpanan: sqlite selalu TEXT (`typeof(col)` bernilai `text`; Decimal juga — deklarasi DECIMAL akan memberi afinitas NUMERIC dan menelan "1.50" jadi REAL 1.5); mysql memakai `datetime(6)` / `timestamp(6)` bermikrodetik — TIMESTAMP dibaca sebagai UTC (RFC3339 dengan `Z`; perjalanan bolak-balik ketat butuh zona waktu sesi UTC), DATETIME tetap naive tanpa akhiran, dikirim berdasarkan tipe kolom; pg `timestamptz` dinormalkan ke UTC.
+> Batas presisi: di pg, `numeric` di atas 29 digit signifikan dibaca `NULL` (FromSql natif menolak); di mysql lewat teks, kelebihan presisi baru gagal saat decode di serde Anda; untuk uang pilih `#[bee(sql_type = Raw("decimal(12,2)"))]`.
+> Kontrak kompilasi: dengan feature mati, model berfield tanggal gagal dengan E0277 (`Value: From<NaiveDate>` tidak terpenuhi) — tidak pernah kolom yang diam-diam salah.
+
 ## Manajemen Konfigurasi (bee_config)
 
 ```rust

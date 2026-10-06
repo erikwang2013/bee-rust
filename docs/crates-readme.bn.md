@@ -61,6 +61,7 @@ curl http://localhost:8080/api/v1/health    # OK
 | `router` | bee_router, bee_session, bee_template, bee_config, bee_logs | Web কোর: রাউটিং + কন্ট্রোলার + ফিল্টার চেইন |
 | `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet + CRUD + পুল + মাইগ্রেশন + রিলেশন |
 | `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` | bee_orm backend | `bee_rust`-এর মাধ্যমে `bee_orm` ব্যাকএন্ড ফরওয়ার্ড করে (`full`-এ নেই) |
+| `orm-chrono` / `orm-rust_decimal` | bee_orm type mapping | `bee_rust`-এর মাধ্যমে `chrono` / `rust_decimal` ফিল্ড প্রকার ফরওয়ার্ড করে (`full`-এ নেই) |
 | `kv` | bee_kv | KV বিমূর্তন |
 | `cache` | bee_cache, bee_config | ক্যাশে বিমূর্তন |
 | `session` | bee_session, bee_cache | সেশন (Memory/Redis বাস্তবায়িত; Cookie/Database পরিকল্পনাধীন) |

@@ -2,6 +2,16 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.1] — 2026-10-06
+
+### Ditambahkan
+- `bee_orm`: field tanggal / Decimal di balik feature opt-in — `chrono` (`NaiveDate` / `NaiveDateTime` / `DateTime<Utc>`) dan `rust_decimal` (`Decimal`) memetakan ke tipe SQL `Date` / `DateTime` / `DateTimeTz` / `Decimal` di ketiga backend; `bee_rust` meneruskannya sebagai `orm-chrono` / `orm-rust_decimal` (tidak termasuk `full`)
+- `bee_orm`: batas jujur tipe-tipe ini — sqlite menyimpan sebagai TEXT (`typeof` = `text`; deklarasi DECIMAL akan mendapat afinitas NUMERIC dan diam-diam mengubah `"1.50"` jadi REAL 1.5), mysql mempertahankan mikrodetik `datetime(6)` / `timestamp(6)` (TIMESTAMP dibaca sebagai UTC, DATETIME tetap naive), dan pg `numeric` di atas 29 digit signifikan dibaca `NULL`; `NaiveTime` / `DateTime<Local>` / `FixedOffset` / nanodetik di luar cakupan dan butuh `#[bee(sql_type = "…")]`, dan dengan feature mati model gagal dikompilasi (E0277)
+
+### Diperbaiki
+- `bee_orm`: petunjuk relasi m2m yang hilang kini menuliskan ident tipe (`#[bee(m2m(Author))]`) alih-alih nama tabel, jadi saran tetap bisa dikompilasi untuk tabel yang diganti nama
+- CI: `rust-toolchain` mendapat input eksplisit `toolchain: stable`; dua berkas tes yang merusak `clippy --all-targets` tanpa features mendapat gate cfg tingkat berkas (bee_cache / bee_kv) dan doctest m2m `bee_orm` menjadi agnostik backend; tes end-to-end `migrate` CLI kini membangun scratch crate secara online (offline hanya lolos dengan cache lokal hangat) dan berjalan di CI lewat `BEE_CLI_E2E=1`
+
 ## [1.2.0] — 2026-10-06
 
 ### Ditambahkan

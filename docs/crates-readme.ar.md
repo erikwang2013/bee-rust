@@ -61,6 +61,7 @@ curl http://localhost:8080/api/v1/health    # OK
 | `router` | bee_router, bee_session, bee_template, bee_config, bee_logs | نواة الويب: التوجيه + المتحكّمات + سلسلة المرشّحات |
 | `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet + CRUD + تجمّع + ترحيلات + علاقات |
 | `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` | bee_orm backend | تمرير خلفية `bee_orm` عبر `bee_rust` (ليست ضمن `full`) |
+| `orm-chrono` / `orm-rust_decimal` | bee_orm type mapping | تمرير أنواع حقول `chrono` / `rust_decimal` عبر `bee_rust` (ليست ضمن `full`) |
 | `kv` | bee_kv | تجريد KV |
 | `cache` | bee_cache, bee_config | تجريد التخزين المؤقت |
 | `session` | bee_session, bee_cache | جلسات (Memory/Redis مطبَّق؛ Cookie/Database مخطط لها) |

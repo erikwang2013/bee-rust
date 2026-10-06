@@ -213,6 +213,35 @@ let pool = Pool::connect_tls_with(dsn, 8, my_rustls_config)?;
 // my_rustls_config: bee_orm::rustls::ClientConfig (পুনঃরপ্তানি, crate-এর মতো সংস্করণ)
 ```
 
+### তারিখ ও Decimal প্রকার
+
+তারিখ ও Decimal ফিল্ড feature-নিয়ন্ত্রিত: `bee_orm`-এ `chrono` (`NaiveDate` / `NaiveDateTime` / `DateTime<Utc>`) ও `rust_decimal` (`Decimal`) চালু করুন; `bee_rust` হয়ে গেলে ফরওয়ার্ডিং feature `orm-chrono` / `orm-rust_decimal`।
+
+```rust
+use chrono::NaiveDateTime;
+use rust_decimal::Decimal;
+
+#[derive(Model)]
+#[bee(table = "events")]
+struct Event {
+    #[bee(pk, auto)]
+    id: i64,
+    at: NaiveDateTime,      // NaiveDate -> Date; DateTime<Utc> -> DateTimeTz
+    amount: Decimal,        // -> Decimal (তিন ব্যাকএন্ডেই একই)
+}
+
+// লেখা: ফিল্ড সংশ্লিষ্ট Value ভ্যারিয়েন্টে যায়; পড়া: সেল serde-তে ডিকোড হয়
+let at = "2026-10-06T12:00:00".parse::<NaiveDateTime>().expect("valid");
+let amount = "1.50".parse::<Decimal>().expect("valid");
+Event { id: 0, at, amount }.insert(&pool).await?;
+let back = Event::query().all(&pool).await?;   // "1.50" সমান মানে ফেরে
+```
+
+> সমর্থিত: `NaiveDate` / `NaiveDateTime` / `DateTime<Utc>` / `Decimal`. পরিধির বাইরে — ম্যাক্রো SQL ম্যাপিং দেয় না, `#[bee(sql_type = "…")]` এস্কেপ হ্যাচ: `NaiveTime` / `DateTime<Local>` / `FixedOffset` / খালি `DateTime`, এবং ন্যানোসেকেন্ড নির্ভুলতা।
+> সংরক্ষণ: sqlite সর্বদা TEXT (`typeof(col)` = `text`; Decimal-ও — DECIMAL ঘোষণা NUMERIC অ্যাফিনিটি দিয়ে "1.50"-কে REAL 1.5 বানিয়ে ফেলে); mysql `datetime(6)` / `timestamp(6)` মাইক্রোসেকেন্ডসহ — TIMESTAMP UTC হিসেবে পড়া হয় (RFC3339-এ `Z`; কঠোর রাউন্ড-ট্রিপে সেশনের টাইমজোন UTC চাই), DATETIME naive প্রত্যয় ছাড়া, কলাম-টাইপ অনুযায়ী বিভাজন; pg `timestamptz` UTC-তে স্বাভাবিক।
+> নির্ভুলতার সীমা: pg-তে `numeric` ২৯ তাৎপর্যপূর্ণ অঙ্কের বেশি হলে `NULL` পড়া যায় (নেটিভ FromSql প্রত্যাখ্যান করে); mysql টেক্সট পথে, বাড়তি নির্ভুলতা ডিকোডের সময় আপনার serde-তে ব্যর্থ; টাকার জন্য `#[bee(sql_type = Raw("decimal(12,2)"))]` শ্রেয়।
+> কম্পাইল-টাইম চুক্তি: feature বন্ধ থাকলে তারিখ ফিল্ডের মডেল E0277 (`Value: From<NaiveDate>` অসম্পূর্ণ) দিয়ে ব্যর্থ — কখনও নীরবে ভুল কলাম নয়।
+
 ## কনফিগ ম্যানেজমেন্ট (bee_config)
 
 ```rust

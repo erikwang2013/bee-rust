@@ -61,6 +61,7 @@ Proyek yang benar-benar bisa dijalankan ada di [examples/hello](https://github.c
 | `router` | bee_router, bee_session, bee_template, bee_config, bee_logs | Inti Web: routing + controller + rantai filter |
 | `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet + CRUD + pooling + migrasi + relasi |
 | `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` | bee_orm backend | meneruskan backend `bee_orm` melalui `bee_rust` (tidak termasuk `full`) |
+| `orm-chrono` / `orm-rust_decimal` | bee_orm type mapping | meneruskan tipe field `chrono` / `rust_decimal` melalui `bee_rust` (tidak termasuk `full`) |
 | `kv` | bee_kv | Abstraksi KV |
 | `cache` | bee_cache, bee_config | Abstraksi cache |
 | `session` | bee_session, bee_cache | sesi (Memory/Redis diimplementasikan; Cookie/Database direncanakan) |

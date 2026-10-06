@@ -61,6 +61,7 @@ Un projet entièrement exécutable se trouve dans [examples/hello](https://githu
 | `router` | bee_router, bee_session, bee_template, bee_config, bee_logs | Cœur Web : routage + contrôleurs + chaîne de filtres |
 | `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet + CRUD + pooling + migrations + relations |
 | `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` | bee_orm backend | transmet un backend `bee_orm` via `bee_rust` (hors `full`) |
+| `orm-chrono` / `orm-rust_decimal` | bee_orm type mapping | transmet les types de champs `chrono` / `rust_decimal` via `bee_rust` (hors `full`) |
 | `kv` | bee_kv | Abstraction KV |
 | `cache` | bee_cache, bee_config | Abstraction de cache |
 | `session` | bee_session, bee_cache | sessions (Memory/Redis implémenté ; Cookie/Database prévus) |

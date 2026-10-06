@@ -2,6 +2,16 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.1] — 2026-10-06
+
+### Neu hinzugefügt
+- `bee_orm`: typisierte Datums-/Decimal-Felder hinter Opt-in-Features — `chrono` (`NaiveDate` / `NaiveDateTime` / `DateTime<Utc>`) und `rust_decimal` (`Decimal`) bilden auf die SQL-Typen `Date` / `DateTime` / `DateTimeTz` / `Decimal` in allen drei Backends ab; `bee_rust` leitet sie als `orm-chrono` / `orm-rust_decimal` weiter (nicht in `full`)
+- `bee_orm`: ehrliche Grenzen dieser Typen — sqlite speichert als TEXT (`typeof` = `text`; eine DECIMAL-Deklaration bekäme NUMERIC-Affinität und machte `"1.50"` still zu REAL 1.5), mysql behält Mikrosekunden in `datetime(6)` / `timestamp(6)` (TIMESTAMP liest als UTC, DATETIME bleibt naiv), und ein pg `numeric` über 29 signifikante Stellen liest als `NULL`; `NaiveTime` / `DateTime<Local>` / `FixedOffset` / Nanosekunden sind außerhalb des Umfangs und brauchen `#[bee(sql_type = "…")]`, und ohne Feature kompiliert das Modell nicht (E0277)
+
+### Behoben
+- `bee_orm`: der m2m-Hinweis bei fehlender Beziehung nennt jetzt den Typ-Ident (`#[bee(m2m(Author))]`) statt des Tabellennamens — der Vorschlag kompiliert auch bei umbenannter Tabelle
+- CI: `rust-toolchain` erhielt den expliziten `toolchain: stable`-Input; die zwei Testdateien, die ohne Features `clippy --all-targets` brachen, bekamen Datei-Cfg-Gates (bee_cache / bee_kv) und der `bee_orm`-m2m-Doctest wurde backend-agnostisch; der CLI-`migrate`-End-to-End-Test baut sein Scratch-Crate jetzt online (offline klappte nur mit warmem lokalem Cache) und läuft in CI über `BEE_CLI_E2E=1`
+
 ## [1.2.0] — 2026-10-06
 
 ### Neu hinzugefügt

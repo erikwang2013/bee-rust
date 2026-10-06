@@ -213,6 +213,35 @@ let pool = Pool::connect_tls_with(dsn, 8, my_rustls_config)?;
 // my_rustls_config: bee_orm::rustls::ClientConfig (reexportado, misma versión que la crate)
 ```
 
+### Tipos fecha y Decimal
+
+Los campos de fecha y Decimal están gateados por feature: activa `chrono` (`NaiveDate` / `NaiveDateTime` / `DateTime<Utc>`) y `rust_decimal` (`Decimal`) en `bee_orm`; a través de `bee_rust` los features de reenvío son `orm-chrono` / `orm-rust_decimal`.
+
+```rust
+use chrono::NaiveDateTime;
+use rust_decimal::Decimal;
+
+#[derive(Model)]
+#[bee(table = "events")]
+struct Event {
+    #[bee(pk, auto)]
+    id: i64,
+    at: NaiveDateTime,      // NaiveDate -> Date; DateTime<Utc> -> DateTimeTz
+    amount: Decimal,        // -> Decimal (igual en los tres backends)
+}
+
+// escritura: el campo se vuelve la variante Value correspondiente; lectura: la celda decodifica vía serde
+let at = "2026-10-06T12:00:00".parse::<NaiveDateTime>().expect("valid");
+let amount = "1.50".parse::<Decimal>().expect("valid");
+Event { id: 0, at, amount }.insert(&pool).await?;
+let back = Event::query().all(&pool).await?;   // "1.50" vuelve con igual valor
+```
+
+> Soportado: `NaiveDate` / `NaiveDateTime` / `DateTime<Utc>` / `Decimal`. Fuera de alcance — la macro no emite mapeo SQL, usa la vía de escape `#[bee(sql_type = "…")]`: `NaiveTime` / `DateTime<Local>` / `FixedOffset` / `DateTime` desnudo, y precisión de nanosegundos.
+> Almacenamiento: sqlite siempre TEXT (`typeof(col)` es `text`; Decimal también — declarar DECIMAL daría afinidad NUMERIC y se tragaría "1.50" como REAL 1.5); mysql usa `datetime(6)` / `timestamp(6)` con microsegundos — TIMESTAMP se lee como UTC (RFC3339 con `Z`; el viaje estricto exige zona horaria de sesión UTC), DATETIME sigue naive sin sufijo, despachados por tipo de columna; pg `timestamptz` normaliza a UTC.
+> Techo de precisión: en pg, `numeric` con más de 29 dígitos significativos se lee como `NULL` (el FromSql nativo lo rechaza); en mysql va por texto, la precisión sobrante falla recién al decodificar en tu serde; para dinero mejor `#[bee(sql_type = Raw("decimal(12,2)"))]`.
+> Contrato en compilación: con el feature apagado, un modelo con campo de fecha falla con E0277 (`Value: From<NaiveDate>` no satisfecho) — nunca una columna silenciosamente incorrecta.
+
 ## Gestión de configuración (bee_config)
 
 ```rust

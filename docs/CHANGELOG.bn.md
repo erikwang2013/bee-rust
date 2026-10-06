@@ -2,6 +2,16 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.1] — 2026-10-06
+
+### যা যোগ হয়েছে
+- `bee_orm`: opt-in features-এর পিছনে টাইপড তারিখ / Decimal ফিল্ড — `chrono` (`NaiveDate` / `NaiveDateTime` / `DateTime<Utc>`) ও `rust_decimal` (`Decimal`) তিন ব্যাকএন্ডেই `Date` / `DateTime` / `DateTimeTz` / `Decimal` SQL টাইপে ম্যাপ হয়; `bee_rust` এগুলো `orm-chrono` / `orm-rust_decimal` হিসেবে ফরওয়ার্ড করে (`full`-এ নেই)
+- `bee_orm`: এসব টাইপের সৎ সীমা — sqlite TEXT-এ রাখে (`typeof` = `text`; DECIMAL ঘোষণায় NUMERIC অ্যাফিনিটি মিলে `"1.50"` নীরবে REAL 1.5 হয়ে যায়), mysql `datetime(6)` / `timestamp(6)`-এর মাইক্রোসেকেন্ড রাখে (TIMESTAMP UTC হিসেবে পড়া হয়, DATETIME naive থাকে), আর pg `numeric` ২৯ তাৎপর্যপূর্ণ অঙ্কের বেশি হলে `NULL` পড়া যায়; `NaiveTime` / `DateTime<Local>` / `FixedOffset` / ন্যানোসেকেন্ড পরিধির বাইরে, `#[bee(sql_type = "…")]` লাগে, আর feature বন্ধ থাকলে মডেল কম্পাইল হয় না (E0277)
+
+### যা ঠিক করা হয়েছে
+- `bee_orm`: m2m সম্পর্ক-অনুপস্থিতির ইঙ্গিত এখন টেবিলের নামের বদলে টাইপ ident (`#[bee(m2m(Author))]`) লেখে, তাই নাম বদলানো টেবিলেও সাজেশনটি কম্পাইল হয়
+- CI: `rust-toolchain`-এ স্পষ্ট `toolchain: stable` ইনপুট যোগ হয়েছে; feature ছাড়া `clippy --all-targets` ভাঙা দুটি টেস্ট ফাইলে ফাইল-স্তরের cfg গেট (bee_cache / bee_kv) এবং `bee_orm`-এর m2m doctest ব্যাকএন্ড-নিরপেক্ষ হলো; CLI `migrate`-এর এন্ড-টু-এন্ড টেস্ট এখন scratch crate অনলাইনে বানায় (অফলাইন কেবল গরম লোকাল ক্যাশে চলত) এবং `BEE_CLI_E2E=1` দিয়ে CI-তে যুক্ত
+
 ## [1.2.0] — 2026-10-06
 
 ### যা যোগ হয়েছে

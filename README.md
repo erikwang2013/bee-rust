@@ -161,6 +161,7 @@ bee_rust   → 全部上述 crate (re-export)
 | | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls`（bee_rust：`orm-postgres` / `orm-postgres-tls`） |
 | | MySQL | `bee_orm` | `mysql`（bee_rust：`orm-mysql`） |
 | | TiDB | `bee_orm` | `mysql` |
+| **字段类型** | 日期 / Decimal | `bee_orm` | `chrono` / `rust_decimal`（bee_rust：`orm-chrono` / `orm-rust_decimal`） |
 | **KV / 缓存** | Redis | `bee_kv` / `bee_cache` | `redis` |
 | | Memcached | `bee_kv` / `bee_cache` | `memcached` / `memcache` |
 | **搜索 / 分析** | Elasticsearch | `bee_search` | `elasticsearch` |

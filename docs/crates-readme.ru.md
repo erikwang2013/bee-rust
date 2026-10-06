@@ -61,6 +61,7 @@ curl http://localhost:8080/api/v1/health    # OK
 | `router` | bee_router, bee_session, bee_template, bee_config, bee_logs | Ядро Web: маршрутизация + контроллеры + цепочка фильтров |
 | `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet + CRUD + пул + миграции + связи |
 | `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` | bee_orm backend | проброс бэкенда `bee_orm` через `bee_rust` (не в `full`) |
+| `orm-chrono` / `orm-rust_decimal` | bee_orm type mapping | проброс типов полей `chrono` / `rust_decimal` через `bee_rust` (не в `full`) |
 | `kv` | bee_kv | Абстракция KV |
 | `cache` | bee_cache, bee_config | Абстракция кэша |
 | `session` | bee_session, bee_cache | Сессии (Memory/Redis реализовано; Cookie/Database в планах) |

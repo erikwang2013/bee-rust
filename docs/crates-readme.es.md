@@ -61,6 +61,7 @@ Hay un proyecto completamente ejecutable en [examples/hello](https://github.com/
 | `router` | bee_router, bee_session, bee_template, bee_config, bee_logs | Núcleo Web: enrutado + controladores + cadena de filtros |
 | `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet + CRUD + pooling + migraciones + relaciones |
 | `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` | bee_orm backend | reenvía un backend de `bee_orm` a través de `bee_rust` (no está en `full`) |
+| `orm-chrono` / `orm-rust_decimal` | bee_orm type mapping | reenvía los tipos de campo `chrono` / `rust_decimal` a través de `bee_rust` (no está en `full`) |
 | `kv` | bee_kv | Abstracción KV |
 | `cache` | bee_cache, bee_config | Abstracción de caché |
 | `session` | bee_session, bee_cache | sesiones (Memory/Redis implementado; Cookie/Database planificados) |

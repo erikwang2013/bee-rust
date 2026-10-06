@@ -213,6 +213,35 @@ let pool = Pool::connect_tls_with(dsn, 8, my_rustls_config)?;
 // my_rustls_config: bee_orm::rustls::ClientConfig(재수출, crate와 같은 버전)
 ```
 
+### 날짜 및 Decimal 타입
+
+날짜와 Decimal 필드는 feature로 제어합니다: `bee_orm`에서 `chrono`(`NaiveDate` / `NaiveDateTime` / `DateTime<Utc>`)와 `rust_decimal`(`Decimal`)을 켜고, `bee_rust` 경유 시 전달 feature는 `orm-chrono` / `orm-rust_decimal`입니다.
+
+```rust
+use chrono::NaiveDateTime;
+use rust_decimal::Decimal;
+
+#[derive(Model)]
+#[bee(table = "events")]
+struct Event {
+    #[bee(pk, auto)]
+    id: i64,
+    at: NaiveDateTime,      // NaiveDate -> Date, DateTime<Utc> -> DateTimeTz
+    amount: Decimal,        // -> Decimal (세 백엔드 동일)
+}
+
+// 쓰기: 필드가 대응 Value 변형으로; 읽기: 셀이 serde로 복원
+let at = "2026-10-06T12:00:00".parse::<NaiveDateTime>().expect("valid");
+let amount = "1.50".parse::<Decimal>().expect("valid");
+Event { id: 0, at, amount }.insert(&pool).await?;
+let back = Event::query().all(&pool).await?;   // "1.50"은 같은 값으로 왕복
+```
+
+> 지원: `NaiveDate` / `NaiveDateTime` / `DateTime<Utc>` / `Decimal`. 범위 밖 — 매크로가 SQL 매핑을 내지 않으므로 `#[bee(sql_type = "…")]` 탈출구를 쓰세요: `NaiveTime` / `DateTime<Local>` / `FixedOffset` / 순수 `DateTime`, 나노초 정밀도.
+> 저장: sqlite는 항상 TEXT (`typeof(col)`는 `text`; Decimal도 동일 — DECIMAL 선언은 NUMERIC 친화도를 얻어 "1.50"을 REAL 1.5로 삼킵니다); mysql은 `datetime(6)` / `timestamp(6)` 마이크로초 — TIMESTAMP는 UTC로 읽힘(RFC3339 `Z`; 엄격한 왕복은 세션 타임존 UTC 전제), DATETIME은 naive로 접미사 없음, 열 타입으로 분기; pg `timestamptz`는 UTC로 정규화.
+> 정밀도 상한: pg `numeric`은 유효 자릿수 29를 넘으면 `NULL`로 읽힘(네이티브 FromSql 거부); mysql은 텍스트 경로라 초과분은 디코드 시 serde에서 오류; 금액에는 `#[bee(sql_type = Raw("decimal(12,2)"))]` 권장.
+> 컴파일 계약: feature가 꺼져 있으면 날짜 필드 모델은 E0277(`Value: From<NaiveDate>` 불충족)로 실패 — 조용히 잘못된 열이 되지 않습니다.
+
 ## 설정 관리 (bee_config)
 
 ```rust

@@ -2,6 +2,16 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.2.1] — 2026-10-06
+
+### أُضيف
+- `bee_orm`: حقول التاريخ / Decimal خلف features اختيارية — `chrono` (`NaiveDate` / `NaiveDateTime` / `DateTime<Utc>`) و`rust_decimal` (`Decimal`) تُعيَّن إلى أنواع SQL ‏`Date` / `DateTime` / `DateTimeTz` / `Decimal` في الواجهات الثلاث؛ و`bee_rust` يمررها كـ `orm-chrono` / `orm-rust_decimal` (ليست ضمن `full`)
+- `bee_orm`: حدود صريحة لهذه الأنواع — sqlite يخزن TEXT (`typeof` = `text`؛ إعلان DECIMAL يمنح ألفة NUMERIC ويحوّل `"1.50"` بصمت إلى REAL 1.5)، وmysql يحفظ ميكروثواني `datetime(6)` / `timestamp(6)` (TIMESTAMP يُقرأ كـ UTC وDATETIME يبقى naive)، وفي pg يُقرأ `numeric` فوق 29 رقمًا معنويًا كـ `NULL`؛ و`NaiveTime` / `DateTime<Local>` / `FixedOffset` / النانوثانية خارج النطاق وتتطلب `#[bee(sql_type = "…")]`، ومع إيقاف feature لا يُترجم النموذج (E0277)
+
+### أُصلح
+- `bee_orm`: تنبيه العلاقة m2m المفقودة يكتب الآن ident النوع (`#[bee(m2m(Author))]`) بدل اسم الجدول، فيبقى الاقتراح قابلًا للترجمة حتى مع جدول مُعاد تسميته
+- CI: أُضيف الإدخال الصريح `toolchain: stable` إلى `rust-toolchain`؛ وملفا اختبار كانا يكسران `clippy --all-targets` بدون features حصلا على بوابات cfg على مستوى الملف (bee_cache / bee_kv)، وصار doctest الـ m2m في `bee_orm` مستقلًا عن الواجهة؛ واختبار `migrate` الشامل في CLI يبني الآن scratch crate عبر الشبكة (الوضع دون اتصال كان ينجح فقط مع ذاكرة محلية دافئة) ويعمل في CI عبر `BEE_CLI_E2E=1`
+
 ## [1.2.0] — 2026-10-06
 
 ### أُضيف

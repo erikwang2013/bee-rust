@@ -213,6 +213,35 @@ let pool = Pool::connect_tls_with(dsn, 8, my_rustls_config)?;
 // my_rustls_config: bee_orm::rustls::ClientConfig (реэкспорт, та же версия, что у crate)
 ```
 
+### Типы даты и Decimal
+
+Поля даты и Decimal включаются feature: включите `chrono` (`NaiveDate` / `NaiveDateTime` / `DateTime<Utc>`) и `rust_decimal` (`Decimal`) у `bee_orm`; через `bee_rust` пробрасывающие feature — `orm-chrono` / `orm-rust_decimal`.
+
+```rust
+use chrono::NaiveDateTime;
+use rust_decimal::Decimal;
+
+#[derive(Model)]
+#[bee(table = "events")]
+struct Event {
+    #[bee(pk, auto)]
+    id: i64,
+    at: NaiveDateTime,      // NaiveDate -> Date; DateTime<Utc> -> DateTimeTz
+    amount: Decimal,        // -> Decimal (одинаково на всех трёх бэкендах)
+}
+
+// запись: поле превращается в нужный вариант Value; чтение: ячейка декодируется через serde
+let at = "2026-10-06T12:00:00".parse::<NaiveDateTime>().expect("valid");
+let amount = "1.50".parse::<Decimal>().expect("valid");
+Event { id: 0, at, amount }.insert(&pool).await?;
+let back = Event::query().all(&pool).await?;   // "1.50" возвращается численно равным
+```
+
+> Поддержка: `NaiveDate` / `NaiveDateTime` / `DateTime<Utc>` / `Decimal`. Вне области — макрос не выдаёт SQL-отображение, используйте `#[bee(sql_type = "…")]`: `NaiveTime` / `DateTime<Local>` / `FixedOffset` / голый `DateTime` и наносекундная точность.
+> Хранение: sqlite всегда TEXT (`typeof(col)` = `text`; Decimal тоже — объявление DECIMAL дало бы NUMERIC-аффинность и превратило "1.50" в REAL 1.5); mysql — `datetime(6)` / `timestamp(6)` с микросекундами: TIMESTAMP читается как UTC (RFC3339 с `Z`; строгий round trip требует сессионной зоны UTC), DATETIME остаётся naive без суффикса, разбор по типу колонки; pg `timestamptz` нормализуется в UTC.
+> Потолок точности: в pg `numeric` свыше 29 значащих цифр читается как `NULL` (нативный FromSql отклоняет); в mysql всё идёт текстом — избыточная точность падает только на декодировании в вашем serde; для денег лучше `#[bee(sql_type = Raw("decimal(12,2)"))]`.
+> Контракт компиляции: с выключенным feature модель с полем даты падает с E0277 (`Value: From<NaiveDate>` не выполнен) — никакой тихо неверной колонки.
+
 ## Управление конфигурацией (bee_config)
 
 ```rust

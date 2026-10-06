@@ -61,6 +61,7 @@ A complete runnable project lives in [examples/hello](https://github.com/erikwan
 | `router` | bee_router, bee_session, bee_template, bee_config, bee_logs | Web core: routing + controllers + filter chain |
 | `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet + CRUD + pooling + migrations + relations |
 | `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` | bee_orm backend | forward a `bee_orm` backend through `bee_rust` (not in `full`) |
+| `orm-chrono` / `orm-rust_decimal` | bee_orm type mapping | forward `chrono` / `rust_decimal` field types through `bee_rust` (not in `full`) |
 | `kv` | bee_kv | KV abstraction |
 | `cache` | bee_cache, bee_config | cache abstraction |
 | `session` | bee_session, bee_cache | sessions (Memory/Redis implemented; Cookie/Database planned) |
@@ -187,6 +188,7 @@ curl http://localhost:8080/api/v1/health    # OK
 | `router` | bee_router, bee_session, bee_template, bee_config, bee_logs | Web 核心：路由 + 控制器 + 过滤器链 |
 | `orm` | bee_orm, bee_config, bee_cache | `#[derive(Model)]` + QuerySet + CRUD + 连接池 + 迁移 + 关系 |
 | `orm-sqlite` / `orm-postgres` / `orm-postgres-tls` / `orm-mysql` | bee_orm 后端 | 通过 `bee_rust` 转发对应 `bee_orm` 后端（不在 `full` 内） |
+| `orm-chrono` / `orm-rust_decimal` | bee_orm 类型映射 | 通过 `bee_rust` 转发 `chrono` / `rust_decimal` 字段类型（不在 `full` 内） |
 | `kv` | bee_kv | KV 统一抽象 |
 | `cache` | bee_cache, bee_config | 缓存抽象 |
 | `session` | bee_session, bee_cache | Session（Memory/Redis 已实现；Cookie/Database 规划中） |
