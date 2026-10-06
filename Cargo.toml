@@ -20,7 +20,9 @@ members = [
     "examples/hello",
 ]
 exclude = [
-    "examples/*",
+    # 注意：cargo 的 exclude 按字面路径匹配、glob 不生效（cargo 1.99 实证），
+    # 自建示例须逐条列出；包内自带空 [workspace] 表者（shortlink）可省。
+    "examples/shortlink",
 ]
 
 [workspace.package]

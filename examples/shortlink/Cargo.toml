@@ -1,0 +1,18 @@
+# Standalone package inside the bee-rust repo: the root workspace's
+# `exclude = ["examples/*"]` does not cover it, so declare its own workspace root.
+[workspace]
+
+[package]
+name = "shortlink"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+bee_rust = { version = "1.2.1", default-features = false, features = ["orm-sqlite", "router", "cache", "logs"] }
+tokio = { version = "1", features = ["full"] }
+axum = "0.8"
+serde_json = "1"
+
+[dev-dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }

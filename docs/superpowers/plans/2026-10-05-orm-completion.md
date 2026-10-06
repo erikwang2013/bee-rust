@@ -3438,3 +3438,125 @@ optional = true
 **收口（reviewer，2026-10-06；4/4 变异 + 1 LOW finding）**：F-7.1（LOW，随 §56 修）=mysql.rs:185 `column_type` 参数在 chrono 关配置 unused → `cargo clippy -p bee_orm --features mysql --all-targets -- -D warnings` rc=101（bee_rust `orm-mysql` 裸配置面；CI 不踩——CI clippy=零 feature 默认面/all-features 含 chrono）；修复 Landed（coder-orm，2026-10-06）：`#[cfg_attr(not(feature = "chrono"), allow(unused_variables))]` 落地（留名未改名、零行为差）；该配置 rc=101→0；单后端裸配置扫描（sqlite / postgres / mysql+rust_decimal 等组合）全 rc=0。覆盖观察：rel.rs `json_of` 四 cfg 臂无测试钉（变异候选③证死）→ 已补：src/tests/rel.rs 两钉（chrono：date/naive/utc 逐字；rust_decimal："1.50"）——补钉自证变异（两臂改 `Json::Null`）两钉 FAILED（left Null / right String(…)）→ cmp 还原 → 2 passed；all-features lib 77→79、默认关 52 不变。变异：M-A sqlite TEXT→DECIMAL 红 datetime_types.rs:148；M-B m2m 反向 ident→表名 红 m2m.rs:164；M-C mysql TIMESTAMP 去 Utc 红 integration_mysql.rs:313-317；M-D pg timestamptz→NaiveDateTime 红 integration_pg.rs:406；均逐字节还原（基线=冻结副本非 HEAD，树未提交；CODE_DELTA_IDENTICAL=crates/+Cargo.lock 对冻结 delta.patch 去 docs 段逐字节同）；`.stderr` sha 一致、无 cfg 泄漏；弱激活面复核（sqlite,rust_decimal 下 postgres-types=0）。**下轮候选**：sqlite Decimal 绑定臂钉 / macro DateTimeTz 泛型校验放宽 / pg numeric 读臂换 f64 变异 / m2m 占位符 UX（表名不得进 `m2m( )` 片段位——§55 约束仍在）。**环境教训（团队级）**：本机 shell `diff` 为 OpenHarmony 二进制、静默无输出——核验一律 `cmp`/`git diff`。
 
 **F-7.1 终验（reviewer，2026-10-06，闭合）**：修复配置 clippy rc=101→0；`--all-features --lib` 79 passed（=77+2）、默认 `--lib` 52；漂移面恰两文件（mysql.rs 单处 cfg_attr 签名拆 3 行；tests/rel.rs 纯文末追加，vs HEAD 单 hunk `@@ -110,3 +110,25 @@` 零既有行改动），其余 24/24 冻结副本逐文件 MATCH；`sha256sum -c SHA256SUMS` 26/26；三未跟踪文件逐一 cmp 冻结副本 OK（datetime_types.rs 本轮零触碰）。补钉非空性独立复跑（reviewer，单臂版交叉先跑 + 授权两臂版）：两臂（`Value::Date`/`Value::Decimal` @rel.rs:165/:171）→ `Json::Null` → **恰 2 钉红、零级联**（0 passed / 2 failed / 77 filtered；left Null vs right String("1.50") / String("2026-10-06")）——分臂精确、两版互证（单臂版 decimal 钉作对照组保持绿）；还原三重口径（运行前快照 cmp + 冻结副本 cmp + `git diff HEAD -- rel.rs` 空、零 marker）、touch 后重编非陈旧；复绿 2/2 + lib 79/79。**提交完整性链（cbd4dc7）**：`git status` 全空；HEAD==freeze 24/24（未变文件）；mysql.rs 与 tests/rel.rs 的 HEAD 内容==修复后 live（cfg_attr + 两钉在提交内）；`git grep MUTATION cbd4dc7` 零命中、HEAD rel.rs==freeze → 提交未捕获变异（与独立复跑窗口重叠的 gate 点已验）；三原未跟踪文件入 HEAD 且==freeze。**排程口径记录**：§55+§56 实际合并于 cbd4dc7 单提交（原排程"§56 独立"未保持，以实际提交为准）；另 1078298 已落（CI migrate_e2e 移除离线约束 + .gitignore tmp 防线 = 1.2.1 红点修复，main 线）。批次 7 全链闭合，无遗留。
+
+---
+
+## 60. Batch-8: dogfood 示例应用 `examples/shortlink`（DX 挖矿）
+
+**目标**：一个独立于工作区、只依赖 crates.io 已发布 `bee_rust = "1.2.1"`（禁 path 依赖）的短链服务示例应用。实现者 = **全新 agent（零内部上下文）**，参考面只许公开文档；每遇到"文档没讲清 / 要翻源码才懂 / API 别扭 / 报错难懂"即记一条 DX 摩擦日志。挖出的问题走架构师裁决流程，归口下轮。
+
+### 60.1 前提、参考面与写权（硬约束）
+
+- **前提（已核 2026-10-06）**：crates.io 上 `bee_rust 1.2.1` 可解析（`cargo search bee_rust` 返回 1.2.1）。开工时以 `cargo build` 实际解析为准；解析不到 1.2.1 → 停手报 lead。
+- **独立于工作区**：短链应用自带 Cargo.toml / Cargo.lock，**不得出现任何 path 依赖**；根 Cargo.toml 不得改动。**修订（app-dev 实测 + 架构师独立探针复现，2026-10-06）**：根 `exclude = ["examples/*"]` 的 **glob 在 cargo 1.99 下不生效**（探针矩阵：glob→rc=101 "believes it's in a workspace"；字面路径 `examples/shortlink`→rc=0；入 members→rc=0——exclude 条目按字面路径匹配）——`examples/*` 条目自写下起即为 no-op（`examples/hello` 能用纯因显式 members）；故短链应用**自带空 `[workspace]` 表**豁免（app-dev 修法，正确）。根 exclude 的卫生修正待 lead 决策，见 §60.6。
+- **参考面白名单**：`README.md`、`docs/crates-readme.md`、`docs/api.md`（或任一语言镜像）、docs.rs/bee_rust rustdoc、crates.io 页面。**黑名单**：`crates/**` 源码、本计划文件（§60.1–60.4 的任务简报段除外）、`examples/hello`。**卡死救急规则（架构师裁定 + lead 顺序约束）**：仅当**先尝试过文档路径**（该条日志内须记录尝试内容：查了哪份文档/哪段 API、为何不够）且仍无法推进时，才允许翻 `crates/**` 源码救急；每一次救急都必须记一条摩擦日志（类别按实际、解卡方式填"翻源码（救急）"，注明读了哪个文件、**文档为什么不够**）——顺序约束防"一上来就翻源码"；"被迫翻源码"正是 dogfood 要度量的事实，允许发生、禁止不留痕。
+- **写权**：`examples/shortlink/**` 独占；不得修改本目录外的任何文件（根 Cargo.toml / CI / docs / crates 全禁）；不执行任何 git 操作（提交归 lead）；交付时目录外无残留（临时文件放系统临时目录）。
+- **版本口径**：文档参考面是 main 分支（含 1.2.1 后的文档刷新）；**以 crates.io 1.2.1 的实际行为为准**——文档与行为不符同样记摩擦（版本口径差本身就是发现）。
+
+### 60.2 应用需求（精确版）
+
+数据模型（均 `#[derive(Model)]`）：
+
+```rust
+#[derive(Model)]
+#[bee(table = "links")]
+#[bee(m2m(Tag))]                       // join 表 link_tag（文档口径），随 sync 创建
+struct Link {
+    #[bee(pk, auto)] id: i64,
+    code: String,
+    url: String,
+    #[bee(auto_now_add)] created_at: i64,   // 公开文档配对写法：unix 秒
+    #[bee(soft_delete)] deleted: bool,
+}
+
+#[derive(Model)]
+#[bee(table = "tags")]
+struct Tag { #[bee(pk, auto)] id: i64, name: String }
+
+#[derive(Model)]
+#[bee(table = "clicks")]
+struct Click {
+    #[bee(pk, auto)] id: i64,
+    #[bee(fk = Link)] link_id: i64,         // 安全阀：若公开口径要求 Option 形，可 Option 化并记摩擦
+    #[bee(auto_now_add)] created_at: i64,
+}
+```
+
+- 建表：启动时 `migrate::sync`，顺序 **Tag → Link → Click**（m2m 目标先建，文档要求）。
+- 缓存：`MemoryCache`（bee_cache）做 code→url 热路径；**命中不查库**（缓存值须自带 link id 供点击记账）；TTL 60s 常量即可。
+- HTTP：bee_router 路由 + axum 0.8 serve；JSON API；sqlite 文件库。
+
+端点（精确行为，全部钉死）：
+
+1. `POST /api/links` body `{url, code?}`：url 须为绝对 http(s)（前缀大小写不敏感），拒绝 `//host`、无 scheme、其他 scheme、长度 >2048 → 400；code 可选，给出须匹配 `^[a-z0-9]{4,32}$` 否则 400，未给出自动生成 8 位 `[a-z0-9]`（无新依赖实现，碰撞重试）；重复 code（**含软删行**，`with_deleted` 判重）→ 409；成功 → 201 JSON（至少 `{id, code, url}`）。
+2. `GET /api/links` → 200 JSON 数组，仅存活行、id 升序；元素 `{id, code, url, created_at, clicks, tags}`；clicks = 该 link 的 Click 行数；tags = 标签名数组（tag id 升序）。N+1 查询可接受（示例应用，可在注释标 `ponytail:`）。
+3. `GET /:code`（根路径）→ 302 + `Location`；命中缓存直接 302；未命中查库（仅存活行）并回填缓存；未找到/已软删 → 404；**每次 302 记一行 Click**（含缓存命中路径）。
+4. `DELETE /api/links/:code` → 204 软删 + 删缓存键（`Cache::delete` 对 NotFound 需容忍）；未找到（含已删）→ 404。
+5. `POST /api/links/:code/tags` body `{name}`：name trim 后非空且 ≤64 字符否则 400；Tag 按名 find-or-create；attach；**幂等**（重复打同一标签 → 200、不重复插入）；响应 200 `{tags:[…]}`；link 未找到 → 404。
+
+结构（最低要求）：`src/lib.rs` 暴露 `pub async fn build_app(db_path: &str) -> …`（内部完成 sync 建表、建 state、返回可 serve 的 axum Router；签名形状供 e2e 直接调用）；`src/main.rs` 读 env `PORT`（默认 8080）/ `SHORTLINK_DB`（默认 `shortlink.db`）后 serve。文件划分自由，每文件 <500 行（项目规则）；**Cargo.lock 与 .gitignore（`target/`、`*.db*`）必须交付**。
+
+依赖（建议最小集；多引进任何一个都要在摩擦日志记注）：`bee_rust = { version = "1.2.1", default-features = false, features = ["orm-sqlite", "router", "cache", "logs"] }`（orm-sqlite 不在 full 里，须显式——README feature 表口径）、`tokio`（full）、`axum = "0.8"`、`serde_json`；dev-dependencies：`reqwest`（0.12，default-features=false，features `["json","rustls-tls"]`）。不启用 orm-chrono（created_at 用文档 i64 配对）。
+
+### 60.3 交付物与验收标准
+
+交付物：可运行的 `examples/shortlink/`（含上述文件）+ `DX-FRICTIONS.md` 摩擦日志 + 自带的可脚本化验收流程（`tests/e2e.rs`）。完工简报（文件清单 / 门禁命令与结果 / 摩擦条目摘要 / 注意事项）发 architect；**摩擦日志全文副本同时发 main**（lead 看全量）。
+
+**功能验收（A1–A10，e2e 必须逐条黑盒覆盖）**：
+- A1 建库：空目录启动（`build_app(tmp_db)` 或 `cargo run`），`GET /api/links` → 200 `[]`。
+- A2 创建：`POST /api/links {"url":"https://example.com/a","code":"abc123"}` → 201，含 id（>0）/code/url；created_at 为 unix 秒整数。
+- A3 校验：url 为 `javascript:alert(1)` / `//evil.com` / `notaurl` → 400；code 为 `AB!` → 400。
+- A4 唯一：重复 code → 409；**软删后的 code 再建 → 仍 409**（判重含软删）。
+- A5 重定向：`GET /abc123` → 302 且 `Location: https://example.com/a`；再次 GET → 302（缓存路径）；未知 code → 404。
+- A6 点击：两次 302 后 `GET /api/links` 中该行 `clicks == 2`。
+- A7 打标签：`POST /api/links/abc123/tags {"name":"rust"}` → 200 `{"tags":["rust"]}`；重复同请求 → 200 且 tags 仍 `["rust"]`（幂等）；再打第二个标签 → tags 两条。
+- A8 列表带关系：`GET /api/links` 元素含 `tags`（与 A7 一致）与 `clicks`（与 A6 一致）。
+- A9 软删：`DELETE /api/links/abc123` → 204；**立即** `GET /abc123` → 404（缓存失效钉）；`GET /api/links` 不含该行；库行仍在（e2e 内 `Link::query().with_deleted().count` == 1）。
+- A10 端到端脚本：`cargo test` 跑 `tests/e2e.rs` rc=0——自起 `127.0.0.1:0` 临时端口 + 临时库文件，覆盖 A1–A9，不依赖外部服务。
+
+**工程门槛**（在 `examples/shortlink/` 内执行）：`cargo build` rc=0；`cargo fmt --check` rc=0；`cargo clippy --all-targets -- -D warnings` rc=0；`cargo test` rc=0。
+
+**tester 独立验收（M 项，不采信实现者 e2e 的绿）**：
+- M1 重启持久化：`SHORTLINK_DB=<tmp> PORT=<p> cargo run` 建数据 → 杀进程 → 同 DB 重启 → `GET /:code` 仍 302、`/api/links` 数据在。
+- M2 独立探测：按 A1–A9 逐条自写请求复验（至少含：A4 软删判重、A9 缓存失效即时 404、A7 幂等、A3 校验、大写 `HTTPS://` 前缀接受）。
+
+**摩擦日志格式**（`DX-FRICTIONS.md`，放 `examples/shortlink/` 内；开头记：日期、bee_rust 1.2.1、`rustc --version`、平台）：
+
+```markdown
+## F-<n> <一句话标题>
+- 类别: 文档缺失 | API 设计 | 报错质量
+- 场景: 做哪个端点/哪一步时
+- 最小复现: 命令 / ≤10 行代码 / 报错原文
+- 解卡方式: 文档内解决 | 试错 | 翻源码（救急，注明文件） | 绕道（说明绕道写法）
+- 影响: 粗估耗时 / 是否卡死
+- 改进建议: 对 docs 的补充点 / API 设计改动 / 报错文案
+```
+
+要求：只记真实摩擦，禁止凑数；每条必须可复现（reviewer 逐条验）；发生过翻源码就必须有对应条目，且条目内先记录文档路径的尝试（顺序约束，见 §60.1）。
+
+### 60.4 分工与排程
+
+- **实现**：全新 agent（零内部上下文），只给 §60.1–60.3 简报（可直接转贴）+ 白名单；完工把简报（文件清单 / 门禁命令与结果 / 摩擦条目摘要 / 注意事项）发 architect。
+- **tester**：行为验收（60.3 全项，含 M1/M2）。
+- **reviewer**：摩擦日志分诊（逐条验真、去重、判定 文档缺陷 | API 候选 | 预期学习成本 | wontfix，并给归口）+ 轻审代码（越界改动、死代码、安全边界（open redirect/校验）、e2e 断言质量、ponytail 注释合理性）。
+- **路由**：findings → architect 裁决；docs 类聚合成 lead 触发的文档终刷清单；API 类进下轮候选。**本批不改 `crates/**` 源码**——挖到的缺陷只记录、不回灌。**摩擦日志副本要求（lead）**：完工简报发 architect 时，摩擦日志全文副本同时发 main（lead 看全量，见 §60.3）。
+
+### 60.5 非目标
+
+认证/会话/分页/前端/Docker/CI 接入/压测/性能；不改 `examples/hello`；不做 code 回收站、自定义短码规则引擎、统计报表。
+
+### 60.6 进度（batch-8，2026-10-06）
+
+- **app-dev 完工简报**（已收，摩擦副本要求已传达）：examples/shortlink/ 9 文件（Cargo.toml 18 / Cargo.lock 258 包 / .gitignore / src {lib 40, models 38, handlers 288, main 13} / tests/e2e.rs 228 / DX-FRICTIONS.md 94）；门禁四连 rc=0（build / fmt --check / clippy --all-targets -D warnings / test）；e2e 6/6（A1–A9 全覆——A5+A9 合证缓存失效，A6 clicks==2 证缓存值携 id）；真二进制冒烟 302 通过；**摩擦 6 条、翻源码 0 次**：F-1 derive 宏展开 `bee_orm::` 路径致 E0433（试错解卡 `use bee_rust::bee_orm;`）；F-2 handler 注入 Pool/Cache 文档零覆盖（rustdoc with_state 一句解卡）；F-3 docs.rs 缺口（derive(Model) 空页 / pool::sqlite 404〔构建未开后端 feature〕/ router 22.73% / query() 不可见）；F-4 路径模板 `{code}` vs `:code` 与 ns 空前缀未文档化；F-5 `insert() -> u64` 未文档化（实测=行数非主键；auto pk/auto_now_add 致每创建路径二次 SELECT）；F-6 仓库 exclude glob 无效（非框架）。
+- **架构师核验（第一手）**：文件树/行数与简报一致（wc）；`git status` 仅 `M` plan 文件 + `?? examples/shortlink/`（目录外零改动成立）；Cargo.lock 258 包、`bee_rust 1.2.1 @ registry`、零 `path+` 行（crates.io 实拉成立）；models/handlers/lib 与 §60.2 形状一致（sync 序 Tag→Link→Click；缓存值 {id,url} 命中不查库；DELETE 清缓存容忍 NotFound；幂等打标签经 related 判重且 tags 按 id 升序）。
+- **F-6 根因（探针矩阵）**：cargo 1.99 的 `workspace.exclude` 按字面路径匹配、**不支持 glob**——`examples/*` 自始为 no-op；字面路径与 members 两式均奏效。**已裁定（lead，2026-10-06）**：采纳卫生修复、**不加 members**（理由同意架构师：crates.io 版与 path 版 bee_rust 同 lock 并存会破坏"验收已发布产品"边界，且 CI `--workspace` 被拖累）——根 `exclude` 改为字面条目 `["examples/shortlink"]` + 一行注释（说明 cargo 的 exclude 为字面匹配、glob 无效，防未来再踩；由 lead 在 batch-8 提交时一并落，架构师不动根文件）；`examples/hello` 保持 members 不动；shortlink 包内空 `[workspace]` 表**保留**（belt-and-braces：不依赖根 exclude 也能自证独立）。
+- **路由**：tester（行为验收 A1–A10 + M1 重启持久化 + M2 独立探测 + 可选冷 CARGO_HOME 拉取）与 reviewer（摩擦 6 条逐条验真分诊 + 轻审）已发令；shortlink 写入冻结，解冻令由架构师发。
+- **冻结基线（app-dev 2026-10-06 发布，架构师 `sha256sum` 复核 9/9 逐字节一致）**：`Cargo.toml` bfbbb9f3fb334e8276dfbc2977ba3daa7d9e12e77a1b0382081e893f77fb5713 ｜ `Cargo.lock` b52aa7efe660b1ee634fdca5865c2f2a6f587dad65b8c6d580ba38e812c4452c ｜ `.gitignore` ebe6989e42d0d47b71fbf7c13707daa83c5b7212362ce1d2d2293093b4f90785 ｜ `src/lib.rs` 60de603fc5d7e82218e2ac1e803075ea7c31842398496c741a665994817d6e61 ｜ `src/main.rs` 0ee7f38cbec626b5f5cb35a4064f4a22cd2ba423c77132c5069cf23606d239e0 ｜ `src/models.rs` 49db8d260dc27a90abdb540709c468680ceed838078830f6b44dc477de41fec2 ｜ `src/handlers.rs` 61b91eca2b7b57c68531d3f6836a980046d0491c904bb946302db6c92749c8d3 ｜ `tests/e2e.rs` 863bc5f9eea923d32529aa9f68f3617b6c14d49eb2fce6a006252286c714bcc8 ｜ `DX-FRICTIONS.md` d8852f8b6a7a667930ed94c201896070a43a18258d7daf483f31172318d64a92（target/ 未清理不影响；验收期内任何字节变动=破坏冻结，需报告）。
+- **tester 行为验收完成（2026-10-06）：全绿、0 缺陷。** 工程门槛四连 rc=0（build 41.56s / fmt --check / clippy --all-targets -D warnings / test）；M2 独立黑盒 = 自写 python3 脚本（真二进制自 spawn/kill、临时端口 + 临时库、断言自持）**28/28 连跑两遍**（首遍 27/28 系 tester 自身断言口径不齐〔M1 腿 GET 白记一次点击〕、自纠，非产品缺陷；两次原始日志留档）；M1 真重启持久化（同库 kill/restart：302 与 Location 逐字节在、clicks=1+1=2〔重启后记账仍落库〕、软删行仍 404）；边界全钉（`javascript:` / `//evil.com` / `notaurl` / `AB!`→400；软删后同 code 重建→409 证 with_deleted 判重；A9 缓存失效钉 + python3 sqlite3 直读库文件证 deleted=1 行实存；附加：大写 `HTTPS://`→201、标签打不存在 link→404、空白 name→400、重复 DELETE→404）。**冷拉验收：`CARGO_HOME=$(mktemp -d) cargo build` rc=0（3m10s，163 个 crate 真下载、含 `Compiling bee_rust v1.2.1`）——crates.io 1.2.1 完整性与冷缓存真拉证据成立。** 结构只读复核：9 文件齐、0 path 依赖、根 Cargo.toml/Cargo.lock 零触碰、全 <500 行、e2e 自起 127.0.0.1:0 + temp_dir 库、摩擦日志格式合规（F-1..F-6、翻源码 0 次；验真归 reviewer）。**冻结完整性（架构师跑后独立复算）：9/9 sha256 MATCH**（tester 侧接力补充：跑后自拍 9/9 与冻结清单程序化 diff 空 + mtime 窗口证据〔9 文件 mtime 全 ≤15:12、其门槛四连约 15:13 起、探针日志 15:18〕——验收窗口内包内零字节变动）；前后照双人闭环 = before 照（架构师冻结时刻核验）+ after 照（tester 跑后自拍 + 架构师复算，两遍独立）；`git status` 仍仅 plan `M` + `examples/shortlink/` `??`。临时物已清（无残留进程/DB）。**reviewer 分诊与轻审已收回（2026-10-06，见下）。**
+- **reviewer 摩擦分诊收口（6/6 逐条实测验真；基座=/tmp/dxrepro 最小 crate〔1.2.1 crates.io 实拉〕+ docs.rs curl 直取）**：F-1 文档缺陷（主）+下轮候选（宏路径健壮性，可选）；F-2 文档缺陷（**出处订正**：日志谓"README 快速开始"，实为 `docs/crates-readme.md:30`——现 README 快速开始无 Rust 代码块）；F-3 文档缺陷+仓库项（4 项全中：derive.Model 页一句占位 / `pool::sqlite` 404 根因=`bee_orm/Cargo.toml` **无 `[package.metadata.docs.rs]`**〔架构师复核确无〕/ bee_router 22.73% 原文 / Model trait 恰 22 方法、`query` 由 derive 生成故 0 命中）；F-4 文档缺陷（实捕 panic「Path segments must not start with `:`」、ns=纯前缀拼接、空前缀合法）；F-5 **两处日志描述订正**（① "u64 未文档化"不准——trait rustdoc 有「returns affected rows.」〔model.rs:283〕，缺口降级为 api.md 未写+未提示 auto-pk 回查；② auto_now_add 非 DB 侧——ORM 注入 `Value::Int(unix_now())`〔model.rs:433〕，反证 create() 回填可行）+**API 候选（主）**+文档缺陷（次）；F-6 非框架（已裁定）。去重：6 条=6 独立项（F-1(b) 并入 F-3 派生页小节；F-2/F-3 同源 docs.rs 成因不同不并）。**DX-FRICTIONS.md 为冻结件不修订——F-5 订正只落本段+终刷清单。**
+- **裁定（架构师）**：① F-5 入**下轮候选**（非破坏：`insert` 返 PK 或 `create(&self)->Result<Self>`；rusqlite `last_insert_rowid` 既有）——归档不排程。② F-3 docs.rs metadata=**仓库项随下版**（`[package.metadata.docs.rs]`，首选 `all-features = true`、docs.rs 构建失败退 `features = ["sqlite"]`）——不占轮次。③ E-1/E-2 + F 系列 docs 部分全部并入下方终刷清单（13 镜像）。④ 轻审两条 LOW（`oops()` 500 回显内部错误文本；URL 仅前缀校验致 `https://`/控制字符过 201、其后 302 无 Location）与 create_link TOCTOU 注释缺失——**均不解冻**：示例级/可选加固，冻结件不动、账记此处；shortlink 升格模板时再议。
+- **验真额外收获（白名单文档面）**：E-1 `docs/api.md:34-35` 路由注册示例 `ns.get("/users").post("/users")` **缺 handler 参、不可编译**（13 镜像同款；架构师复核原文在）；E-2 README「在项目中使用」`git = …` 与 crates-readme `cargo add bee_rust` 口径不一。
+- **batch-8 文档终刷清单（lead 触发，13 镜像全改）**：a. api.md ORM 段补"仅用 bee_rust 时 `use bee_rust::bee_orm;`"（F-1a）；b. api.md 增带 state 的 handler 最小示例 + Controller 挂载说明（F-2）；c. api.md:34-35 示例补 handler 参数（E-1）；d. api.md 注明 path 为 axum 0.8 `{name}` 语法、`ns` 纯前缀拼接、空前缀合法（F-4）；e. api.md insert 小节：返受影响行数 + auto-pk/auto_now_add 二次 SELECT 模式 + auto_now_add 口径修正（F-5）；f. derive(Model) 属性表 + Model trait 页注明派生方法（F-3，与 a 合并小节）；g. README 改 `cargo add bee_rust`（E-2）。**仓库项**：h. bee_orm docs.rs metadata（随下版）；i. bee_router 源码 rustdoc 补注释（→下轮候选）；j. 根 `Cargo.toml` exclude 字面化（lead 随本批提交落）。**下轮候选（API）**：k. F-5 insert→PK / create()；l. F-1b 宏路径健壮性（proc-macro-crate，可选）。
+- **轻审结论（reviewer，零改动）**：越界零（"验收已发布产品"边界保住：无 path、lock registry）；结构合规（全 ≤288 行、无死代码）；安全钉全在（open redirect 校验、4xx 无泄漏、302 Location 注入不可达——CRLF 经 axum HeaderValue 类型层丢弃实证）；e2e 非空转（A9=真缓存失效证）；ponytail 注释诚实（N+1、find-or-create 竞态属实）。**batch-8 至此收口**：tester 全绿 0 缺陷 + reviewer 分诊完成 + 轻审零 finding（两条 LOW 裁定不解冻）；唯一遗留 = lead 落根 exclude 修正 + 提交。
+- **lead 复裁（2026-10-06，优先于架构师前述④之"不解冻"）**：① **解冻 app-dev 窄修两条 LOW**——范围严格限定 handlers.rs（或校验所在文件）：`oops()` 500 改通用文案（细节走日志）；URL 校验收紧（拒控制字符；要求 scheme 后非空 host，`https://`/`https:///path` 之流 → 400；大小写不敏感、≤2048、既有拒绝语义不变，`HTTPS://example.com/b` 仍 201）。修毕报架构师 → tester 复跑（原 28/28 逐条回归 + 新增空 authority/控制字符 400 与合法边界 201 三条契约钉）→ 架构师重设冻结基线（changed 文件重拍 sha、其余逐字节不变）并收口。② **batch-9 候选归档（本轮不做）**：F-5 API（`insert` 返 PK 或 `create() -> Self`）；F-1 宏侧修法（架构师下轮权衡三案：宏内探测 / `#[bee(crate=…)]` 属性 / 纯文档修；proc-macro-crate=新依赖）；F-3 docs.rs metadata（各 bee_* crate 加 `[package.metadata.docs.rs] features`）。③ **文档终刷范围（lead 触发）**：E-1/E-2 + F-1..F-4 文档部分 ×13；F-5 文档子项（原 a–g 清单 e。）随批九 API 裁定一并处理（避免先写后改）。④ create_link TOCTOU 注释不在窄修范围（原裁定保留）。
+- **reviewer 基线自证 + 归档（2026-10-06）**：live 9/9 sha256 与 §60.6 清单逐字一致、mtime 全 ≤15:12（验收窗口前）、git status 仅 plan M + shortlink ??——其分诊全程零字节触碰；其侧无 pending。
