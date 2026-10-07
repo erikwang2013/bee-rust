@@ -1,0 +1,147 @@
+<!doctype html>
+<!-- Beerust GitHub Social Preview — 1280×630, 三版候选（?v=A|B|C）
+     吉祥物由 docs/rusty.svg 栅格化而来（去掉底部 bee-rust 文字）：
+     grep -v '<text' docs/rusty.svg > rusty-notext.svg && rsvg-convert -w 1024 rusty-notext.svg -o rusty-notext.png
+     截图：google-chrome --headless=new --disable-gpu --hide-scrollbars \
+       --force-device-scale-factor=2 --window-size=1280,630 \
+       --screenshot=out.png "file:///tmp/social-preview.html?v=A" -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: 'BeeSans'; src: local('Noto Sans CJK SC'); }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1280px; height: 630px; overflow: hidden; }
+  body { font-family: 'Noto Sans CJK SC', 'Noto Sans', sans-serif; }
+
+  .card {
+    position: relative; width: 1280px; height: 630px; overflow: hidden;
+  }
+  .hexlayer { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .glow { position: absolute; border-radius: 50%; pointer-events: none; }
+  .bee { position: absolute; z-index: 3; image-rendering: auto; }
+  .meta { position: absolute; z-index: 4; }
+
+  .eyebrow {
+    font-size: 21px; font-weight: 700; letter-spacing: 7px;
+    text-transform: uppercase;
+  }
+  .wordmark {
+    font-size: 128px; font-weight: 900; letter-spacing: -3px; line-height: 1;
+  }
+  .stripes { display: flex; gap: 9px; }
+  .stripes i { display: block; width: 54px; height: 9px; border-radius: 5px; }
+  .stripes i:nth-child(1) { background: #F5B301; }
+  .stripes i:nth-child(2) { background: #1F1A17; }
+  .stripes i:nth-child(3) { background: #B7410E; }
+  .tagline { font-size: 46px; font-weight: 700; letter-spacing: 1px; }
+  .sub { font-size: 23px; font-weight: 500; letter-spacing: .5px; }
+  .chips { display: flex; gap: 12px; font-family: 'Noto Sans Mono', monospace; }
+  .chips span {
+    font-size: 20px; font-weight: 600; padding: 8px 16px 9px;
+    border-radius: 999px; border: 1.5px solid;
+  }
+  .foot { display: none; position: absolute; z-index: 4; font-size: 22px; font-weight: 600; letter-spacing: 2px; font-family: 'Noto Sans Mono', monospace; }
+
+  /* ============ A · 蜜白浅底 · 左文右蜂 ============ */
+  body[data-v="A"] .card { background: linear-gradient(118deg, #FFFDF6 0%, #FFF5DA 52%, #FFE9AD 100%); }
+  body[data-v="A"] .glow {
+    width: 760px; height: 760px; right: -90px; top: -65px;
+    background: radial-gradient(circle, rgba(245,179,1,.38) 0%, rgba(245,179,1,.12) 48%, transparent 70%);
+  }
+  body[data-v="A"] .bee { height: 540px; right: 36px; top: 52%; transform: translateY(-50%) rotate(-2deg); filter: drop-shadow(0 34px 50px rgba(183,65,14,.16)); }
+  body[data-v="A"] .meta { left: 96px; top: 50%; transform: translateY(-50%); }
+  body[data-v="A"] .meta > * + * { margin-top: 24px; }
+  body[data-v="A"] .eyebrow { color: #B7410E; }
+  body[data-v="A"] .wordmark { color: #1F1A17; }
+  body[data-v="A"] .tagline { color: #2A241E; }
+  body[data-v="A"] .sub { color: #8A7A63; }
+  body[data-v="A"] .chips span { color: #B7410E; background: rgba(245,179,1,.14); border-color: rgba(183,65,14,.30); }
+
+  /* ============ B · 炭黑蜂巢 · 科技感 ============ */
+  body[data-v="B"] .card { background: radial-gradient(1200px 800px at 68% 42%, #2C2521 0%, #1F1A17 46%, #12100D 100%); }
+  body[data-v="B"] .glow {
+    width: 780px; height: 780px; right: -100px; top: -80px;
+    background: radial-gradient(circle, rgba(245,179,1,.30) 0%, rgba(245,179,1,.08) 50%, transparent 72%);
+  }
+  body[data-v="B"] .bee { height: 540px; right: 36px; top: 52%; transform: translateY(-50%) rotate(-2deg); filter: drop-shadow(0 0 44px rgba(245,179,1,.35)); }
+  body[data-v="B"] .meta { left: 96px; top: 50%; transform: translateY(-50%); }
+  body[data-v="B"] .meta > * + * { margin-top: 24px; }
+  body[data-v="B"] .eyebrow { color: #F5B301; }
+  body[data-v="B"] .wordmark { color: #FFF3D6; }
+  body[data-v="B"] .tagline { color: #EFE2C8; }
+  body[data-v="B"] .sub { color: #A08F74; }
+  body[data-v="B"] .chips span { color: #F5B301; background: rgba(245,179,1,.10); border-color: rgba(245,179,1,.38); }
+  body[data-v="B"] .stripes i:nth-child(2) { background: #FFF3D6; }
+
+  /* ============ C · 琥珀底 · 居中徽章（翅膀圈名） ============ */
+  body[data-v="C"] .card { background: radial-gradient(1000px 760px at 50% 34%, #FFFAEC 0%, #FFF0C8 58%, #FFE3A0 100%); }
+  body[data-v="C"] .glow {
+    width: 640px; height: 640px; left: 50%; top: -40px; transform: translateX(-50%);
+    background: radial-gradient(circle, rgba(245,179,1,.30) 0%, transparent 68%);
+  }
+  body[data-v="C"] .bee { height: 312px; left: 50%; top: 34px; transform: translateX(-50%); filter: drop-shadow(0 22px 36px rgba(183,65,14,.18)); }
+  body[data-v="C"] .meta { left: 50%; top: 330px; transform: translateX(-50%); width: 100%; text-align: center; }
+  body[data-v="C"] .eyebrow, body[data-v="C"] .sub { display: none; }
+  body[data-v="C"] .wordmark { font-size: 110px; }
+  body[data-v="C"] .stripes { justify-content: center; margin-top: 20px; }
+  body[data-v="C"] .tagline { font-size: 36px; margin-top: 24px; color: #3A3126; }
+  body[data-v="C"] .chips { display: none; }
+  body[data-v="C"] .foot { display: block; left: 50%; bottom: 38px; transform: translateX(-50%); color: #B7410E; }
+  body[data-v="C"] .wordmark { color: #1F1A17; }
+</style>
+</head>
+<body data-v="A">
+  <div class="card">
+    <svg class="hexlayer" viewBox="0 0 1280 630" preserveAspectRatio="none"></svg>
+    <div class="glow"></div>
+    <img class="bee" src="rusty-notext.png" alt="">
+    <main class="meta">
+      <div class="eyebrow">Rust Web Framework</div>
+      <div class="wordmark">Beerust</div>
+      <div class="stripes"><i></i><i></i><i></i></div>
+      <p class="tagline">生产级 Rust Web 框架</p>
+      <p class="sub">Production-grade web framework for Rust</p>
+      <div class="chips">
+        <span>bee_router</span><span>bee_orm</span><span>bee_config</span><span>bee_cli</span>
+      </div>
+    </main>
+    <div class="foot">16 crates · MVC · ORM · CLI · Rust 2024</div>
+  </div>
+<script>
+  const v = (new URLSearchParams(location.search).get('v') || 'A').toUpperCase();
+  document.body.dataset.v = v;
+
+  // 蜂巢网格：JS 逐格画六边形（避免 pattern 平铺接缝）
+  const svg = document.querySelector('.hexlayer');
+  const NS = 'http://www.w3.org/2000/svg';
+  const stroke = v === 'B' ? 'rgba(245,179,1,.085)' : 'rgba(183,65,14,.085)';
+  const R = 38, W = Math.sqrt(3) * R;
+  function hex(cx, cy, r, cls, sw) {
+    const pts = [];
+    for (let i = 0; i < 6; i++) {
+      const a = Math.PI / 3 * i;
+      pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+    }
+    const p = document.createElementNS(NS, 'polygon');
+    p.setAttribute('points', pts.map(q => q.map(n => n.toFixed(1)).join(',')).join(' '));
+    p.setAttribute('fill', 'none');
+    p.setAttribute('stroke', cls || stroke);
+    p.setAttribute('stroke-width', sw || 2.5);
+    svg.appendChild(p);
+  }
+  if (v === 'C') {
+    // 居中大六边形圆环 + 四角淡纹
+    hex(640, 396, 292, 'rgba(245,179,1,.55)', 3.5);
+    hex(640, 396, 306, 'rgba(245,179,1,.22)', 1.5);
+    for (const [x, y] of [[110, 70], [1170, 88], [90, 560], [1190, 545]]) hex(x, y, 46, 'rgba(183,65,14,.14)', 2);
+  } else {
+    for (let col = -1; col * 1.5 * R < 1360; col++) {
+      for (let row = -1; row * W + (col % 2 ? W / 2 : 0) < 690; row++) {
+        hex(col * 1.5 * R, row * W + (col % 2 ? W / 2 : 0), R - 2);
+      }
+    }
+  }
+</script>
+</body>
+</html>
