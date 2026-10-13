@@ -2,6 +2,15 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.3.0] — 2026-10-13
+
+### أُصلح
+- `bee_tsdb` / `bee_graph`: تمكين ميزة backend واحدة بمفردها لم يكن يُترجم — كان المساعد المشترك `http_client` يقيم داخل وحدتي `influxdb` / `neo4j` المحكومتين بالميزات، فتفشل البناءة التي تُفعّل فقط `iotdb` / `questdb` / `arangodb` / `nebulagraph` بخطأ unresolved import؛ صار الآن في `crate::http` الخاص بكل crate (مع بوابة cfg على الـbackend التي تستخدمه فقط)، وكل ميزة backend منفردة تُترجم وحدها — أُعيد تشغيل مصفوفة الميزات بندًا بندًا
+- `bee_router`: ميزة `security` الاختيارية انتقلت إلى **security-rust 4.0.0** — يحتفظ `Scanner` / `DetectionResult` / `AttackCategory` / `Severity` بشكل 1.x، دون أي تغيير في مصدر bee_router؛ توسّعت القدرات: 32 كاشفًا مدمجًا (الجديد: `format_string` و`log4shell` وHPP و`formula_injection` وreDoS)، والكاشفات صارت مصنّفة قوية/ضعيفة (الإشارات الضعيفة مثبّتة عند `Severity::Low`)، وأُضيف `Scanner::assess`. لا يزال المرشّح يحجب عند أي اكتشاف، لذا **صارت الإشارات الضعيفة (مثل معامل استعلام مكرر) محجوبة أيضًا** — لم يعد هناك منفذ لحقن scanner مخصّص؛ للسماح بها ابنِ `Filter` خاصًا بك حول `SecurityFilter::scanner()`. لم يعد الرسم البياني للاعتماديات يحمل سوى security-rust 4.0.0 واحدة بدل 1.x إلى جانب 4.x؛ والوثائق حُدّثت
+- دمج التكرارات: احتفظ كل من `bee_tsdb` / `bee_graph` / `bee_search` بنسخة واحدة من مساعدات الاتصال وخرائط الأخطاء (اسم الـbackend يمرّره الآن المستدعي، ونصوص الأخطاء كما هي؛ وانتقل `aggregation_fn` إلى lib في `bee_tsdb`)، وضُمّ `backtick` / `esc` في `bee_graph` إلى وحدة `http` لديه، واستخرج `bee_orm` الدالتين `dedup_pk_values` / `index_rows_by` وبند المفتاح الأجنبي في `migrate`، ويعيد `bee_session::refresh` استخدام `load`، واستوعب `watch_path` في `bee_config` مسار نداء `wait_for_change` المتبقي؛ واستعادت رسائل أخطاء `bee_search` اسم الـbackend، وصار stub اختبار `bee_kv` خاصًّا باختباراته
+- إزالة واجهات عامة (ومن هنا الإصدار الفرعي): `Context::set_params` / `param`، و`SecurityFilter::with_scanner`، و`Traversal::edge_labels` → `edge_label: Option<String>` (الـbackends الثلاثة كانت أصلًا تأخذ أول وسم فقط — السلوك دون تغيير)، و`GraphError::EdgeNotFound`، و`ConfigError::ParseError` / `TypeMismatch`، و`bee_config::watch_path_timeout`، و`bee_logs::Logger::async_` (مفتاح لم يقرأه `init()` قط) — جميعها بلا أي مستدعٍ
+- إزالة اعتماديات ميتة: `bee_router` (`tracing` / `http` / `bee_config` / `bee_logs`)، و`bee_session` (`async-trait`)، و`bee_config_macro` (`proc-macro2`)، وتكرار `dev` `serde` لدى `bee_tsdb` / `bee_graph` / `bee_search`
+
 ## [1.2.3] — 2026-10-06
 
 ### أُصلح

@@ -2,6 +2,15 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.3.0] — 2026-10-13
+
+### Исправлено
+- `bee_tsdb` / `bee_graph`: включение одной бэкенд-фичи в отдельности не компилировалось — общий хелпер `http_client` жил внутри фича-гейтнутых модулей `influxdb` / `neo4j`, поэтому сборка только с `iotdb` / `questdb` / `arangodb` / `nebulagraph` падала на unresolved import; теперь он живёт в `crate::http` соответствующего крейта (cfg ровно по тем бэкендам, что им пользуются), и каждая одиночная бэкенд-фича собирается сама по себе — матрица фич прогнана по пунктам повторно
+- `bee_router`: опциональная фича `security` переведена на **security-rust 4.0.0** — `Scanner` / `DetectionResult` / `AttackCategory` / `Severity` сохраняют форму 1.x, изменений в исходниках bee_router не потребовалось; возможностей стало больше: встроенных детекторов 32 (новые: `format_string`, `log4shell`, HPP, `formula_injection`, reDoS), детекторы разделены на сильные/слабые (слабые сигналы фиксированы на `Severity::Low`), добавлен `Scanner::assess`. Фильтр по-прежнему блокирует при любом попадании, поэтому **слабые сигналы (например, повторяющийся параметр запроса) теперь тоже блокируются** — точки инъекции своего scanner больше нет; чтобы пропускать их, соберите собственный `Filter` вокруг `SecurityFilter::scanner()`. В графе зависимостей вместо «1.x рядом с 4.x» остался один security-rust 4.0.0; документация синхронизирована
+- объединены дубли: в `bee_tsdb` / `bee_graph` / `bee_search` осталось по одной копии хелперов подключения и маппинга ошибок (имя бэкенда теперь передаёт вызывающий, тексты ошибок не изменились; `aggregation_fn` переехал в lib `bee_tsdb`), `backtick` / `esc` из `bee_graph` сведены в его модуль `http`, в `bee_orm` выделены `dedup_pk_values` / `index_rows_by` и построение внешнего ключа в `migrate`, `bee_session::refresh` переиспользует `load`, а `watch_path` в `bee_config` вобрал оставшийся путь вызова `wait_for_change`; сообщения об ошибках `bee_search` вернули имя бэкенда, тестовый стаб `bee_kv` стал приватным для своих тестов
+- удалён публичный API (отсюда минорная версия): `Context::set_params` / `param`, `SecurityFilter::with_scanner`, `Traversal::edge_labels` → `edge_label: Option<String>` (все три бэкенда и так брали только первую метку — поведение не изменилось), `GraphError::EdgeNotFound`, `ConfigError::ParseError` / `TypeMismatch`, `bee_config::watch_path_timeout` и `bee_logs::Logger::async_` (переключатель, который `init()` никогда не читал) — у всех ноль вызовов
+- удалены мёртвые зависимости: `bee_router` (`tracing` / `http` / `bee_config` / `bee_logs`), `bee_session` (`async-trait`), `bee_config_macro` (`proc-macro2`) и дубли `dev`-`serde` в `bee_tsdb` / `bee_graph` / `bee_search`
+
 ## [1.2.3] — 2026-10-06
 
 ### Исправлено

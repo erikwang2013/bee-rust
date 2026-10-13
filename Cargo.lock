@@ -236,7 +236,7 @@ checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
 name = "bee_cache"
-version = "1.2.3"
+version = "1.3.0"
 dependencies = [
  "async-trait",
  "memcache",
@@ -247,14 +247,14 @@ dependencies = [
 
 [[package]]
 name = "bee_cli"
-version = "1.2.3"
+version = "1.3.0"
 dependencies = [
  "clap",
 ]
 
 [[package]]
 name = "bee_config"
-version = "1.2.3"
+version = "1.3.0"
 dependencies = [
  "bee_config_macro",
  "notify",
@@ -265,16 +265,15 @@ dependencies = [
 
 [[package]]
 name = "bee_config_macro"
-version = "1.2.3"
+version = "1.3.0"
 dependencies = [
- "proc-macro2",
  "quote",
  "syn 2.0.119",
 ]
 
 [[package]]
 name = "bee_graph"
-version = "1.2.3"
+version = "1.3.0"
 dependencies = [
  "async-trait",
  "axum",
@@ -287,7 +286,7 @@ dependencies = [
 
 [[package]]
 name = "bee_kv"
-version = "1.2.3"
+version = "1.3.0"
 dependencies = [
  "async-trait",
  "memcache",
@@ -298,7 +297,7 @@ dependencies = [
 
 [[package]]
 name = "bee_logs"
-version = "1.2.3"
+version = "1.3.0"
 dependencies = [
  "tracing",
  "tracing-appender",
@@ -307,7 +306,7 @@ dependencies = [
 
 [[package]]
 name = "bee_orm"
-version = "1.2.3"
+version = "1.3.0"
 dependencies = [
  "async-trait",
  "bee_orm_macro",
@@ -330,7 +329,7 @@ dependencies = [
 
 [[package]]
 name = "bee_orm_macro"
-version = "1.2.3"
+version = "1.3.0"
 dependencies = [
  "bee_orm",
  "chrono",
@@ -343,28 +342,24 @@ dependencies = [
 
 [[package]]
 name = "bee_router"
-version = "1.2.3"
+version = "1.3.0"
 dependencies = [
  "async-trait",
  "axum",
  "bee_cache",
- "bee_config",
- "bee_logs",
  "bee_session",
  "bee_template",
- "http",
  "security-rust",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
  "tokio",
  "tower",
- "tracing",
 ]
 
 [[package]]
 name = "bee_rust"
-version = "1.2.3"
+version = "1.3.0"
 dependencies = [
  "bee_cache",
  "bee_config",
@@ -381,7 +376,7 @@ dependencies = [
 
 [[package]]
 name = "bee_search"
-version = "1.2.3"
+version = "1.3.0"
 dependencies = [
  "async-trait",
  "axum",
@@ -394,9 +389,8 @@ dependencies = [
 
 [[package]]
 name = "bee_session"
-version = "1.2.3"
+version = "1.3.0"
 dependencies = [
- "async-trait",
  "bee_cache",
  "serde",
  "serde_json",
@@ -407,7 +401,7 @@ dependencies = [
 
 [[package]]
 name = "bee_template"
-version = "1.2.3"
+version = "1.3.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -418,7 +412,7 @@ dependencies = [
 
 [[package]]
 name = "bee_tsdb"
-version = "1.2.3"
+version = "1.3.0"
 dependencies = [
  "async-trait",
  "axum",
@@ -2897,9 +2891,9 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
 name = "security-rust"
-version = "1.0.7"
+version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d440dfbe0d083a4d819f1298f2262a488d8a8b6ebf1dc6dcd4a51e5705f9a5a4"
+checksum = "142468dbc8e347618cb5075da1041b82381883142793bd0a718aebcedfa4ac3b"
 dependencies = [
  "regex",
 ]

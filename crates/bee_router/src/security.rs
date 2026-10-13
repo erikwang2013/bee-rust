@@ -9,9 +9,13 @@ use crate::filter::Filter;
 /// A [`Filter`] that scans incoming requests for malicious payloads using
 /// the `security-rust` detection engine.
 ///
-/// By default, 27 detectors cover XSS, SQL injection, command injection,
+/// By default, 32 detectors cover XSS, SQL injection, command injection,
 /// SSRF, path traversal, and more.  If any attack is detected, the request
 /// is aborted with HTTP 400 and a message listing each matched attack type.
+///
+/// Only the presence of a detection matters to this filter — 4.x's single
+/// weak signals (`Severity::Low`, e.g. one `../` or a repeated query
+/// parameter) are blocked as well.
 ///
 /// # Body scanning
 ///
@@ -24,15 +28,9 @@ pub struct SecurityFilter {
 }
 
 impl SecurityFilter {
-    /// Create a filter with all 27 detectors enabled.
+    /// Create a filter with all 32 detectors enabled.
     pub fn new() -> Self {
         Self { scanner: Scanner::default() }
-    }
-
-    /// Create a filter backed by a custom-configured [`Scanner`] (e.g. one
-    /// built via [`Scanner::builder()`]).
-    pub fn with_scanner(scanner: Scanner) -> Self {
-        Self { scanner }
     }
 
     /// Access the underlying scanner for direct use (e.g. scanning

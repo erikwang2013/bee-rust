@@ -1,5 +1,8 @@
 // Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
 
+#[cfg(any(feature = "influxdb", feature = "iotdb", feature = "questdb"))]
+mod http;
+
 #[cfg(feature = "influxdb")]
 pub mod influxdb;
 #[cfg(feature = "iotdb")]
@@ -71,6 +74,19 @@ pub enum Aggregation {
     Count,
     Min,
     Max,
+}
+
+/// The function name `agg` maps to, shared by the backends that spell them
+/// the same way (Flux and IoTDB SQL).
+#[cfg(any(feature = "influxdb", feature = "iotdb"))]
+pub(crate) fn aggregation_fn(agg: &Aggregation) -> &'static str {
+    match agg {
+        Aggregation::Mean => "mean",
+        Aggregation::Sum => "sum",
+        Aggregation::Count => "count",
+        Aggregation::Min => "min",
+        Aggregation::Max => "max",
+    }
 }
 
 /// Specification for a continuous query (CQ) that the time-series backend

@@ -2,6 +2,15 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.3.0] — 2026-10-13
+
+### যা ঠিক করা হয়েছে
+- `bee_tsdb` / `bee_graph`: একটিমাত্র backend ফিচার আলাদা করে চালু করলে কম্পাইল হত না — শেয়ার করা `http_client` হেল্পারটি ফিচার-গেটেড `influxdb` / `neo4j` মডিউলের ভিতরে থাকত, তাই শুধু `iotdb` / `questdb` / `arangodb` / `nebulagraph` নিয়ে বিল্ড unresolved import-এ ব্যর্থ হত; এখন এটি প্রতিটি crate-এর নিজের `crate::http`-এ (যে backend গুলো এটি ব্যবহার করে ঠিক সেগুলোর উপর cfg গেট), আর প্রতিটি একক-backend ফিচার স্বতন্ত্রভাবে কম্পাইল হয় — ফিচার ম্যাট্রিক্স একে একে আবার চালানো হয়েছে
+- `bee_router`: ঐচ্ছিক `security` ফিচার এখন **security-rust 4.0.0**-এ — `Scanner` / `DetectionResult` / `AttackCategory` / `Severity`-এর আকার 1.x-এর মতোই, bee_router-এর সোর্সে কোনো পরিবর্তন লাগেনি; সক্ষমতা বেড়েছে: অন্তর্নির্মিত ডিটেক্টর 32 (নতুন: `format_string`, `log4shell`, HPP, `formula_injection`, reDoS), ডিটেক্টরগুলো এখন শক্ত/দুর্বল স্তরে (দুর্বল সিগন্যাল `Severity::Low`-এ স্থির), এবং নতুন `Scanner::assess`। ফিল্টার আগের মতোই "কোনো হিট পেলেই আটকাও" নীতিতে চলে, তাই **দুর্বল সিগন্যালও (যেমন পুনরাবৃত্ত query প্যারামিটার) এখন আটকানো হবে** — কাস্টম scanner ঢোকানোর আর পথ নেই; এগুলো ছাড় দিতে চাইলে `SecurityFilter::scanner()` ঘিরে নিজের `Filter` বানান। নির্ভরতা-গ্রাফে "1.x + 4.x" এর বদলে এখন একটিই security-rust 4.0.0; ডকুমেন্টেশনও হালনাগাদ
+- পুনরাবৃত্তি একত্রীকরণ: `bee_tsdb` / `bee_graph` / `bee_search`-এ সংযোগ ও error-mapping হেল্পারের একটিমাত্র কপি রইল (backend-এর নাম এখন কলার পাঠায়, ত্রুটির বার্তা অপরিবর্তিত; `aggregation_fn` গেছে `bee_tsdb`-এর lib-এ), `bee_graph`-এর `backtick` / `esc` তার `http` মডিউলে, `bee_orm` নিষ্কাশন করেছে `dedup_pk_values` / `index_rows_by` ও `migrate`-এর foreign-key ধারা, `bee_session::refresh` এখন `load` পুনর্ব্যবহার করে, আর `bee_config`-এর `watch_path` বাকি থাকা `wait_for_change` কল-পথটি শুষে নিয়েছে; `bee_search`-এর ত্রুটি-বার্তায় backend-এর নাম ফিরেছে, এবং `bee_kv`-র টেস্ট stub এখন কেবল তার টেস্টেই সীমিত
+- পাবলিক API অপসারণ (তাই মাইনর সংস্করণ): `Context::set_params` / `param`, `SecurityFilter::with_scanner`, `Traversal::edge_labels` → `edge_label: Option<String>` (তিনটি backend-ই আগে থেকে কেবল প্রথম লেবেল নিত — আচরণ অপরিবর্তিত), `GraphError::EdgeNotFound`, `ConfigError::ParseError` / `TypeMismatch`, `bee_config::watch_path_timeout`, এবং `bee_logs::Logger::async_` (এমন সুইচ যা `init()` কখনও পড়ত না) — সবারই শূন্য কলার
+- মৃত নির্ভরতা অপসারণ: `bee_router` (`tracing` / `http` / `bee_config` / `bee_logs`), `bee_session` (`async-trait`), `bee_config_macro` (`proc-macro2`), এবং `bee_tsdb` / `bee_graph` / `bee_search`-এ [dependencies]-এর সাথে পুনরাবৃত্ত dev `serde`
+
 ## [1.2.3] — 2026-10-06
 
 ### যা ঠিক করা হয়েছে

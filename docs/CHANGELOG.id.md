@@ -2,6 +2,15 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.3.0] — 2026-10-13
+
+### Diperbaiki
+- `bee_tsdb` / `bee_graph`: mengaktifkan satu fitur backend saja tidak bisa dikompilasi — helper bersama `http_client` tinggal di dalam modul `influxdb` / `neo4j` yang digerbangi fitur, sehingga build hanya dengan `iotdb` / `questdb` / `arangodb` / `nebulagraph` gagal dengan unresolved import; kini ia tinggal di `crate::http` masing-masing crate (digerbangi persis pada backend yang memakainya), dan setiap fitur backend tunggal dapat dikompilasi sendiri — matriks fitur dijalankan ulang satu per satu
+- `bee_router`: fitur opsional `security` pindah ke **security-rust 4.0.0** — `Scanner` / `DetectionResult` / `AttackCategory` / `Severity` tetap berbentuk sama seperti 1.x, tanpa perubahan sumber di sisi bee_router; permukaan kemampuan bertambah: 32 detektor bawaan (baru: `format_string`, `log4shell`, HPP, `formula_injection`, reDoS), detektor kini bertingkat kuat/lemah (sinyal lemah dipatok di `Severity::Low`), dan `Scanner::assess` ditambahkan. Filter tetap memblokir pada deteksi apa pun, jadi **sinyal lemah (mis. parameter query yang berulang) kini juga diblokir** — tidak ada lagi pintu untuk menyuntikkan scanner kustom; untuk meloloskannya, bangun `Filter` sendiri di sekitar `SecurityFilter::scanner()`. Graf dependensi kini membawa satu security-rust 4.0.0, bukan 1.x berdampingan dengan 4.x; dokumen disinkronkan
+- duplikasi digabung: `bee_tsdb` / `bee_graph` / `bee_search` masing-masing menyisakan satu salinan helper koneksi dan pemetaan galat (nama backend kini dikirim pemanggil, teks galat tidak berubah; `aggregation_fn` pindah ke lib `bee_tsdb`), `backtick` / `esc` milik `bee_graph` menyatu ke modul `http`-nya, `bee_orm` mengekstrak `dedup_pk_values` / `index_rows_by` dan klausa foreign-key di `migrate`, `bee_session::refresh` kini memakai ulang `load`, dan `watch_path` di `bee_config` menyerap jalur pemanggilan `wait_for_change` yang tersisa; pesan galat `bee_search` kembali membawa nama backend, dan stub tes `bee_kv` kini privat untuk tesnya
+- API publik dihapus (karena itu versi minor): `Context::set_params` / `param`, `SecurityFilter::with_scanner`, `Traversal::edge_labels` → `edge_label: Option<String>` (ketiga backend memang sudah hanya mengambil label pertama — perilaku tak berubah), `GraphError::EdgeNotFound`, `ConfigError::ParseError` / `TypeMismatch`, `bee_config::watch_path_timeout`, dan `bee_logs::Logger::async_` (sakelar yang tak pernah dibaca `init()`) — semuanya tanpa pemanggil
+- dependensi mati dihapus: `bee_router` (`tracing` / `http` / `bee_config` / `bee_logs`), `bee_session` (`async-trait`), `bee_config_macro` (`proc-macro2`), dan `dev` `serde` yang duplikat di `bee_tsdb` / `bee_graph` / `bee_search`
+
 ## [1.2.3] — 2026-10-06
 
 ### Diperbaiki

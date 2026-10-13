@@ -2,6 +2,15 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.3.0] — 2026-10-13
+
+### 修正
+- `bee_tsdb` / `bee_graph`：バックエンド特性を単独で有効にするとコンパイルできませんでした——共有の `http_client` ヘルパーが特性ゲートされた `influxdb` / `neo4j` モジュール内に置かれていたため、`iotdb` / `questdb` / `arangodb` / `nebulagraph` だけを有効にすると unresolved import になっていました。各クレート自身の `crate::http`（実際に使うバックエンドのみの `cfg` ゲート付き）へ移設し、単一バックエンド特性はそれぞれ単独でコンパイル可能に——特性マトリクスは項目ごとに再実行して確認済み
+- `bee_router`：オプションの `security` 特性を **security-rust 4.0.0** へ移行——`Scanner` / `DetectionResult` / `AttackCategory` / `Severity` は 1.x と同形のため、bee_router 側のソース変更はゼロ。能力面は拡大し、内蔵検出器は 32 個に（新規：`format_string`、`log4shell`、HPP、`formula_injection`、reDoS）、検出器は強/弱の二段階に（弱シグナルは `Severity::Low` に固定）、`Scanner::assess` も追加。フィルターは従来どおり「ヒットがあれば遮断」で判定するため、**弱シグナル（例：クエリパラメータの重複）も遮断対象になります**——カスタム scanner を注入する入口はなくなったため、通したい場合は `SecurityFilter::scanner()` を使って独自の `Filter` を実装してください。依存グラフは「1.x + 4.x の併存」から 4.0.0 一つに収束。ドキュメントも同期
+- 重複実装の統合：`bee_tsdb` / `bee_graph` / `bee_search` の接続・エラーマッピングのヘルパーを各 1 つに（バックエンド名は呼び出し側が渡す形に変更。エラーメッセージは不変。`aggregation_fn` は `bee_tsdb` の lib へ）、`bee_graph` の `backtick` / `esc` を `http` モジュールに集約、`bee_orm` は `dedup_pk_values` / `index_rows_by` と `migrate` の外部キー句を抽出、`bee_session::refresh` は `load` を再利用、`bee_config` の `watch_path` は残っていた `wait_for_change` 呼び出し経路を吸収。`bee_search` のエラーメッセージはバックエンド名を取り戻し、`bee_kv` のテストスタブはテストモジュール内に非公開化
+- 公開 API の削除（このためマイナーバージョン）：`Context::set_params` / `param`、`SecurityFilter::with_scanner`、`Traversal::edge_labels` → `edge_label: Option<String>`（3 バックエンドは元々先頭のラベルのみ参照——挙動は不変）、`GraphError::EdgeNotFound`、`ConfigError::ParseError` / `TypeMismatch`、`bee_config::watch_path_timeout`、`bee_logs::Logger::async_`（`init()` が読まない偽スイッチ）——いずれも呼び出し元ゼロ
+- 死んだ依存の削除：`bee_router`（`tracing` / `http` / `bee_config` / `bee_logs`）、`bee_session`（`async-trait`）、`bee_config_macro`（`proc-macro2`）、および `bee_tsdb` / `bee_graph` / `bee_search` で [dependencies] と重複していた dev `serde`
+
 ## [1.2.3] — 2026-10-06
 
 ### 修正

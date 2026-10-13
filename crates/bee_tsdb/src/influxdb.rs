@@ -1,23 +1,13 @@
 // Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
-use std::time::Duration;
-
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use reqwest::Client;
 
-/// Shared HTTP client: 30s request timeout, 5s connect timeout, so a hung
-/// backend cannot stall a request forever.
-pub(crate) fn http_client() -> Client {
-    Client::builder()
-        .timeout(Duration::from_secs(30))
-        .connect_timeout(Duration::from_secs(5))
-        .build()
-        .unwrap_or_else(|_| Client::new())
-}
+use crate::http::{check_status, conn_err, http_error, query_err, http_client};
 
 use crate::{
-    Aggregation, CQSpec, Fields, FilterOp, Point, TagFilter, Tags, TimeSeries, TimeSeriesDB,
-    Timestamp, TsdbError,
+    CQSpec, Fields, FilterOp, Point, TagFilter, Tags, TimeSeries, TimeSeriesDB, Timestamp, TsdbError,
+    aggregation_fn,
 };
 
 /// InfluxDB v2 driver backed by its HTTP (Flux) API.
@@ -64,7 +54,7 @@ impl TimeSeriesDB for InfluxDB {
             self.base_url, self.bucket, self.org
         );
         let res = self.client.post(url).body(body).send().await.map_err(conn_err)?;
-        check_status(res, "write").await
+        check_status(res, "influxdb", "write").await
     }
 
     async fn query_range(
@@ -101,7 +91,7 @@ impl TimeSeriesDB for InfluxDB {
             .await
             .map_err(conn_err)?;
         if !res.status().is_success() {
-            return Err(http_error(res, "query_range").await);
+            return Err(http_error(res, "influxdb", "query_range").await);
         }
         let body = res.text().await.map_err(query_err)?;
         parse_csv(&body)
@@ -130,17 +120,7 @@ impl TimeSeriesDB for InfluxDB {
             .send()
             .await
             .map_err(conn_err)?;
-        check_status(res, "create_continuous_query").await
-    }
-}
-
-fn aggregation_fn(agg: &Aggregation) -> &'static str {
-    match agg {
-        Aggregation::Mean => "mean",
-        Aggregation::Sum => "sum",
-        Aggregation::Count => "count",
-        Aggregation::Min => "min",
-        Aggregation::Max => "max",
+        check_status(res, "influxdb", "create_continuous_query").await
     }
 }
 
@@ -298,24 +278,6 @@ fn parse_csv(body: &str) -> Result<TimeSeries, TsdbError> {
         }
     }
     Ok(points)
-}
-
-async fn check_status(res: reqwest::Response, op: &str) -> Result<(), TsdbError> {
-    if res.status().is_success() { Ok(()) } else { Err(http_error(res, op).await) }
-}
-
-async fn http_error(res: reqwest::Response, op: &str) -> TsdbError {
-    let status = res.status();
-    let body = res.text().await.unwrap_or_default();
-    TsdbError::QueryError(format!("influxdb {op} failed with {status}: {body}"))
-}
-
-fn conn_err(e: reqwest::Error) -> TsdbError {
-    TsdbError::ConnectionError(e.to_string())
-}
-
-fn query_err(e: reqwest::Error) -> TsdbError {
-    TsdbError::QueryError(e.to_string())
 }
 
 #[cfg(test)]

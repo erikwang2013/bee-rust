@@ -2,6 +2,15 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.3.0] — 2026-10-13
+
+### 修复
+- `bee_tsdb` / `bee_graph`：单独启用某一个后端特性时编译不过——共享的 `http_client` 辅助函数原本住在特性门控的 `influxdb` / `neo4j` 模块里，只开 `iotdb` / `questdb` / `arangodb` / `nebulagraph` 时会 unresolved import；现已抽到各自 crate 的 `crate::http`（按实际使用它的后端做 `cfg` 门控），每个单开后端特性均可独立编译——特性矩阵已逐项重跑通过
+- `bee_router`：可选 `security` 特性迁移到 **security-rust 4.0.0**——`Scanner` / `DetectionResult` / `AttackCategory` / `Severity` 与 1.x 同形，bee_router 侧零源码改动；能力面扩大：内建检测器 32 个（新增 `format_string`、`log4shell`、HPP、`formula_injection`、reDoS），检测器改为强/弱分档（弱信号固定为 `Severity::Low`），新增 `Scanner::assess`。过滤器仍按「有命中即拦」决策，**弱信号（如重复查询参数）现在同样会被拦截**——已无注入自定义 scanner 的入口，需放行请自建 Filter 包 `SecurityFilter::scanner()`；依赖图里由「1.x + 4.x 并存」收敛为单独一份 4.0.0；文档同步
+- 重复实现合并：`bee_tsdb` / `bee_graph` / `bee_search` 各自的连接与错误映射辅助函数只留一份（后端名改由调用点传入，报错文案不变；`aggregation_fn` 挪到 `bee_tsdb` 的 lib）、`bee_graph` 的 `backtick` / `esc` 归入其 `http` 模块、`bee_orm` 抽出 `dedup_pk_values` / `index_rows_by` 与 `migrate` 的外键子句、`bee_session::refresh` 改为复用 `load`、`bee_config` 的 `watch_path` 收编剩余的 `wait_for_change` 调用路径；`bee_search` 的报错找回后端名；`bee_kv` 的测试 stub 收为测试模块私有
+- 公开 API 移除（故此版走次版本位）：`Context::set_params` / `param`、`SecurityFilter::with_scanner`、`Traversal::edge_labels` → `edge_label: Option<String>`（三个后端本就只取首个标签，行为不变）、`GraphError::EdgeNotFound`、`ConfigError::ParseError` / `TypeMismatch`、`bee_config::watch_path_timeout`、`bee_logs::Logger::async_`（`init()` 从未读取的假开关）——全部零调用
+- 僵尸依赖移除：`bee_router`（`tracing` / `http` / `bee_config` / `bee_logs`）、`bee_session`（`async-trait`）、`bee_config_macro`（`proc-macro2`），以及 `bee_tsdb` / `bee_graph` / `bee_search` 中与 [dependencies] 重复的 dev `serde`
+
 ## [1.2.3] — 2026-10-06
 
 ### 修复

@@ -2,6 +2,15 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.3.0] — 2026-10-13
+
+### 수정됨
+- `bee_tsdb` / `bee_graph`: 백엔드 특성을 하나만 켜면 컴파일되지 않던 문제 — 공유 `http_client` 헬퍼가 특성 게이트된 `influxdb` / `neo4j` 모듈 안에 있어, `iotdb` / `questdb` / `arangodb` / `nebulagraph`만 켠 빌드가 unresolved import로 실패했습니다. 이제 각 크레이트의 `crate::http`에 있고(실제로 쓰는 백엔드에 대한 `cfg` 게이트), 단일 백엔드 특성 각각이 독립적으로 컴파일됩니다 — 특성 매트릭스를 항목별로 다시 실행해 확인했습니다
+- `bee_router`: 선택 `security` 특성을 **security-rust 4.0.0**으로 이전 — `Scanner` / `DetectionResult` / `AttackCategory` / `Severity`는 1.x와 형태가 같아 bee_router 쪽 소스 변경이 없었습니다. 능력면은 확대: 내장 탐지기 32개(신규: `format_string`, `log4shell`, HPP, `formula_injection`, reDoS), 탐지기가 강/약 2단계로(약한 신호는 `Severity::Low` 고정), `Scanner::assess` 추가. 필터는 여전히 "적중이 있으면 차단"으로 판단하므로 **약한 신호(예: 중복 쿼리 파라미터)도 이제 차단됩니다** — 커스텀 scanner를 주입할 입구가 더 이상 없으니, 통과시키려면 `SecurityFilter::scanner()`를 감싼 자체 `Filter`를 구현하십시오. 의존성 그래프는 "1.x + 4.x 병존"에서 4.0.0 한 벌로 정리. 문서 동기화
+- 중복 구현 통합: `bee_tsdb` / `bee_graph` / `bee_search`의 연결·오류 매핑 헬퍼를 각각 한 벌로(백엔드 이름은 호출부가 전달, 오류 문구 불변; `aggregation_fn`은 `bee_tsdb` lib로), `bee_graph`의 `backtick` / `esc`를 `http` 모듈로 통합, `bee_orm`은 `dedup_pk_values` / `index_rows_by`와 `migrate` 외래 키 절을 추출, `bee_session::refresh`는 `load` 재사용, `bee_config`의 `watch_path`는 남아 있던 `wait_for_change` 호출 경로를 흡수. `bee_search` 오류 메시지는 백엔드 이름을 되찾았고, `bee_kv` 테스트 스텁은 테스트 모듈 전용이 됨
+- 공개 API 제거(그래서 마이너 버전): `Context::set_params` / `param`, `SecurityFilter::with_scanner`, `Traversal::edge_labels` → `edge_label: Option<String>`(세 백엔드 모두 처음부터 첫 레이블만 사용 — 동작 불변), `GraphError::EdgeNotFound`, `ConfigError::ParseError` / `TypeMismatch`, `bee_config::watch_path_timeout`, `bee_logs::Logger::async_`(`init()`이 읽지 않는 가짜 스위치) — 모두 호출자 0
+- 죽은 의존성 제거: `bee_router`(`tracing` / `http` / `bee_config` / `bee_logs`), `bee_session`(`async-trait`), `bee_config_macro`(`proc-macro2`), 그리고 `bee_tsdb` / `bee_graph` / `bee_search`의 [dependencies]와 중복된 dev `serde`
+
 ## [1.2.3] — 2026-10-06
 
 ### 수정됨

@@ -2,6 +2,15 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.3.0] — 2026-10-13
+
+### Corrigido
+- `bee_tsdb` / `bee_graph`: ativar uma única feature de backend não compilava — o helper compartilhado `http_client` morava dentro dos módulos `influxdb` / `neo4j` (sob gate de feature), então uma build só com `iotdb` / `questdb` / `arangodb` / `nebulagraph` falhava com unresolved import; agora ele mora no `crate::http` de cada crate (com cfg apenas sobre os backends que o usam), e cada feature de backend isolada compila sozinha — a matriz de features foi repassada item a item
+- `bee_router`: a feature opcional `security` migra para **security-rust 4.0.0** — `Scanner` / `DetectionResult` / `AttackCategory` / `Severity` mantêm a forma do 1.x, sem mudança de código no bee_router; a superfície de capacidade cresce: 32 detectores embutidos (novos: `format_string`, `log4shell`, HPP, `formula_injection`, reDoS), os detectores agora são graduados em forte/fraco (sinais fracos fixados em `Severity::Low`) e `Scanner::assess` foi adicionado. O filtro continua bloqueando a qualquer detecção, então **sinais fracos (ex.: parâmetro de consulta repetido) agora também são bloqueados** — não há mais ponto de injeção de scanner próprio; para liberá-los, construa seu próprio `Filter` em torno de `SecurityFilter::scanner()`. O grafo de dependências passa de "1.x junto com 4.x" para uma única security-rust 4.0.0; documentação sincronizada
+- duplicações mescladas: `bee_tsdb` / `bee_graph` / `bee_search` mantêm uma só cópia dos helpers de conexão e mapeamento de erros (o nome do backend agora é passado pelo chamador, textos de erro inalterados; `aggregation_fn` vai para a lib do `bee_tsdb`), `backtick` / `esc` do `bee_graph` juntam-se ao seu módulo `http`, o `bee_orm` extrai `dedup_pk_values` / `index_rows_by` e a cláusula de chave estrangeira do `migrate`, `bee_session::refresh` reutiliza `load`, e `watch_path` do `bee_config` absorve o caminho de chamada restante de `wait_for_change`; mensagens de erro do `bee_search` recuperam o nome do backend, e o stub de teste do `bee_kv` passa a ser privado dos seus testes
+- API pública removida (daí a versão minor): `Context::set_params` / `param`, `SecurityFilter::with_scanner`, `Traversal::edge_labels` → `edge_label: Option<String>` (os três backends já usavam só a primeira etiqueta — comportamento inalterado), `GraphError::EdgeNotFound`, `ConfigError::ParseError` / `TypeMismatch`, `bee_config::watch_path_timeout` e `bee_logs::Logger::async_` (um interruptor que `init()` nunca lia) — todas sem chamadas
+- dependências mortas removidas: `bee_router` (`tracing` / `http` / `bee_config` / `bee_logs`), `bee_session` (`async-trait`), `bee_config_macro` (`proc-macro2`) e os `dev` `serde` duplicados em `bee_tsdb` / `bee_graph` / `bee_search`
+
 ## [1.2.3] — 2026-10-06
 
 ### Corrigido

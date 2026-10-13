@@ -2,6 +2,15 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.3.0] — 2026-10-13
+
+### ठीक किया गया
+- `bee_tsdb` / `bee_graph`: अकेले किसी एक backend feature को चालू करने पर कंपाइल नहीं होता था — साझा `http_client` हेल्पर feature-गेटेड `influxdb` / `neo4j` मॉड्यूल के अंदर रहता था, इसलिए केवल `iotdb` / `questdb` / `arangodb` / `nebulagraph` के साथ बिल्ड unresolved import पर गिरता था; अब यह हर crate के अपने `crate::http` में है (cfg ठीक उन्हीं backend पर जो इसे इस्तेमाल करते हैं), और हर एकल-backend feature अकेले कंपाइल होती है — feature मैट्रिक्स एक-एक करके दोबारा चलाया गया
+- `bee_router`: वैकल्पिक `security` feature अब **security-rust 4.0.0** पर — `Scanner` / `DetectionResult` / `AttackCategory` / `Severity` का आकार 1.x जैसा ही है, bee_router के सोर्स में कोई बदलाव नहीं चाहिए; क्षमता-सतह बढ़ी है: अंतर्निहित डिटेक्टर 32 (नए: `format_string`, `log4shell`, HPP, `formula_injection`, reDoS), डिटेक्टर अब मज़बूत/कमज़ोर श्रेणियों में (कमज़ोर सिग्नल `Severity::Low` पर तय), और नया `Scanner::assess`। फ़िल्टर अब भी "कोई भी हिट मिले तो रोकें" पर फैसला करता है, इसलिए **कमज़ोर सिग्नल (जैसे दोहराया गया query पैरामीटर) भी अब रोके जाएंगे** — कस्टम scanner डालने का रास्ता अब नहीं है; इन्हें जाने देना हो तो `SecurityFilter::scanner()` के इर्द-गिर्द अपना `Filter` बनाइए। निर्भरता ग्राफ़ में "1.x + 4.x" की जगह अब एक ही security-rust 4.0.0 है; दस्तावेज़ भी अद्यतन
+- दोहराव समाहित: `bee_tsdb` / `bee_graph` / `bee_search` में कनेक्शन व error-mapping हेल्पर की एक-एक ही प्रति रही (backend का नाम अब कॉलर देता है, त्रुटि-संदेश अपरिवर्तित; `aggregation_fn` `bee_tsdb` की lib में गया), `bee_graph` के `backtick` / `esc` उसके `http` मॉड्यूल में आ गए, `bee_orm` ने `dedup_pk_values` / `index_rows_by` और `migrate` का foreign-key खंड निकाला, `bee_session::refresh` अब `load` का पुनरुपयोग करता है, और `bee_config` के `watch_path` ने बची हुई `wait_for_change` कॉल-पथ समेट ली; `bee_search` के त्रुटि-संदेशों में backend का नाम वापस आया, और `bee_kv` का टेस्ट stub अब उसके टेस्टों तक ही सीमित है
+- सार्वजनिक API हटाए गए (इसीलिए माइनर वर्शन): `Context::set_params` / `param`, `SecurityFilter::with_scanner`, `Traversal::edge_labels` → `edge_label: Option<String>` (तीनों backend पहले से केवल पहला label लेते थे — व्यवहार अपरिवर्तित), `GraphError::EdgeNotFound`, `ConfigError::ParseError` / `TypeMismatch`, `bee_config::watch_path_timeout`, और `bee_logs::Logger::async_` (ऐसा स्विच जिसे `init()` कभी पढ़ता ही नहीं था) — सभी के शून्य कॉलर
+- मृत निर्भरताएँ हटीं: `bee_router` (`tracing` / `http` / `bee_config` / `bee_logs`), `bee_session` (`async-trait`), `bee_config_macro` (`proc-macro2`), और `bee_tsdb` / `bee_graph` / `bee_search` में [dependencies] से दोहराए dev `serde`
+
 ## [1.2.3] — 2026-10-06
 
 ### ठीक किया गया
