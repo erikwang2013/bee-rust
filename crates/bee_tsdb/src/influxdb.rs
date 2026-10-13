@@ -283,6 +283,8 @@ fn parse_csv(body: &str) -> Result<TimeSeries, TsdbError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use crate::Aggregation;
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
     use axum::routing::post;
