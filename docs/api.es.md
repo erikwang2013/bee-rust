@@ -383,7 +383,6 @@ let uid: String = session.get("user_id")?.unwrap();
 Logger::new()
     .level(Level::INFO)
     .output(Output::MultiFile("logs/"))
-    .async_()
     .init()?;
 ```
 
