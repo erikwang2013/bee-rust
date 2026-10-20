@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="zh-CN" data-lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>版本日志 · Bee Rust</title>
+<meta name="description" content="Bee Rust 版本日志：从 1.0.3 的初始工作区到 1.3.0 的硬化与收敛，按版本查看新增、修复与清理。">
+<meta name="theme-color" content="#12100D">
+<meta name="robots" content="index,follow">
+<meta property="og:type" content="website">
+<meta property="og:title" content="版本日志 · Bee Rust">
+<meta property="og:description" content="从 1.0.3 到 1.3.0：Bee Rust 的每一次迭代。">
+<meta property="og:image" content="https://raw.githubusercontent.com/erikwang2013/bee-rust/main/site/assets/img/social-preview.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/img/rusty-face.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<link rel="preload" href="assets/css/base.css" as="style">
+<link rel="preload" href="assets/css/changelog.css" as="style">
+<link rel="stylesheet" href="assets/css/base.css">
+<link rel="stylesheet" href="assets/css/changelog.css">
+<script>
+  document.documentElement.classList.add('js');
+  try { if (localStorage.getItem('beerust-lang') === 'en' || new URLSearchParams(location.search).get('lang') === 'en') { document.documentElement.lang = 'en'; document.documentElement.dataset.lang = 'en'; } } catch (e) {}
+</script>
+</head>
+<body data-page="changelog">
+
+<header class="site-header" id="site-header">
+  <div class="wrap header-inner">
+    <a class="brand" href="index.html" aria-label="Bee Rust 首页">
+      <span class="brand-mark"><img src="assets/img/rusty-face.svg" alt="" width="38" height="38"></span>
+      <span class="brand-name">Bee Rust</span>
+      <span class="brand-ver">1.3.0</span>
+    </a>
+    <nav class="site-nav" id="site-nav" aria-label="主导航">
+      <a href="index.html#intro" data-nav data-en="Project">项目</a>
+      <a href="index.html#features" data-nav data-en="Features">功能</a>
+      <a href="index.html#architecture" data-nav data-en="Architecture">架构</a>
+      <a href="index.html#rusty" data-nav data-en="Rusty">Rusty</a>
+      <a href="index.html#install" data-nav data-en="Install">安装</a>
+      <a href="index.html#usage" data-nav data-en="Usage">使用</a>
+      <a href="index.html#download" data-nav data-en="Download">下载</a>
+      <a href="changelog.html" class="is-active" data-nav data-en="Changelog">版本日志</a>
+    </nav>
+    <div class="header-actions">
+      <button class="lang-btn" type="button" data-lang-toggle aria-label="Switch to English">EN</button>
+      <a class="icon-btn" href="https://github.com/erikwang2013/bee-rust" target="_blank" rel="noopener" aria-label="GitHub">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .7A11.5 11.5 0 0 0 8.4 23c.6.1.8-.2.8-.6v-2c-3.2.7-3.9-1.4-3.9-1.4-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.4 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0C17.4 4.3 18.4 4.6 18.4 4.6c.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .4.2.7.8.6A11.5 11.5 0 0 0 12 .7Z"/></svg>
+      </a>
+      <button class="menu-btn" type="button" aria-controls="site-nav" aria-expanded="false" aria-label="打开菜单"><span></span><span></span></button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="log-hero">
+    <div class="log-hero-honey" aria-hidden="true"></div>
+    <div class="wrap log-hero-grid">
+      <div>
+        <p class="eyebrow eyebrow--dark"><span class="pulse"></span><span data-en="Changelog · Every release">版本日志 · 每一次迭代</span></p>
+        <h1 data-en="Changelog">版本日志</h1>
+        <p class="log-lede" data-en="From the first workspace to the 1.3.0 hardening pass. Every release, the changes that matter.">从初始工作区到 1.3.0 的硬化收敛。每一次发布，只留下真正重要的变化。</p>
+        <div class="log-meta">
+          <span><b>1.3.0</b><small data-en="latest">最新</small></span>
+          <span><b>12</b><small data-en="releases">个版本</small></span>
+          <span><b>2026</b><small data-en="since July">自 7 月</small></span>
+        </div>
+        <div class="log-actions">
+          <a class="btn btn-ghost" href="https://github.com/erikwang2013/bee-rust/releases" target="_blank" rel="noopener"><span data-en="GitHub Releases">GitHub Releases</span> <span aria-hidden="true">↗</span></a>
+          <a class="btn btn-text" href="https://github.com/erikwang2013/bee-rust/blob/main/docs/CHANGELOG.zh.md" data-en-href="https://github.com/erikwang2013/bee-rust/blob/main/docs/CHANGELOG.md" target="_blank" rel="noopener"><span data-en="Full changelog">完整日志</span> <span aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+      <div class="log-pet">
+        <svg class="hero-halo" viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,3 91,26.5 91,73.5 50,97 9,73.5 9,26.5"/></svg>
+        <div class="log-pet-glow" aria-hidden="true"></div>
+        <img src="assets/img/pet-expressions/knocking.svg" alt="Rusty 敲打表情，正在等 CI" width="512" height="512" fetchpriority="high" decoding="async">
+        <span class="pet-chip"><span class="pulse"></span><span data-en="Rusty · checking every release">Rusty · 逐版检查</span></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="log-section">
+    <div class="wrap log-layout">
+      <aside class="log-aside">
+        <p class="aside-title" data-en="Jump to a release">跳到版本</p>
+        <nav id="log-index" class="log-index" aria-label="版本索引"></nav>
+        <div class="aside-card">
+          <p data-en="Full history and compare links live in the repository.">完整历史与对比链接都在仓库里。</p>
+          <a class="text-link" href="https://github.com/erikwang2013/bee-rust/blob/main/docs/CHANGELOG.zh.md" data-en-href="https://github.com/erikwang2013/bee-rust/blob/main/docs/CHANGELOG.md" target="_blank" rel="noopener"><span data-en="Open CHANGELOG">打开 CHANGELOG</span> ↗</a>
+        </div>
+      </aside>
+      <div id="log-list" class="log-list"></div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap footer-main">
+    <div class="footer-brand">
+      <a class="brand brand--footer" href="index.html">
+        <span class="brand-mark"><img src="assets/img/rusty-face.svg" alt="" width="40" height="40"></span>
+        <span class="brand-name">Bee Rust</span>
+      </a>
+      <p data-en="A production-grade Rust web framework. Beego's philosophy, expressed in Rust.">生产级 Rust Web 框架。Beego 的哲学，Rust 的表达。</p>
+      <div class="footer-stripes" aria-hidden="true"><i></i><i></i><i></i></div>
+    </div>
+    <nav class="footer-col" aria-label="项目链接">
+      <h4 data-en="Project">项目</h4>
+      <a href="https://github.com/erikwang2013/bee-rust" target="_blank" rel="noopener">GitHub ↗</a>
+      <a href="https://crates.io/crates/bee_rust" target="_blank" rel="noopener">crates.io ↗</a>
+      <a href="https://docs.rs/bee_rust" target="_blank" rel="noopener">docs.rs ↗</a>
+      <a href="https://github.com/erikwang2013/bee-rust/releases" target="_blank" rel="noopener">Releases ↗</a>
+    </nav>
+    <nav class="footer-col" aria-label="文档链接">
+      <h4 data-en="Docs">文档</h4>
+      <a href="https://github.com/erikwang2013/bee-rust/blob/main/README.md" data-en-href="https://github.com/erikwang2013/bee-rust/blob/main/docs/README.en.md" target="_blank" rel="noopener">README ↗</a>
+      <a href="https://github.com/erikwang2013/bee-rust/blob/main/docs/api.md" data-en-href="https://github.com/erikwang2013/bee-rust/blob/main/docs/api.en.md" target="_blank" rel="noopener"><span data-en="API reference">API 参考</span> ↗</a>
+      <a href="changelog.html"><span data-en="Changelog">版本日志</span> →</a>
+      <a href="https://github.com/erikwang2013/bee-rust/blob/main/docs/CONTRIBUTING.zh.md" data-en-href="https://github.com/erikwang2013/bee-rust/blob/main/docs/CONTRIBUTING.md" target="_blank" rel="noopener"><span data-en="Contributing">贡献指南</span> ↗</a>
+    </nav>
+    <div class="footer-col footer-col--author">
+      <h4 data-en="Author">作者</h4>
+      <a href="https://erik.xyz" target="_blank" rel="noopener">艾瑞可 erik ↗</a>
+      <a href="mailto:erik@erik.xyz">erik@erik.xyz</a>
+      <a href="index.html#support"><span data-en="Support the project">支持项目</span> ↗</a>
+    </div>
+  </div>
+  <div class="wrap footer-bottom">
+    <p class="copyright">© <span data-year>2026</span> erik · <span data-en="Code Apache-2.0 · Visual assets reserved">代码 Apache-2.0 · 视觉资产版权保留</span></p>
+    <div class="footer-legal">
+      <a class="beian" href="https://beian.miit.gov.cn" target="_blank" rel="noopener">粤ICP备2020136226号-7</a>
+      <a class="author-link" href="https://erik.xyz" target="_blank" rel="noopener">艾瑞可 erik</a>
+      <a href="assets/vendor/THREE-LICENSE.txt" target="_blank" rel="noopener">Three.js MIT</a>
+    </div>
+    <div class="footer-info" id="busuanzi">
+      <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+      <span id="busuanzi_container_site_pv">本站总访问量 <b id="busuanzi_value_site_pv">0</b> 次 👀</span><span class="dot">·</span><span id="busuanzi_container_site_uv">访客数 <b id="busuanzi_value_site_uv">0</b> 人次 🧑‍🚀</span>
+    </div>
+  </div>
+</footer>
+
+<button class="to-top" id="to-top" type="button" aria-label="回到顶部" data-en-aria-label="Back to top">
+  <span class="to-top-ring" aria-hidden="true"></span>
+  <img id="to-top-pet" src="assets/img/pet-expressions/cute.svg" alt="" width="512" height="512" decoding="async">
+  <span class="to-top-arrow" aria-hidden="true">↑</span>
+</button>
+
+<script defer src="assets/js/i18n.js"></script>
+<script defer src="assets/js/changelog-data.js"></script>
+<script defer src="assets/js/site.js"></script>
+<script defer src="assets/js/changelog.js"></script>
+</body>
+</html>
