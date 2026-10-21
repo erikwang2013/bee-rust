@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="zh-CN" data-lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>404 · 页面未找到 · Bee Rust</title>
+<meta name="description" content="页面未找到。返回 Bee Rust 首页，或查看版本日志与文档。">
+<meta name="author" content="erik">
+<meta name="applicable-device" content="pc,mobile">
+<meta name="theme-color" content="#12100D">
+<meta name="robots" content="noindex,follow">
+<link rel="icon" href="/assets/img/rusty-face.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">
+<link rel="preload" href="/assets/css/base.css" as="style">
+<link rel="stylesheet" href="/assets/css/base.css">
+<script>
+  document.documentElement.classList.add('js');
+  try {
+    var en = localStorage.getItem('beerust-lang') === 'en' || new URLSearchParams(location.search).get('lang') === 'en';
+    if (en) {
+      document.documentElement.lang = 'en';
+      document.documentElement.dataset.lang = 'en';
+      document.title = '404 · Page not found · Bee Rust';
+      var desc = document.querySelector('meta[name="description"]');
+      if (desc) desc.setAttribute('content', 'Page not found. Return to the Bee Rust homepage, or open the changelog and docs.');
+    }
+  } catch (e) {}
+</script>
+<style>
+.nf-main {
+  position: relative; isolation: isolate; overflow: hidden;
+  display: grid; align-items: center;
+  min-height: calc(100svh - var(--header-h));
+  padding: calc(var(--header-h) + 48px) 0 88px;
+  color: var(--cream);
+  background:
+    radial-gradient(900px 600px at 78% 18%, rgba(245, 179, 1, 0.18), transparent 62%),
+    radial-gradient(760px 560px at 6% 92%, rgba(183, 65, 14, 0.22), transparent 64%),
+    linear-gradient(155deg, #191510 0%, #12100d 48%, #1b1510 100%);
+}
+.nf-main::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; opacity: 0.55;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='112' height='196' viewBox='0 0 112 196'%3E%3Cpath d='M56 0 112 32v64L56 128 0 96V32zm0 128 56 32v64l-56 32-56-32v-64z' fill='none' stroke='%23f5b301' stroke-opacity='.13' stroke-width='1.4'/%3E%3C/svg%3E");
+  background-size: 112px 196px;
+  -webkit-mask-image: radial-gradient(ellipse at 55% 45%, #000 8%, transparent 78%);
+  mask-image: radial-gradient(ellipse at 55% 45%, #000 8%, transparent 78%);
+}
+.nf-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); align-items: center; gap: clamp(24px, 5vw, 64px); }
+.nf-copy { position: relative; max-width: 640px; }
+.nf-code { color: var(--amber); font-family: var(--mono); font-size: clamp(4.6rem, 12vw, 9rem); font-weight: 900; line-height: 0.8; letter-spacing: -0.08em; }
+.nf-copy h1 { margin-top: 18px; color: var(--cream); font-size: clamp(2rem, 4.4vw, 3.6rem); line-height: 1.08; letter-spacing: -0.04em; }
+.nf-lede { max-width: 50ch; margin-top: 16px; color: rgba(255, 243, 214, 0.62); font-size: clamp(0.98rem, 1.2vw, 1.08rem); line-height: 1.85; }
+.nf-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 30px; }
+.nf-links { margin-top: 26px; color: rgba(255, 243, 214, 0.46); font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.02em; }
+.nf-links a { color: rgba(255, 243, 214, 0.78); border-bottom: 1px solid rgba(245, 179, 1, 0.35); }
+.nf-links a:hover { color: var(--amber); }
+.nf-pet { position: relative; display: grid; place-items: center; min-height: clamp(300px, 34vw, 460px); }
+.nf-pet::before {
+  content: ""; position: absolute; width: min(430px, 88%); aspect-ratio: 1; border-radius: 50%;
+  border: 1px dashed rgba(245, 179, 1, 0.34); animation: nf-spin 40s linear infinite;
+}
+.nf-pet::after {
+  content: ""; position: absolute; width: 64%; aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle, rgba(245, 179, 1, 0.24), rgba(183, 65, 14, 0.12) 46%, transparent 70%);
+  filter: blur(10px);
+}
+.nf-pet img { position: relative; z-index: 1; width: min(360px, 82%); filter: drop-shadow(0 30px 46px rgba(0, 0, 0, 0.45)); animation: nf-float 5.4s ease-in-out infinite; }
+.nf-chip {
+  position: absolute; z-index: 2; bottom: 4px; left: 50%; transform: translateX(-50%);
+  display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+  padding: 8px 14px; border: 1px solid rgba(245, 179, 1, 0.28); border-radius: 999px;
+  background: rgba(18, 16, 13, 0.72); color: rgba(255, 243, 214, 0.78);
+  font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.03em;
+}
+@keyframes nf-float { 0%, 100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-14px) rotate(1deg); } }
+@keyframes nf-spin { to { transform: rotate(360deg); } }
+.site-footer .footer-bottom { padding-bottom: 28px; }
+@media (max-width: 900px) {
+  .nf-main { min-height: auto; padding-block: calc(var(--header-h) + 46px) 72px; }
+  .nf-grid { grid-template-columns: 1fr; gap: 12px; }
+  .nf-pet { min-height: 300px; order: -1; }
+  .nf-pet img { width: min(270px, 62%); }
+  .nf-chip { bottom: -2px; }
+}
+@media (max-width: 620px) {
+  .nf-code { font-size: clamp(4rem, 24vw, 6.4rem); }
+  .nf-pet { min-height: 250px; }
+  .nf-pet img { width: min(220px, 58%); }
+}
+</style>
+</head>
+<body data-page="404">
+
+<header class="site-header" id="site-header">
+  <div class="wrap header-inner">
+    <a class="brand" href="/" aria-label="Bee Rust 首页"><span class="brand-mark"><img src="/assets/img/rusty-face.svg" alt="" width="38" height="38"></span><span class="brand-name">Bee Rust</span><span class="brand-ver">1.3.0</span></a>
+    <nav class="site-nav" id="site-nav" aria-label="主导航">
+      <a href="/#intro" data-en="Project">项目</a><a href="/#features" data-en="Features">功能</a><a href="/#architecture" data-en="Architecture">架构</a><a href="/#rusty" data-en="Rusty">Rusty</a>
+      <a href="/#install" data-en="Install">安装</a><a href="/#usage" data-en="Usage">使用</a><a href="/#faq" data-en="FAQ">常见问题</a><a href="/#download" data-en="Download">下载</a><a href="/changelog.html" data-en="Changelog">版本日志</a>
+    </nav>
+    <div class="header-actions">
+      <button class="lang-btn" type="button" data-lang-toggle aria-label="Switch to English">EN</button>
+      <a class="icon-btn" href="https://github.com/erikwang2013/bee-rust" target="_blank" rel="noopener" aria-label="GitHub"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .7A11.5 11.5 0 0 0 8.4 23c.6.1.8-.2.8-.6v-2c-3.2.7-3.9-1.4-3.9-1.4-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.7 1.3 3.4 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.5-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0C17.4 4.3 18.4 4.6 18.4 4.6c.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .4.2.7.8.6A11.5 11.5 0 0 0 12 .7Z"/></svg></a>
+      <button class="menu-btn" type="button" aria-controls="site-nav" aria-expanded="false" aria-label="打开菜单"><span></span><span></span></button>
+    </div>
+  </div>
+</header>
+
+<main class="nf-main">
+  <div class="wrap nf-grid">
+    <div class="nf-copy">
+      <p class="eyebrow eyebrow--dark"><span class="pulse"></span><span data-en="404 · Page not found">404 · 页面未找到</span></p>
+      <p class="nf-code" aria-hidden="true">404</p>
+      <h1 data-en="Where's the honey?">蜜呢？</h1>
+      <p class="nf-lede" data-en="Rusty circled the empty flower field and still couldn't find this page. The link may have moved, or it never existed.">Rusty 在空花田上转了一圈，也没找到这一页。链接可能已经移动，或者它从来没有存在过。</p>
+      <div class="nf-actions">
+        <a class="btn btn-primary" href="/"><span data-en="Back home">返回首页</span><span class="btn-arrow">→</span></a>
+        <a class="btn btn-ghost" href="/changelog.html" data-en="Changelog">版本日志</a>
+        <a class="btn btn-text" href="https://docs.rs/bee_rust" target="_blank" rel="noopener"><span data-en="Docs">文档</span> <span aria-hidden="true">↗</span></a>
+      </div>
+      <p class="nf-links"><span data-en="Popular:">常用：</span> <a href="/#install" data-en="Install">安装</a> · <a href="/#usage" data-en="Usage">使用</a> · <a href="/#faq" data-en="FAQ">常见问题</a> · <a href="/#download" data-en="Download">下载</a></p>
+    </div>
+    <div class="nf-pet">
+      <img src="/assets/img/pet-expressions/depressed.svg" alt="Rusty 沮丧地悬停在空花田上" data-en-alt="Rusty hovering sadly over an empty flower field" width="512" height="512" fetchpriority="high" decoding="async">
+      <span class="nf-chip"><span class="pulse"></span><span data-en="Rusty · lost the trail">Rusty · 迷路了</span></span>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap footer-main">
+    <div class="footer-brand">
+      <a class="brand brand--footer" href="/">
+        <span class="brand-mark"><img src="/assets/img/rusty-face.svg" alt="" width="40" height="40"></span>
+        <span class="brand-name">Bee Rust</span>
+      </a>
+      <p data-en="A production-grade Rust web framework. Beego's philosophy, expressed in Rust.">生产级 Rust Web 框架。Beego 的哲学，Rust 的表达。</p>
+      <div class="footer-stripes" aria-hidden="true"><i></i><i></i><i></i></div>
+    </div>
+    <nav class="footer-col" aria-label="项目链接">
+      <h4 data-en="Project">项目</h4>
+      <a href="https://github.com/erikwang2013/bee-rust" target="_blank" rel="noopener">GitHub ↗</a>
+      <a href="https://crates.io/crates/bee_rust" target="_blank" rel="noopener">crates.io ↗</a>
+      <a href="https://docs.rs/bee_rust" target="_blank" rel="noopener">docs.rs ↗</a>
+      <a href="https://github.com/erikwang2013/bee-rust/releases" target="_blank" rel="noopener">Releases ↗</a>
+    </nav>
+    <nav class="footer-col" aria-label="文档链接">
+      <h4 data-en="Docs">文档</h4>
+      <a href="https://github.com/erikwang2013/bee-rust/blob/main/README.md" data-en-href="https://github.com/erikwang2013/bee-rust/blob/main/docs/README.en.md" target="_blank" rel="noopener">README ↗</a>
+      <a href="https://github.com/erikwang2013/bee-rust/blob/main/docs/api.md" data-en-href="https://github.com/erikwang2013/bee-rust/blob/main/docs/api.en.md" target="_blank" rel="noopener"><span data-en="API reference">API 参考</span> ↗</a>
+      <a href="/changelog.html"><span data-en="Changelog">版本日志</span> →</a>
+      <a href="https://github.com/erikwang2013/bee-rust/blob/main/docs/CONTRIBUTING.zh.md" data-en-href="https://github.com/erikwang2013/bee-rust/blob/main/docs/CONTRIBUTING.md" target="_blank" rel="noopener"><span data-en="Contributing">贡献指南</span> ↗</a>
+      <a href="https://github.com/erikwang2013/bee-rust/blob/main/ASSETS-LICENSE.md" target="_blank" rel="noopener"><span data-en="Asset license">视觉资产授权</span> ↗</a>
+    </nav>
+    <div class="footer-col footer-col--author">
+      <h4 data-en="Author">作者</h4>
+      <a href="https://erik.xyz" target="_blank" rel="noopener">艾瑞可 erik ↗</a>
+      <a href="mailto:erik@erik.xyz">erik@erik.xyz</a>
+      <a href="/#support"><span data-en="Support the project">支持项目</span> ↑</a>
+    </div>
+  </div>
+  <div class="wrap footer-bottom">
+    <p class="copyright">© <span data-year>2026</span> erik · <span data-en="Code Apache-2.0 · Visual assets reserved">代码 Apache-2.0 · 视觉资产版权保留</span></p>
+    <div class="footer-legal">
+      <a class="beian" href="https://beian.miit.gov.cn" target="_blank" rel="noopener">粤ICP备2020136226号-7</a>
+      <a class="author-link" href="https://erik.xyz" target="_blank" rel="noopener">艾瑞可 erik</a>
+    </div>
+  </div>
+</footer>
+
+<script defer src="/assets/js/i18n.js"></script>
+<script defer src="/assets/js/site.js"></script>
+<script>
+  if (document.documentElement.dataset.lang === 'en') {
+    var petImg = document.querySelector('.nf-pet img');
+    if (petImg) petImg.alt = petImg.getAttribute('data-en-alt');
+  }
+  document.addEventListener('beerust:lang', function (e) {
+    var en = e.detail.lang === 'en';
+    document.title = en ? '404 · Page not found · Bee Rust' : '404 · 页面未找到 · Bee Rust';
+    var desc = document.querySelector('meta[name="description"]');
+    if (desc) desc.setAttribute('content', en
+      ? 'Page not found. Return to the Bee Rust homepage, or open the changelog and docs.'
+      : '页面未找到。返回 Bee Rust 首页，或查看版本日志与文档。');
+    var alt = document.querySelector('.nf-pet img');
+    if (alt) alt.alt = en ? alt.getAttribute('data-en-alt') : 'Rusty 沮丧地悬停在空花田上';
+  });
+</script>
+</body>
+</html>
