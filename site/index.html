@@ -4,33 +4,145 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Bee Rust · 生产级 Rust Web 框架</title>
-<meta name="description" content="Bee Rust 是一个生产级 Rust Web 框架：Beego 的设计哲学，用 Rust 的 trait、macro 与类型系统重新表达。MVC、ORM、过滤器链、CLI 与多存储引擎统一抽象。">
+<meta name="description" content="Bee Rust 是生产级 Rust Web 框架：Beego 哲学，用 trait、macro 与类型系统表达。内置 MVC、ORM、过滤器链、CLI 与存储引擎。">
+<meta name="author" content="erik">
+<meta name="applicable-device" content="pc,mobile">
 <meta name="theme-color" content="#12100D">
-<meta name="robots" content="index,follow">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
+<link rel="canonical" href="https://bee-rust.erik.xyz/">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="Bee Rust">
+<meta property="og:url" content="https://bee-rust.erik.xyz/">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:locale:alternate" content="en_US">
 <meta property="og:title" content="Bee Rust · 生产级 Rust Web 框架">
 <meta property="og:description" content="Beego 的设计哲学，用 Rust 的 trait、macro 与类型系统重新表达。">
-<meta property="og:image" content="https://raw.githubusercontent.com/erikwang2013/bee-rust/main/site/assets/img/social-preview.png">
+<meta property="og:image" content="https://bee-rust.erik.xyz/assets/img/social-preview.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Bee Rust 社交预览卡：蜜白蜂巢背景上的 Bee Rust 字标与 Rusty">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Bee Rust · 生产级 Rust Web 框架">
 <meta name="twitter:description" content="Beego 的设计哲学，用 Rust 的 trait、macro 与类型系统重新表达。">
-<meta name="twitter:image" content="https://raw.githubusercontent.com/erikwang2013/bee-rust/main/site/assets/img/social-preview.png">
+<meta name="twitter:image" content="https://bee-rust.erik.xyz/assets/img/social-preview.jpg">
+<meta name="twitter:image:alt" content="Bee Rust 社交预览卡：蜜白蜂巢背景上的 Bee Rust 字标与 Rusty">
 <link rel="icon" href="assets/img/rusty-face.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
 <link rel="preload" href="assets/css/base.css" as="style"><link rel="preload" href="assets/css/site.css" as="style"><link rel="preload" href="assets/css/sections.css" as="style">
+<link rel="preload" href="assets/img/rusty-static.svg" as="image" type="image/svg+xml" fetchpriority="high">
 <link rel="stylesheet" href="assets/css/base.css"><link rel="stylesheet" href="assets/css/site.css"><link rel="stylesheet" href="assets/css/sections.css">
 <script>
   document.documentElement.classList.add('js');
   try { if (localStorage.getItem('beerust-lang') === 'en' || new URLSearchParams(location.search).get('lang') === 'en') { document.documentElement.lang = 'en'; document.documentElement.dataset.lang = 'en'; } } catch (e) {}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://bee-rust.erik.xyz/#website",
+      "url": "https://bee-rust.erik.xyz/",
+      "name": "Bee Rust",
+      "alternateName": "bee_rust",
+      "description": "生产级 Rust Web 框架：Beego 的设计哲学，用 Rust 的 trait、macro 与类型系统重新表达。",
+      "inLanguage": ["zh-CN", "en"],
+      "publisher": { "@id": "https://bee-rust.erik.xyz/#author" }
+    },
+    {
+      "@type": "Person",
+      "@id": "https://bee-rust.erik.xyz/#author",
+      "name": "erik",
+      "url": "https://erik.xyz",
+      "sameAs": ["https://erik.xyz", "https://github.com/erikwang2013"]
+    },
+    {
+      "@type": "SoftwareSourceCode",
+      "@id": "https://bee-rust.erik.xyz/#software",
+      "name": "Bee Rust",
+      "alternateName": "bee_rust",
+      "url": "https://bee-rust.erik.xyz/",
+      "description": "A production-grade Rust web framework with MVC, ORM, filter chains, CLI, and unified storage-engine abstractions.",
+      "codeRepository": "https://github.com/erikwang2013/bee-rust",
+      "programmingLanguage": "Rust",
+      "runtimePlatform": "Rust 1.85+",
+      "applicationCategory": "WebApplication",
+      "operatingSystem": "Cross-platform",
+      "softwareVersion": "1.3.0",
+      "version": "1.3.0",
+      "datePublished": "2026-07-29",
+      "dateModified": "2026-10-13",
+      "keywords": "Rust, web framework, Beego, MVC, ORM, axum, tokio",
+      "isAccessibleForFree": true,
+      "inLanguage": ["zh-CN", "en"],
+      "license": "https://www.apache.org/licenses/LICENSE-2.0",
+      "author": { "@id": "https://bee-rust.erik.xyz/#author" },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Bee Rust",
+        "url": "https://bee-rust.erik.xyz/",
+        "logo": "https://bee-rust.erik.xyz/assets/img/apple-touch-icon.png"
+      },
+      "sameAs": [
+        "https://github.com/erikwang2013/bee-rust",
+        "https://crates.io/crates/bee_rust",
+        "https://docs.rs/bee_rust"
+      ]
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "@id": "https://bee-rust.erik.xyz/#faq",
+  "url": "https://bee-rust.erik.xyz/#faq",
+  "inLanguage": "zh-CN",
+  "isPartOf": { "@id": "https://bee-rust.erik.xyz/#website" },
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Bee Rust 是什么？",
+      "acceptedAnswer": { "@type": "Answer", "text": "Bee Rust 是一个生产级 Rust Web 框架。它把 Beego 的 MVC、命名空间与过滤器链带进 Rust，用 trait、macro 与类型系统重新表达，并提供 ORM、CLI 与统一的存储引擎抽象。" }
+    },
+    {
+      "@type": "Question",
+      "name": "和 Beego 有什么区别？",
+      "acceptedAnswer": { "@type": "Answer", "text": "不是逐行翻译。它保留 Beego 的顺手之处——MVC、命名空间路由、过滤器链——但用 Rust 原生方式实现。默认 full 特性开箱即用，最小核心只依赖 axum 与 tokio。" }
+    },
+    {
+      "@type": "Question",
+      "name": "支持哪些数据库？",
+      "acceptedAnswer": { "@type": "Answer", "text": "SQLite、PostgreSQL、MySQL、TiDB（bee_orm）；Redis、Memcached；Elasticsearch、OpenSearch、ClickHouse；Neo4j、NebulaGraph、ArangoDB；InfluxDB、IoTDB、QuestDB。每个后端都由独立 feature 门控，详见架构。" }
+    },
+    {
+      "@type": "Question",
+      "name": "如何安装？",
+      "acceptedAnswer": { "@type": "Answer", "text": "需要 Rust 1.85+（edition 2024），然后执行 cargo add bee_rust，或用 bee-rust new my-app 创建项目。快速开始会从空 crate 走到健康检查端点。" }
+    },
+    {
+      "@type": "Question",
+      "name": "可以用于生产吗？",
+      "acceptedAnswer": { "@type": "Answer", "text": "可以。工作区有 334 个测试、三后端连接池（事务与超时控制）、非破坏性迁移，以及 32 个检测器的安全过滤器。业务代码 0 unsafe；FFI 封装在独立的 *-sys crate。" }
+    },
+    {
+      "@type": "Question",
+      "name": "文档在哪里？",
+      "acceptedAnswer": { "@type": "Answer", "text": "仓库保留 13 语言 README、完整 API 参考、更新日志与贡献指南；docs.rs 从源码渲染每个 crate 与 feature。" }
+    }
+  ]
+}
 </script>
 </head>
 <body data-page="home">
 
 <header class="site-header" id="site-header">
   <div class="wrap header-inner">
-    <a class="brand" href="index.html" aria-label="Bee Rust 首页"><span class="brand-mark"><img src="assets/img/rusty-face.svg" alt="" width="38" height="38"></span><span class="brand-name">Bee Rust</span><span class="brand-ver">1.3.0</span></a>
+    <a class="brand" href="./" aria-label="Bee Rust 首页"><span class="brand-mark"><img src="assets/img/rusty-face.svg" alt="" width="38" height="38"></span><span class="brand-name">Bee Rust</span><span class="brand-ver">1.3.0</span></a>
     <nav class="site-nav" id="site-nav" aria-label="主导航">
       <a href="#intro" data-nav data-en="Project">项目</a><a href="#features" data-nav data-en="Features">功能</a><a href="#architecture" data-nav data-en="Architecture">架构</a><a href="#rusty" data-nav data-en="Rusty">Rusty</a>
-      <a href="#install" data-nav data-en="Install">安装</a><a href="#usage" data-nav data-en="Usage">使用</a><a href="#download" data-nav data-en="Download">下载</a><a href="changelog.html" data-nav data-en="Changelog">版本日志</a>
+      <a href="#install" data-nav data-en="Install">安装</a><a href="#usage" data-nav data-en="Usage">使用</a><a href="#faq" data-nav data-en="FAQ">常见问题</a><a href="#download" data-nav data-en="Download">下载</a><a href="changelog.html" data-nav data-en="Changelog">版本日志</a>
     </nav>
     <div class="header-actions">
       <button class="lang-btn" type="button" data-lang-toggle aria-label="Switch to English">EN</button>
@@ -98,7 +210,7 @@
       </header>
       <div class="feature-grid">
         <article class="feature-card" data-reveal><div class="hex-badge">WEB</div><h3 data-en="Web core">Web 核心</h3><p data-en="MVC controllers, Context, namespaced routing, RESTful methods, and a request filter chain. ctx.json() / text() / html() / redirect() / abort().">MVC 控制器、Context、命名空间路由、RESTful 方法注册与请求过滤器链。ctx.json() / text() / html() / redirect() / abort()。</p><div class="tags"><span>bee_router</span></div></article>
-        <article class="feature-card" data-reveal><div class="hex-badge">ORM</div><h3 data-en="ORM">ORM</h3><p data-en="#[derive(Model)] + QuerySet, CRUD, three connection pools, transactions, non-destructive migrations, belongs_to / has_many / m2m, and JSON columns.">#[derive(Model)] + QuerySet、CRUD、三后端连接池、事务、非破坏性迁移、belongs_to / has_many / m2m 与 JSON 列。</p><div class="tags"><span>bee_orm</span></div></article>
+        <article class="feature-card" data-reveal><div class="hex-badge">ORM</div><h3 data-en="ORM">ORM</h3><p data-en="#[derive(Model)] + QuerySet, CRUD, three connection pools with transactions and timeouts, non-destructive migrations, belongs_to / has_many / m2m, JSON columns, and chrono / rust_decimal mapping.">#[derive(Model)] + QuerySet、CRUD、三后端连接池（事务与超时控制）、非破坏性迁移、belongs_to / has_many / m2m、JSON 列与 chrono / rust_decimal 类型映射。</p><div class="tags"><span>bee_orm</span></div></article>
         <article class="feature-card" data-reveal><div class="hex-badge">SEC</div><h3 data-en="Security filter">安全检测</h3><p data-en="32 built-in detectors from security-rust 4: XSS, SQL injection, command injection, SSRF, path traversal, Log4Shell, reDoS, and more. One line to enable.">security-rust 4 的 32 个内置检测器：XSS、SQL 注入、命令注入、SSRF、路径穿越、Log4Shell、reDoS 等。一行代码开启。</p><div class="tags"><span>security</span></div></article>
         <article class="feature-card" data-reveal><div class="hex-badge">CFG</div><h3 data-en="Config, logs, templates">配置、日志、模板</h3><p data-en="INI / YAML / ENV with hot reload, levelled logging over tracing, and tera templates.">INI / YAML / ENV 加载与热更新、基于 tracing 的多级日志、tera 模板渲染。</p><div class="tags"><span>bee_config</span><span>bee_logs</span><span>bee_template</span></div></article>
         <article class="feature-card" data-reveal><div class="hex-badge">DB</div><h3 data-en="Storage engines">多存储引擎</h3><p data-en="One trait per family: Redis, Memcached, Elasticsearch, OpenSearch, ClickHouse, Neo4j, NebulaGraph, ArangoDB, InfluxDB, IoTDB, QuestDB.">每类一套 trait：Redis、Memcached、Elasticsearch、OpenSearch、ClickHouse、Neo4j、NebulaGraph、ArangoDB、InfluxDB、IoTDB、QuestDB。</p><div class="tags"><span>bee_kv</span><span>bee_search</span><span>bee_graph</span><span>bee_tsdb</span></div></article>
@@ -129,13 +241,13 @@
         <div class="arch-arrow" aria-hidden="true"></div>
         <div class="arch-columns">
           <div class="arch-col"><h3 data-en="Web layer">Web 层</h3>
-            <div class="arch-crate"><b>bee_router</b><small data-en="routing · controllers · filters">路由 · 控制器 · 过滤器</small></div><div class="arch-crate"><b>bee_template</b><small data-en="tera templates">tera 模板</small></div><div class="arch-crate"><b>bee_session</b><small data-en="memory · redis">Memory · Redis</small></div>
+            <div class="arch-crate"><b>bee_router</b><small data-en="routing · controllers · filters">路由 · 控制器 · 过滤器</small></div><div class="arch-crate"><b>bee_template</b><small data-en="tera templates">tera 模板</small></div><div class="arch-crate"><b>bee_session</b><small data-en="memory · redis · cookie/database planned">Memory · Redis · Cookie/Database 规划</small></div>
           </div>
           <div class="arch-col"><h3 data-en="Data layer">数据层</h3>
             <div class="arch-crate"><b>bee_orm</b><small data-en="models · QuerySet · pools">模型 · QuerySet · 连接池</small></div><div class="arch-crate"><b>bee_config</b><small data-en="INI / YAML / ENV">INI / YAML / ENV</small></div><div class="arch-crate"><b>bee_cache</b><small data-en="memory · redis · memcache">Memory · Redis · Memcache</small></div><div class="arch-crate"><b>bee_kv</b><small data-en="redis · memcached">Redis · Memcached</small></div>
           </div>
           <div class="arch-col"><h3 data-en="Tool layer">工具层</h3>
-            <div class="arch-crate"><b>bee_cli</b><small data-en="scaffold · codegen · run · pack">脚手架 · 代码生成 · 运行 · 打包</small></div><div class="arch-crate"><b>bee_logs</b><small data-en="tracing integration">tracing 集成</small></div>
+            <div class="arch-crate"><b>bee_cli</b><small data-en="scaffold · codegen · run · pack · migrate">脚手架 · 代码生成 · 运行 · 打包 · 迁移</small></div><div class="arch-crate"><b>bee_logs</b><small data-en="tracing integration">tracing 集成</small></div>
           </div>
         </div>
         <div class="arch-arrow" aria-hidden="true"></div>
@@ -144,6 +256,28 @@
         </div>
       </div>
       <p class="arch-note" data-reveal data-en="search, graph and tsdb are opt-in — they are not part of the default full set. Every storage backend is behind its own feature flag.">search / graph / tsdb 按需开启，不在默认 full 内；每个存储后端都由独立 feature 门控。</p>
+      <div class="engineering">
+        <article class="eng-card" data-reveal>
+          <p class="eyebrow"><span class="eyebrow-line"></span><span data-en="Request pipeline">请求过滤器链</span></p>
+          <ol class="pipeline">
+            <li data-en="Security scan">安全检测</li>
+            <li data-en="Session restore">Session 恢复</li>
+            <li data-en="Validation">参数验证</li>
+            <li>prepare</li>
+            <li>handle</li>
+            <li>finish</li>
+          </ol>
+          <p class="eng-note" data-en="Any stage can abort, like Beego's Abort.">任何环节都可以中断，类似 Beego 的 Abort。</p>
+        </article>
+        <article class="eng-card" data-reveal>
+          <p class="eyebrow"><span class="eyebrow-line"></span><span data-en="Tech stack">技术栈</span></p>
+          <div class="tech-chips">
+            <span>axum 0.8</span><span>tower 0.5</span><span>tokio 1.x</span><span>serde</span>
+            <span>tera 1.x</span><span>tracing</span><span>clap 4</span><span>thiserror</span><span>syn + quote</span>
+          </div>
+          <p class="eng-note" data-en="Compile-time macros, static trait dispatch, feature-gated backends.">编译期宏展开、trait 静态分发、后端按 feature 编译。</p>
+        </article>
+      </div>
     </div>
   </section>
 
@@ -327,7 +461,9 @@ cd my-app &amp;&amp; cargo run</code></pre>
               <tr><td><code>orm</code></td><td>bee_orm · bee_config · bee_cache</td><td data-en="Model + QuerySet">模型 + QuerySet</td></tr>
               <tr><td><code>security</code></td><td data-en="security-rust 4 with 32 detectors">security-rust 4，32 个检测器</td><td data-en="Filter chain">过滤器链</td></tr>
               <tr><td><code>search</code> · <code>graph</code> · <code>tsdb</code></td><td data-en="Search, graph, and time-series engines">搜索、图、时序引擎</td><td data-en="Opt-in, not in full">按需开启，不在 full 内</td></tr>
-              <tr><td><code>orm-sqlite</code> · <code>orm-postgres</code> · <code>orm-mysql</code></td><td data-en="Forward a bee_orm backend through the meta crate">通过元 crate 转发 bee_orm 后端</td><td data-en="Also opt-in">同样按需开启</td></tr>
+              <tr><td><code>orm-sqlite</code> · <code>orm-postgres</code> · <code>orm-postgres-tls</code> · <code>orm-mysql</code></td><td data-en="Forward a bee_orm backend through the meta crate">通过元 crate 转发 bee_orm 后端</td><td data-en="Also opt-in">同样按需开启</td></tr>
+              <tr><td><code>orm-chrono</code> · <code>orm-rust_decimal</code></td><td data-en="Date / DateTime / Decimal field mapping">日期 / DateTime / Decimal 字段映射</td><td data-en="Opt-in">按需开启</td></tr>
+              <tr><td><code>redis</code> · <code>memcached</code> · <code>memcache</code> · <code>elasticsearch</code> · <code>opensearch</code> · <code>clickhouse</code> · <code>neo4j</code> · <code>nebulagraph</code> · <code>arangodb</code> · <code>influxdb</code> · <code>iotdb</code> · <code>questdb</code></td><td data-en="One feature per storage backend, on the sub-crate or through bee_rust">每个存储后端一个特性，可直接开在子 crate 或经 bee_rust 转发</td><td data-en="Never bundled into full">不打包进 full</td></tr>
             </tbody>
           </table>
           <div class="code-block code-block--rust">
@@ -354,12 +490,48 @@ cd my-app &amp;&amp; cargo run</code></pre>
     </div>
   </section>
 
+  <section class="section" id="faq">
+    <div class="wrap">
+      <header class="section-head">
+        <p class="eyebrow"><span class="eyebrow-line"></span><span data-en="07 · FAQ">07 · 常见问题</span></p>
+        <h2 data-en="Bee Rust FAQ">Bee Rust 常见问题</h2>
+        <p class="section-lede" data-en="Short answers about the framework, its Beego lineage, supported backends, and how to get running.">关于框架定位、与 Beego 的关系、支持的数据库以及如何跑起来。</p>
+      </header>
+      <div class="faq-grid">
+        <article class="faq-card">
+          <h3 data-en="What is Bee Rust?">Bee Rust 是什么？</h3>
+          <p data-en="Bee Rust is a production-grade Rust web framework. It brings Beego's MVC, namespaces, and filter chains into Rust with traits, macros, and the type system, plus an ORM, CLI, and unified storage-engine abstractions.">Bee Rust 是一个生产级 Rust Web 框架。它把 Beego 的 MVC、命名空间与过滤器链带进 Rust，用 trait、macro 与类型系统重新表达，并提供 ORM、CLI 与统一的存储引擎抽象。</p>
+        </article>
+        <article class="faq-card">
+          <h3 data-en="How is it different from Beego?">和 Beego 有什么区别？</h3>
+          <p data-en="It is not a line-by-line port. It keeps Beego's ergonomics — MVC, namespaced routes, filter chains — but implements them Rust-natively. The default full feature works out of the box; the minimal core depends only on axum and tokio.">不是逐行翻译。它保留 Beego 的顺手之处——MVC、命名空间路由、过滤器链——但用 Rust 原生方式实现。默认 full 特性开箱即用，最小核心只依赖 axum 与 tokio。</p>
+        </article>
+        <article class="faq-card">
+          <h3 data-en="Which databases are supported?">支持哪些数据库？</h3>
+          <p data-en="SQLite, PostgreSQL, MySQL, and TiDB through bee_orm; Redis and Memcached; Elasticsearch, OpenSearch, and ClickHouse; Neo4j, NebulaGraph, and ArangoDB; InfluxDB, IoTDB, and QuestDB. Each backend is behind its own feature flag — see the <a href='#architecture'>architecture section</a>.">SQLite、PostgreSQL、MySQL、TiDB（bee_orm）；Redis、Memcached；Elasticsearch、OpenSearch、ClickHouse；Neo4j、NebulaGraph、ArangoDB；InfluxDB、IoTDB、QuestDB。每个后端都由独立 feature 门控，详见<a href="#architecture">架构</a>。</p>
+        </article>
+        <article class="faq-card">
+          <h3 data-en="How do I install it?">如何安装？</h3>
+          <p data-en="Use Rust 1.85+ (edition 2024), then run <code>cargo add bee_rust</code>, or scaffold a project with <code>bee-rust new my-app</code>. The <a href='#install'>quick start</a> walks from an empty crate to a health endpoint.">需要 Rust 1.85+（edition 2024），然后执行 <code>cargo add bee_rust</code>，或用 <code>bee-rust new my-app</code> 创建项目。<a href="#install">快速开始</a>会从空 crate 走到健康检查端点。</p>
+        </article>
+        <article class="faq-card">
+          <h3 data-en="Is it production-ready?">可以用于生产吗？</h3>
+          <p data-en="Yes. The workspace ships 334 tests, three connection pools with transactions and timeouts, non-destructive migrations, and a 32-detector security filter. Business code is 0 unsafe; FFI stays in dedicated *-sys crates.">可以。工作区有 334 个测试、三后端连接池（事务与超时控制）、非破坏性迁移，以及 32 个检测器的安全过滤器。业务代码 0 unsafe；FFI 封装在独立的 *-sys crate。</p>
+        </article>
+        <article class="faq-card">
+          <h3 data-en="Where are the docs?">文档在哪里？</h3>
+          <p data-en="The repository keeps a 13-language README, a full API reference, changelog, and contribution guide. <a href='https://docs.rs/bee_rust' target='_blank' rel='noopener'>docs.rs</a> renders every crate and feature from source.">仓库保留 13 语言 README、完整 API 参考、更新日志与贡献指南；<a href="https://docs.rs/bee_rust" target="_blank" rel="noopener">docs.rs</a> 从源码渲染每个 crate 与 feature。</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
   <section class="section download-section" id="download">
     <div class="wrap">
       <div class="download-panel">
         <div class="download-head" data-reveal>
           <div>
-            <p class="eyebrow eyebrow--dark"><span class="pulse"></span><span data-en="07 · Download">07 · 下载</span></p>
+            <p class="eyebrow eyebrow--dark"><span class="pulse"></span><span data-en="08 · Download">08 · 下载</span></p>
             <h2 data-en="Download and start">下载，然后开始</h2>
             <p class="section-lede" data-en="Published on crates.io, tagged on GitHub, documented on docs.rs. Pick the path that fits.">已发布到 crates.io，GitHub 有版本标签，docs.rs 有完整 API 文档。选一条顺手的路。</p>
           </div>
@@ -406,18 +578,22 @@ cd my-app &amp;&amp; cargo run</code></pre>
   <section class="section support-section" id="support">
     <div class="wrap">
       <header class="section-head" data-reveal>
-        <p class="eyebrow"><span class="eyebrow-line"></span><span data-en="08 · Support">08 · 支持</span></p>
+        <p class="eyebrow"><span class="eyebrow-line"></span><span data-en="09 · Support">09 · 支持</span></p>
         <h2 data-en="Buy Rusty a spoonful of honey">请 Rusty 吃一勺蜜</h2>
         <p class="section-lede" data-en="If Bee Rust saves you time, you can support the project with WeChat Pay or Alipay.">如果 Bee Rust 帮到了你，可以用微信支付或支付宝支持项目。</p>
       </header>
       <div class="support-grid">
         <figure class="qr-card" data-reveal>
-          <img src="assets/img/pay/weixinpay.png" alt="微信支付打赏二维码" width="160" height="175" loading="lazy" decoding="async">
-          <figcaption><b data-en="WeChat Pay">微信支付</b><span>WANG KEXUN</span></figcaption>
+          <button class="qr-zoom" type="button" data-qr="assets/img/pay/weixinpay.png" data-qr-name-zh="微信支付" data-qr-name-en="WeChat Pay" aria-label="放大微信支付打赏二维码" data-en-aria-label="Enlarge the WeChat Pay donation QR code">
+            <img src="assets/img/pay/weixinpay.png" alt="" width="386" height="423" loading="lazy" decoding="async">
+          </button>
+          <figcaption><b data-en="WeChat Pay">微信支付</b><span>WANG KEXUN</span><em class="qr-hint" data-en="Tap to enlarge">点击放大</em></figcaption>
         </figure>
         <figure class="qr-card" data-reveal>
-          <img src="assets/img/pay/alipay.png" alt="支付宝打赏二维码" width="160" height="175" loading="lazy" decoding="async">
-          <figcaption><b data-en="Alipay">支付宝</b><span>WANG KEXUN</span></figcaption>
+          <button class="qr-zoom" type="button" data-qr="assets/img/pay/alipay.png" data-qr-name-zh="支付宝" data-qr-name-en="Alipay" aria-label="放大支付宝打赏二维码" data-en-aria-label="Enlarge the Alipay donation QR code">
+            <img src="assets/img/pay/alipay.png" alt="" width="412" height="450" loading="lazy" decoding="async">
+          </button>
+          <figcaption><b data-en="Alipay">支付宝</b><span>WANG KEXUN</span><em class="qr-hint" data-en="Tap to enlarge">点击放大</em></figcaption>
         </figure>
         <div class="support-copy" data-reveal>
           <h3 data-en="More ways to support">更多支持方式</h3>
@@ -432,7 +608,7 @@ cd my-app &amp;&amp; cargo run</code></pre>
 <footer class="site-footer">
   <div class="wrap footer-main">
     <div class="footer-brand">
-      <a class="brand brand--footer" href="index.html">
+      <a class="brand brand--footer" href="./">
         <span class="brand-mark"><img src="assets/img/rusty-face.svg" alt="" width="40" height="40"></span>
         <span class="brand-name">Bee Rust</span>
       </a>
@@ -480,6 +656,17 @@ cd my-app &amp;&amp; cargo run</code></pre>
   <img id="to-top-pet" src="assets/img/pet-expressions/cute.svg" alt="" width="512" height="512" decoding="async">
   <span class="to-top-arrow" aria-hidden="true">↑</span>
 </button>
+
+<dialog class="qr-modal" id="qr-modal" aria-labelledby="qr-modal-title">
+  <div class="qr-modal-inner">
+    <button class="qr-modal-close" type="button" data-qr-close aria-label="关闭" data-en-aria-label="Close">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+    </button>
+    <p class="qr-modal-title" id="qr-modal-title"></p>
+    <img class="qr-modal-img" id="qr-modal-img" alt="" width="412" height="450" decoding="async">
+    <p class="qr-modal-note" data-en="Scan with WeChat or Alipay to support Bee Rust">使用微信或支付宝扫码支持 Bee Rust</p>
+  </div>
+</dialog>
 
 <script defer src="assets/js/i18n.js"></script>
 <script defer src="assets/js/data.js"></script>

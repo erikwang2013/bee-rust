@@ -44,11 +44,17 @@
 
     if (window.BeeSite && window.BeeSite.observeReveals) window.BeeSite.observeReveals(list);
     bindIndexObserver();
-    document.title = l === 'en' ? 'Changelog · Bee Rust' : '版本日志 · Bee Rust';
-    var meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute('content', l === 'en'
-      ? 'Bee Rust release history: from the initial 1.0.3 workspace to the 1.3.0 hardening pass.'
-      : 'Bee Rust 版本日志：从 1.0.3 的初始工作区到 1.3.0 的硬化与收敛，按版本查看新增、修复与清理。');
+    var title = l === 'en' ? 'Changelog · Bee Rust' : '版本日志 · Bee Rust';
+    var description = l === 'en'
+      ? 'Bee Rust release history, from the initial 1.0.3 workspace to the 1.3.0 hardening pass.'
+      : 'Bee Rust 版本日志：从 1.0.3 到 1.3.0 的每次迭代，按版本查看新增、修复与清理。';
+    if (window.BeeSite && window.BeeSite.applyMeta) {
+      window.BeeSite.applyMeta(title, description, l === 'en' ? 'en_US' : 'zh_CN');
+    } else {
+      document.title = title;
+      var meta = document.querySelector('meta[name="description"]');
+      if (meta) meta.setAttribute('content', description);
+    }
   }
 
   function bindIndexObserver() {

@@ -1,0 +1,5 @@
+# Bee Rust — https://bee-rust.erik.xyz/
+User-agent: *
+Allow: /
+
+Sitemap: https://bee-rust.erik.xyz/sitemap.xml

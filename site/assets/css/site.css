@@ -207,6 +207,16 @@
 .arch-storage b { display: block; color: var(--amber); font-size: 0.68rem; font-weight: 700; }
 .arch-storage code { display: inline-block; margin-left: 4px; padding: 1px 5px; border: 1px solid rgba(245, 179, 1, 0.24); border-radius: 4px; color: var(--amber); font-size: 0.6rem; line-height: 1.5; }
 .arch-note { max-width: 72ch; margin: 18px auto 0; color: var(--muted); font-size: 0.78rem; text-align: center; }
+.engineering { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 22px; }
+.eng-card { padding: 24px 22px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
+.eng-card .eyebrow { margin-bottom: 16px; }
+.pipeline { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.pipeline li { position: relative; padding: 5px 7px; border: 1px solid rgba(183, 65, 14, 0.18); border-radius: 6px; background: rgba(245, 179, 1, 0.08); color: var(--rust); font-family: var(--mono); font-size: 0.62rem; font-weight: 700; }
+.pipeline li + li { margin-left: 9px; }
+.pipeline li + li::before { content: "→"; position: absolute; left: -9px; top: 50%; transform: translateY(-50%); color: var(--faint); font-weight: 400; }
+.tech-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.tech-chips span { padding: 5px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--cream-2); color: var(--ink-2); font-family: var(--mono); font-size: 0.64rem; }
+.eng-note { margin-top: 14px; color: var(--muted); font-size: 0.78rem; line-height: 1.7; }
 
 @media (max-width: 1080px) {
   .hero-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr); gap: 24px; }
@@ -231,12 +241,15 @@
   .milestone { padding-top: 0; padding-right: 62px; }
   .milestone-pet { width: 52px; height: 52px; }
   .arch-columns { grid-template-columns: 1fr; }
+  .engineering { grid-template-columns: 1fr; }
   .arch-layer { flex-wrap: wrap; }
   .arch-label { writing-mode: horizontal-tb; transform: none; width: 100%; text-align: center; }
   .arch-layer--meta { flex-direction: column; align-items: center; }
 }
 @media (max-width: 620px) {
   .goal-grid, .feature-grid { grid-template-columns: 1fr; }
+  .pipeline li + li { margin-left: 0; }
+  .pipeline li + li::before { display: none; }
   .quote-card { grid-template-columns: 1fr; padding: 26px 24px; }
   .quote-card img { width: 104px; justify-self: start; }
   .evolution-head { flex-direction: column; align-items: flex-start; gap: 16px; }

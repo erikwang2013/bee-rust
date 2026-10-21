@@ -63,14 +63,29 @@
     observeReveals(host);
   }
 
+  function setMeta(selector, value) {
+    var el = document.querySelector(selector);
+    if (el) el.setAttribute('content', value);
+  }
+  function applyMeta(title, description, locale) {
+    document.title = title;
+    setMeta('meta[name="description"]', description);
+    setMeta('meta[property="og:title"]', title);
+    setMeta('meta[property="og:description"]', description);
+    setMeta('meta[property="og:locale"]', locale);
+    setMeta('meta[name="twitter:title"]', title);
+    setMeta('meta[name="twitter:description"]', description);
+  }
   function syncPageMeta() {
     if (document.body.dataset.page !== 'home') return;
     var l = lang();
-    document.title = l === 'en' ? 'Bee Rust · A production-grade Rust web framework' : 'Bee Rust · 生产级 Rust Web 框架';
-    var meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute('content', l === 'en'
-      ? 'Bee Rust is a production-grade web framework for Rust: Beego philosophy, re-expressed with traits, macros, and the type system.'
-      : 'Bee Rust 是一个生产级 Rust Web 框架：Beego 的设计哲学，用 Rust 的 trait、macro 与类型系统重新表达。');
+    applyMeta(
+      l === 'en' ? 'Bee Rust · A production-grade Rust web framework' : 'Bee Rust · 生产级 Rust Web 框架',
+      l === 'en'
+        ? 'Bee Rust is a production-grade Rust web framework: Beego philosophy with traits, macros, and the type system. MVC, ORM, filter chains, CLI, and storage engines.'
+        : 'Bee Rust 是生产级 Rust Web 框架：Beego 哲学，用 trait、macro 与类型系统表达。内置 MVC、ORM、过滤器链、CLI 与存储引擎。',
+      l === 'en' ? 'en_US' : 'zh_CN'
+    );
   }
 
   /* Header state + back-to-top visibility */
@@ -160,6 +175,53 @@
     document.body.removeChild(area);
   }
 
+  /* Donation QR lightbox */
+  var qrModal = document.getElementById('qr-modal');
+  var qrModalImg = document.getElementById('qr-modal-img');
+  var qrModalTitle = document.getElementById('qr-modal-title');
+  var qrTrigger = null;
+  function qrName(trigger, suffixZh, suffixEn) {
+    var zh = trigger.getAttribute('data-qr-name-zh') || '';
+    var en = trigger.getAttribute('data-qr-name-en') || zh;
+    return t(zh + suffixZh, en + suffixEn);
+  }
+  function syncQrText() {
+    if (!qrTrigger) return;
+    if (qrModalImg) qrModalImg.alt = qrName(qrTrigger, '打赏二维码', ' donation QR code');
+    if (qrModalTitle) qrModalTitle.textContent = qrName(qrTrigger, '', '');
+  }
+  document.addEventListener('click', function (e) {
+    var trigger = e.target.closest && e.target.closest('[data-qr]');
+    if (!trigger) return;
+    var src = trigger.getAttribute('data-qr');
+    if (!src) return;
+    if (!qrModal || typeof qrModal.showModal !== 'function') {
+      window.open(src, '_blank', 'noopener');
+      return;
+    }
+    qrTrigger = trigger;
+    if (qrModalImg) qrModalImg.src = src;
+    syncQrText();
+    qrModal.showModal();
+  });
+  if (qrModal) {
+    qrModal.addEventListener('click', function (e) { if (e.target === qrModal) qrModal.close(); });
+    qrModal.addEventListener('close', function () { qrTrigger = null; });
+    var qrClose = qrModal.querySelector('[data-qr-close]');
+    if (qrClose) qrClose.addEventListener('click', function () { qrModal.close(); });
+  }
+  /* Warm QR decodes so the lightbox opens without a decode hitch */
+  function warmQr() {
+    var triggers = document.querySelectorAll('[data-qr]');
+    for (var i = 0; i < triggers.length; i++) {
+      var img = new Image();
+      img.src = triggers[i].getAttribute('data-qr');
+      if (img.decode) img.decode().catch(function () {});
+    }
+  }
+  if ('requestIdleCallback' in window) window.requestIdleCallback(warmQr, { timeout: 2800 });
+  else window.setTimeout(warmQr, 1800);
+
   /* Back to top — Rusty says hi */
   var topPet = document.getElementById('to-top-pet');
   var danceTimer = null;
@@ -214,11 +276,12 @@
     renderPets();
     renderMilestones();
     syncPageMeta();
+    syncQrText();
   });
 
   renderPets();
   renderMilestones();
   observeReveals(document);
   syncPageMeta();
-  window.BeeSite = { observeReveals: observeReveals };
+  window.BeeSite = { observeReveals: observeReveals, applyMeta: applyMeta };
 })();

@@ -123,6 +123,13 @@
 .usage-note { color: var(--faint) !important; font-size: 0.7rem !important; }
 .usage-card .code-block pre { font-size: 0.72rem; }
 
+/* FAQ */
+.faq-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.faq-card { padding: 24px 22px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
+.faq-card h3 { font-size: 1.02rem; }
+.faq-card p { margin-top: 8px; color: var(--muted); font-size: 0.86rem; line-height: 1.78; }
+.faq-card code { padding: 1px 4px; border-radius: 4px; background: var(--cream-2); color: var(--rust); font-size: 0.85em; }
+
 /* Download */
 .download-section { padding-top: clamp(20px, 4vw, 40px); }
 .download-panel {
@@ -166,10 +173,26 @@
 .support-section { padding-top: clamp(46px, 7vw, 84px); }
 .support-grid { display: grid; grid-template-columns: 1fr 1fr 1.35fr; gap: 16px; align-items: stretch; }
 .qr-card { display: flex; flex-direction: column; align-items: center; padding: 22px 18px 18px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-sm); text-align: center; }
-.qr-card img { width: 150px; height: auto; padding: 4px; background: #fff; border-radius: 8px; }
+.qr-zoom { position: relative; display: block; padding: 0; border: 0; background: none; border-radius: 10px; cursor: zoom-in; }
+.qr-zoom img { width: 150px; height: auto; padding: 4px; background: #fff; border-radius: 8px; transition: transform 0.25s var(--ease), box-shadow 0.25s; }
+.qr-zoom:hover img, .qr-zoom:focus-visible img { transform: translateY(-2px) scale(1.03); box-shadow: 0 12px 28px -16px rgba(31, 26, 23, 0.5); }
 .qr-card figcaption { margin-top: 12px; }
 .qr-card b { display: block; font-size: 0.9rem; }
-.qr-card span { display: block; margin-top: 2px; color: var(--faint); font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.06em; }
+.qr-card figcaption span { display: block; margin-top: 2px; color: var(--faint); font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.06em; }
+.qr-hint { display: block; margin-top: 5px; color: var(--rust); font-family: var(--mono); font-size: 0.58rem; font-style: normal; letter-spacing: 0.04em; }
+
+/* QR lightbox */
+.qr-modal { width: min(92vw, 460px); max-width: none; padding: 0; border: 0; background: transparent; color: var(--ink); overscroll-behavior: contain; }
+.qr-modal::backdrop { background: rgba(18, 16, 13, 0.72); }
+.qr-modal-inner { position: relative; display: grid; justify-items: center; gap: 12px; padding: 30px 26px 22px; background: var(--cream); border: 1px solid rgba(245, 179, 1, 0.4); border-radius: 24px; box-shadow: 0 40px 90px -40px rgba(0, 0, 0, 0.75); text-align: center; }
+.qr-modal[open] { animation: qr-pop 0.18s var(--ease); }
+@keyframes qr-pop { from { transform: scale(0.96) translateY(6px); } }
+.qr-modal-img { width: min(80vw, 372px); height: auto; padding: 10px; background: #fff; border-radius: 14px; }
+.qr-modal-title { font-size: 1.05rem; font-weight: 800; }
+.qr-modal-note { color: var(--muted); font-size: 0.78rem; line-height: 1.6; }
+.qr-modal-close { position: absolute; top: 10px; right: 10px; display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: var(--cream-2); color: var(--ink-2); cursor: pointer; transition: background 0.2s, color 0.2s, transform 0.2s; }
+.qr-modal-close:hover { background: var(--amber); color: var(--ink); transform: rotate(90deg); }
+.qr-modal-close svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 .support-copy { padding: 28px 26px; background: linear-gradient(135deg, #fff6de, #ffedbd); border: 1px solid rgba(183, 65, 14, 0.16); border-radius: var(--radius); }
 .support-copy h3 { font-size: 1.3rem; }
 .support-copy p { margin: 9px 0 20px; color: var(--ink-2); font-size: 0.86rem; line-height: 1.8; }
@@ -205,6 +228,7 @@
   .download-terminal { grid-template-columns: 1fr; }
   .download-terminal img { display: none; }
   .support-grid { grid-template-columns: 1fr; }
+  .faq-grid { grid-template-columns: 1fr; }
   .flags { overflow-x: auto; }
   .flags table { min-width: 560px; }
   .code-block pre { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
