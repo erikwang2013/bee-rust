@@ -36,6 +36,17 @@ async fn join_table_ddl_is_the_pinned_shape_per_dialect() {
 }
 
 #[tokio::test]
+async fn join_table_uses_the_resolved_names() {
+    let db = Mock::with_dialect_and_prefix(Dialect::Sqlite, "s0_");
+    migrate::create_table::<Reader, _>(&db).await.unwrap();
+    let calls = db.calls();
+    let ddl = &calls[1].0;
+    assert!(ddl.starts_with("CREATE TABLE IF NOT EXISTS s0_reader_author"), "{ddl}");
+    assert!(ddl.contains("REFERENCES s0_readers (id)"), "{ddl}");
+    assert!(ddl.contains("REFERENCES s0_authors (id)"), "{ddl}");
+}
+
+#[tokio::test]
 async fn the_table_level_option_is_mysql_only_and_moves_fks_to_the_body() {
     let pg = Mock::with_dialect(Dialect::Postgres);
     migrate::create_table_with::<Reader, _>(&pg, MigrateOptions { table_level_fk: true })
