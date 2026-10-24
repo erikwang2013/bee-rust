@@ -1,8 +1,8 @@
 // Copyright (c) 2026 erik <erik@erik.xyz> — https://erik.xyz
 #![cfg(feature = "mysql")]
 //! MySQL integration tests against a real server. Each test is a no-op (with a
-//! skip notice) unless `BEE_ORM_MYSQL_DSN` is set; CI sets it against a
-//! `mysql:8` service container.
+//! skip notice) unless `BEE_ORM_MYSQL_DSN` is set; CI sets it against the
+//! MySQL 8.0 / 8.4 / 9 matrix service containers.
 mod common;
 
 use bee_orm::pool::mysql::Pool;

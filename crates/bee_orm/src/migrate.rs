@@ -36,13 +36,17 @@
 //!
 //! The `_with` variants take [`MigrateOptions`] ([`Default`] is the
 //! historical behavior). `table_level_fk` is a mysql-only opt-in: the inline
-//! `REFERENCES` mysql parses and ignores becomes a table-level
-//! `FOREIGN KEY (…)` clause on `CREATE`, and a named
-//! `ALTER TABLE … ADD CONSTRAINT {table}_{column}_fk FOREIGN KEY …` on the
-//! add path — idempotent by constraint-name lookup, loud over pre-existing
-//! orphan rows (the driver's error), and no retrofit of existing columns. On
-//! sqlite and postgres, where inline `REFERENCES` is enforced, it is a
-//! documented no-op.
+//! `REFERENCES` becomes a table-level `FOREIGN KEY (…)` clause on `CREATE`,
+//! and a named `ALTER TABLE … ADD CONSTRAINT {table}_{column}_fk FOREIGN KEY
+//! …` on the add path — idempotent by constraint-name lookup, loud over
+//! pre-existing orphan rows (the driver's error), and no retrofit of existing
+//! columns. On sqlite and postgres, where inline `REFERENCES` is enforced, it
+//! is a documented no-op.
+//!
+//! Column-level `REFERENCES` on mysql (measured): 8.0/8.4 parse and ignore it,
+//! creating no constraint even for a missing target; MySQL 9 enforces it, so
+//! the default inline clause is a real FK there and the parent must be created
+//! first.
 //!
 //! # Caveats
 //!
@@ -66,11 +70,12 @@ use crate::{
 pub struct MigrateOptions {
     /// mysql only: render foreign keys as table-level `FOREIGN KEY (…)`
     /// clauses plus named `ADD CONSTRAINT`s instead of the inline
-    /// `REFERENCES` mysql parses and ignores. A no-op on sqlite and postgres,
-    /// where inline `REFERENCES` is enforced. Off by default: turning it on
-    /// is what makes `ALTER`s fail over pre-existing orphan rows, and it
-    /// retrofits nothing — only fresh `CREATE TABLE`s and columns added while
-    /// opted in get enforced constraints.
+    /// `REFERENCES`. The inline form is ignored on MySQL 8.0/8.4 but enforced
+    /// on MySQL 9, where the parent must already exist. A no-op on sqlite and
+    /// postgres, where inline `REFERENCES` is enforced. Off by default:
+    /// turning it on is what makes `ALTER`s fail over pre-existing orphan
+    /// rows, and it retrofits nothing — only fresh `CREATE TABLE`s and
+    /// columns added while opted in get enforced constraints.
     pub table_level_fk: bool,
 }
 

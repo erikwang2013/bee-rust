@@ -28,7 +28,8 @@ async fn join_table_ddl_is_the_pinned_shape_per_dialect() {
         pg.calls()[1].0
     );
 
-    // mysql without the option: inline `REFERENCES` (parsed and ignored).
+    // mysql without the option: inline `REFERENCES` (parsed and ignored on
+    // 8.0/8.4, enforced as a real FK on MySQL 9).
     let mysql = Mock::with_dialect(Dialect::Mysql);
     migrate::create_table::<Reader, _>(&mysql).await.unwrap();
     assert!(mysql.calls()[1].0.contains("reader_id BIGINT NOT NULL REFERENCES readers (id)"));

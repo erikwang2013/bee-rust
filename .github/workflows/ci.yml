@@ -152,7 +152,7 @@ jobs:
           toolchain: stable
 
       - name: MySQL integration tests (DSN-gated)
-        run: cargo test -p bee_orm --features mysql
+        run: cargo test -p bee_orm --features mysql,chrono,rust_decimal
 
   audit:
     name: Audit dependencies
