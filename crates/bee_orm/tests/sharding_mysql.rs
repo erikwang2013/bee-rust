@@ -38,6 +38,11 @@ async fn count(pool: &Pool, table: &str) -> Result<i64, OrmError> {
     Ok(rows[0]["n"].as_i64().unwrap())
 }
 
+async fn names(pool: &Pool, table: &str) -> Result<Vec<String>, OrmError> {
+    let rows = pool.query(&format!("SELECT name FROM {table} ORDER BY id"), &[]).await?;
+    Ok(rows.iter().filter_map(|row| row["name"].as_str().map(str::to_owned)).collect())
+}
+
 /// `HashRouter::new(1, 2)`: one database, two physical tables. Each keyed
 /// handle must rewrite the logical name and see only its own table's row.
 #[tokio::test]
@@ -68,6 +73,8 @@ async fn table_shards_round_trip() -> Result<(), OrmError> {
 
     assert_eq!(count(&admin, "shard_orders_0").await?, 1);
     assert_eq!(count(&admin, "shard_orders_1").await?, 1);
+
+    admin.execute("DROP TABLE IF EXISTS shard_orders_0, shard_orders_1", &[]).await?;
     Ok(())
 }
 
@@ -96,15 +103,16 @@ async fn database_shards_round_trip() -> Result<(), OrmError> {
     ShardOrder { id: 0, user_id: 1, name: "alice".into() }.insert(&first).await?;
     ShardOrder { id: 0, user_id: 2, name: "bob".into() }.insert(&second).await?;
 
-    // Each handle reads its own database only, and the two pools agree.
+    // Each handle reads its own database only; the per-pool names pin the
+    // routing direction, which 1/1 counts alone would not.
     let rows = ShardOrder::query().all(&first).await?;
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].name, "alice");
     let rows = ShardOrder::query().all(&second).await?;
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].name, "bob");
-    assert_eq!(count(&p0, "shard_orders").await?, 1, "pool 0 holds alice only");
-    assert_eq!(count(&p1, "shard_orders").await?, 1, "pool 1 holds bob only");
+    assert_eq!(names(&p0, "shard_orders").await?, vec!["alice"], "key 1 lands in bee_shard_0");
+    assert_eq!(names(&p1, "shard_orders").await?, vec!["bob"], "key 2 lands in bee_shard_1");
 
     assert_eq!(count(&admin, "bee_shard_0.shard_orders").await?, 1);
     assert_eq!(count(&admin, "bee_shard_1.shard_orders").await?, 1);
