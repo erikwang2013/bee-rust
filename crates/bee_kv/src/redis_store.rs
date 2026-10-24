@@ -45,13 +45,25 @@ impl RedisStore {
         Ok(Self { pool: connect_pool(addr, max_size).await? })
     }
 
+    /// A lock sharing this store's connection pool.
+    pub fn lock(&self) -> crate::RedisLock {
+        crate::RedisLock::from_pool(self.pool.clone())
+    }
+
     /// Check out a pooled connection, bounding every reply at
     /// [`RESPONSE_TIMEOUT`].
     async fn checkout(&self) -> Result<deadpool_redis::Connection, KvError> {
-        let mut conn = self.pool.get().await.map_err(conn_err)?;
-        conn.set_response_timeout(RESPONSE_TIMEOUT);
-        Ok(conn)
+        checkout_pool(&self.pool).await
     }
+}
+
+/// Check out a pooled connection, bounding every reply at [`RESPONSE_TIMEOUT`].
+pub(crate) async fn checkout_pool(
+    pool: &deadpool_redis::Pool,
+) -> Result<deadpool_redis::Connection, KvError> {
+    let mut conn = pool.get().await.map_err(conn_err)?;
+    conn.set_response_timeout(RESPONSE_TIMEOUT);
+    Ok(conn)
 }
 
 /// Build a pool for `addr` and prove it serves a command, so a bad address
@@ -136,7 +148,7 @@ fn conn_err(e: impl std::fmt::Display) -> KvError {
     KvError::ConnectionError(e.to_string())
 }
 
-fn op_err(e: impl std::fmt::Display) -> KvError {
+pub(crate) fn op_err(e: impl std::fmt::Display) -> KvError {
     KvError::OperationFailed(e.to_string())
 }
 

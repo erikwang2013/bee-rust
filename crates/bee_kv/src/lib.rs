@@ -14,6 +14,10 @@ mod memcache_store;
 #[cfg(feature = "memcached")]
 pub use memcache_store::MemcacheStore;
 #[cfg(feature = "redis")]
+mod redis_lock;
+#[cfg(feature = "redis")]
+pub use redis_lock::{LockGuard, RedisLock};
+#[cfg(feature = "redis")]
 mod redis_store;
 #[cfg(feature = "redis")]
 pub use redis_store::RedisStore;
