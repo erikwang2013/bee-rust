@@ -27,6 +27,7 @@ use crate::{
 struct Mock {
     rows: Vec<Row>,
     dialect: Option<Dialect>,
+    resolve_prefix: Option<String>,
     calls: Mutex<Vec<(String, Vec<Value>)>>,
 }
 
@@ -39,6 +40,14 @@ impl Mock {
         Self { dialect: Some(dialect), ..Self::default() }
     }
 
+    fn renaming(prefix: &str) -> Self {
+        Self { resolve_prefix: Some(prefix.to_string()), ..Self::default() }
+    }
+
+    fn with_dialect_and_prefix(dialect: Dialect, prefix: &str) -> Self {
+        Self { dialect: Some(dialect), resolve_prefix: Some(prefix.to_string()), ..Self::default() }
+    }
+
     fn calls(&self) -> Vec<(String, Vec<Value>)> {
         self.calls.lock().unwrap().clone()
     }
@@ -48,6 +57,13 @@ impl Mock {
 impl Db for Mock {
     fn dialect(&self) -> Option<Dialect> {
         self.dialect
+    }
+
+    fn resolve_table(&self, logical: &str) -> Result<String> {
+        Ok(match &self.resolve_prefix {
+            Some(prefix) => format!("{prefix}{logical}"),
+            None => logical.to_owned(),
+        })
     }
 
     async fn query(&self, sql: &str, params: &[Value]) -> Result<Vec<Row>> {

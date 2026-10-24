@@ -25,6 +25,16 @@ pub trait Db: Send + Sync {
         None
     }
 
+    /// The physical table behind a logical name; the identity by default.
+    ///
+    /// A sharded backend overrides this to pick the table's shard. Statements
+    /// that address a model table go through here before formatting; the
+    /// returned name is spliced into SQL unquoted, so it must match
+    /// `[A-Za-z_][A-Za-z0-9_]*`.
+    fn resolve_table(&self, logical: &str) -> Result<String> {
+        Ok(logical.to_owned())
+    }
+
     /// Insert and, where the backend can, return the stored row.
     ///
     /// The seam behind [`Model::create`](crate::Model::create), which needs

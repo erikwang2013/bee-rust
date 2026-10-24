@@ -60,6 +60,24 @@ async fn hard_delete_is_a_plain_delete() {
 }
 
 #[tokio::test]
+async fn insert_uses_the_resolved_table() {
+    let db = Mock::renaming("s0_");
+    Tiny { id: 1, v: 5 }.insert(&db).await.unwrap();
+    let (sql, _) = db.calls().remove(0);
+    assert_eq!(sql, "INSERT INTO s0_tiny_items (v) VALUES (?)");
+}
+
+#[tokio::test]
+async fn update_and_deletes_use_the_resolved_table() {
+    let db = Mock::renaming("s0_");
+    Tiny { id: 7, v: 5 }.update(&db).await.unwrap();
+    Tiny { id: 7, v: 5 }.hard_delete(&db).await.unwrap();
+    let calls = db.calls();
+    assert_eq!(calls[0].0, "UPDATE s0_tiny_items SET v = ? WHERE id = ?");
+    assert_eq!(calls[1].0, "DELETE FROM s0_tiny_items WHERE id = ?");
+}
+
+#[tokio::test]
 async fn before_hook_error_aborts_before_any_sql() {
     let db = Mock::default();
     let err = Guarded { id: 1, title: "blocked".into() }.insert(&db).await.unwrap_err();
@@ -173,6 +191,22 @@ async fn create_inserts_then_selects_by_pk_without_returning_support() {
     // `None` — `create` falls back to the pk select.
     assert_eq!(calls[1].0, "SELECT * FROM ticks WHERE id = ?");
     assert_eq!(calls[1].1, vec![Value::Int(0)]);
+}
+
+#[tokio::test]
+async fn create_resolves_the_table_for_the_read_back() {
+    let db = Mock {
+        rows: vec![row_of(&[
+            ("id", serde_json::json!(9)),
+            ("name", serde_json::json!("a")),
+            ("tag", serde_json::json!("d")),
+        ])],
+        ..Mock::with_dialect_and_prefix(Dialect::Sqlite, "s0_")
+    };
+    Tick { id: 0, name: "a".into(), tag: String::new() }.create(&db).await.unwrap();
+    let calls = db.calls();
+    assert_eq!(calls[0].0, "INSERT INTO s0_ticks (name) VALUES (?)");
+    assert_eq!(calls[1].0, "SELECT * FROM s0_ticks WHERE id = ?");
 }
 
 #[tokio::test]
