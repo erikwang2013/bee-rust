@@ -2,6 +2,13 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [未发布]
+
+### 新增
+- `bee_orm`：兼容 MySQL 8.0 / 8.4 / 9.x，由 CI 矩阵验证。
+- `bee_orm`：`shard::{ShardedPools, HashRouter, ShardRouter}`——数据库与表两级 key-required 哈希分片；不支持跨分片查询/事务。
+- `bee_kv` / `bee_cache`：Redis 真实连接池（`deadpool-redis`）与 `bee_kv::RedisLock`（`SET NX PX` + Lua 释放）。
+
 ## [1.3.0] — 2026-10-13
 
 ### 修复

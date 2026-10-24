@@ -183,7 +183,7 @@ bee_rust   → 全部上述 crate (re-export)
 |------|--------|-----------|-------------|
 | **关系型** | SQLite | `bee_orm` | `sqlite`（bee_rust：`orm-sqlite`） |
 | | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls`（bee_rust：`orm-postgres` / `orm-postgres-tls`） |
-| | MySQL | `bee_orm` | `mysql`（bee_rust：`orm-mysql`） |
+| | MySQL 8.0 / 8.4 / 9.x | `bee_orm` | `mysql`（bee_rust：`orm-mysql`） |
 | | TiDB | `bee_orm` | `mysql` |
 | **字段类型** | 日期 / Decimal | `bee_orm` | `chrono` / `rust_decimal`（bee_rust：`orm-chrono` / `orm-rust_decimal`） |
 | **KV / 缓存** | Redis | `bee_kv` / `bee_cache` | `redis` |
@@ -227,7 +227,7 @@ let security = SecurityFilter::new();  // 27 个检测器全开
 
 ### ORM（bee_orm）
 
-`#[derive(Model)]` 派生宏（支持 `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`）+ QuerySet 链式查询与执行（`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`，聚合 `sum` / `avg` / `min` / `max`）+ 非破坏性迁移（`migrate::create_table` / `add_missing_columns` / `sync`）+ 关系查询（`belongs_to` / has_many `children*` / 多对多 `m2m`）+ JSON 列（`serde_json::Value`）+ 三后端连接池（含事务与超时控制），支持 SQLite、PostgreSQL、MySQL、TiDB。
+`#[derive(Model)]` 派生宏（支持 `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`）+ QuerySet 链式查询与执行（`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`，聚合 `sum` / `avg` / `min` / `max`）+ 非破坏性迁移（`migrate::create_table` / `add_missing_columns` / `sync`）+ 关系查询（`belongs_to` / has_many `children*` / 多对多 `m2m`）+ JSON 列（`serde_json::Value`）+ 三后端连接池（含事务与超时控制），支持 SQLite、PostgreSQL、MySQL、TiDB；分库分表（`ShardedPools` + `HashRouter`，查询必须带分片键；不支持跨分片查询/事务）。
 
 ### 配置管理（bee_config）
 
@@ -235,7 +235,7 @@ let security = SecurityFilter::new();  // 27 个检测器全开
 
 ### 存储引擎
 
-KV / Cache（Redis / Memcached）、搜索引擎（Elasticsearch / OpenSearch / ClickHouse）、图数据库（Neo4j / NebulaGraph / ArangoDB）、时序数据库（InfluxDB / IoTDB / QuestDB）统一 trait 抽象，驱动按 feature gate 编译。
+KV / Cache（Redis / Memcached）、搜索引擎（Elasticsearch / OpenSearch / ClickHouse）、图数据库（Neo4j / NebulaGraph / ArangoDB）、时序数据库（InfluxDB / IoTDB / QuestDB）统一 trait 抽象，驱动按 feature gate 编译；Redis 后端使用真实连接池（`deadpool-redis`），并提供分布式锁 `bee_kv::RedisLock`（`SET NX PX` 获取 + Lua 释放）。
 
 ### Session、日志、模板
 
@@ -337,23 +337,23 @@ bee_rust = { version = "1.3.0", features = ["full"] }
 
 ### 测试覆盖
 
-全仓 334 个测试通过：
+全仓 401 个测试通过：
 
 | Crate | 测试数 |
 |-------|--------|
-| bee_config | 9 |
-| bee_cache | 15 |
+| bee_config | 8 |
+| bee_cache | 16 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 15 |
+| bee_kv | 22 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |
-| bee_orm | 141 |
-| bee_orm_macro | 20 |
+| bee_orm | 195 |
+| bee_orm_macro | 24 |
 | bee_session | 2 |
 | bee_router | 40 |
-| bee_cli | 28 |
+| bee_cli | 30 |
 
 ## 欢迎支持
 

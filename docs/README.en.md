@@ -104,7 +104,7 @@ bee_rust   → all above (re-export)
 |----------|---------|-------|-------------|
 | **Relational** | SQLite | `bee_orm` | `sqlite` (bee_rust: `orm-sqlite`) |
 | | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls` (bee_rust: `orm-postgres` / `orm-postgres-tls`) |
-| | MySQL | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
+| | MySQL 8.0 / 8.4 / 9.x | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **Field types** | Date / Decimal | `bee_orm` | `chrono` / `rust_decimal` (bee_rust: `orm-chrono` / `orm-rust_decimal`) |
 | **KV / Cache** | Redis | `bee_kv` / `bee_cache` | `redis` |
@@ -148,7 +148,7 @@ let security = SecurityFilter::new();  // all 27 detectors enabled
 
 ### ORM (bee_orm)
 
-`#[derive(Model)]` derive macro (with `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + QuerySet chained queries and execution (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, aggregates `sum` / `avg` / `min` / `max`) + non-destructive migrations (`migrate::create_table` / `add_missing_columns` / `sync`) + relation reads (`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON columns (`serde_json::Value`) + connection pools for all three backends (transactions and timeouts included), supporting SQLite, PostgreSQL, MySQL, and TiDB.
+`#[derive(Model)]` derive macro (with `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + QuerySet chained queries and execution (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, aggregates `sum` / `avg` / `min` / `max`) + non-destructive migrations (`migrate::create_table` / `add_missing_columns` / `sync`) + relation reads (`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON columns (`serde_json::Value`) + connection pools for all three backends (transactions and timeouts included), supporting SQLite, PostgreSQL, MySQL, and TiDB; key-required sharding (`ShardedPools` + `HashRouter` — every query must carry a shard key; no cross-shard queries or transactions).
 
 ### Config (bee_config)
 
@@ -156,7 +156,7 @@ let security = SecurityFilter::new();  // all 27 detectors enabled
 
 ### Storage Engines
 
-Unified trait abstractions for KV / Cache (Redis / Memcached), Search (Elasticsearch / OpenSearch / ClickHouse), Graph (Neo4j / NebulaGraph / ArangoDB), and Time Series (InfluxDB / IoTDB / QuestDB), with drivers compiled behind feature gates.
+Unified trait abstractions for KV / Cache (Redis / Memcached), Search (Elasticsearch / OpenSearch / ClickHouse), Graph (Neo4j / NebulaGraph / ArangoDB), and Time Series (InfluxDB / IoTDB / QuestDB), with drivers compiled behind feature gates. The Redis backends use a real connection pool (`deadpool-redis`), and `bee_kv::RedisLock` provides a distributed lock (`SET NX PX` acquire + Lua release).
 
 ### Session, Logging, Templates
 
@@ -248,23 +248,23 @@ bee_rust = { version = "1.3.0", features = ["full"] }
 
 ## Test Coverage
 
-334 tests passing across all crates:
+401 tests passing across all crates:
 
 | Crate | Tests |
 |-------|-------|
-| bee_config | 9 |
-| bee_cache | 15 |
+| bee_config | 8 |
+| bee_cache | 16 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 15 |
+| bee_kv | 22 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |
-| bee_orm | 141 |
-| bee_orm_macro | 20 |
+| bee_orm | 195 |
+| bee_orm_macro | 24 |
 | bee_session | 2 |
 | bee_router | 40 |
-| bee_cli | 28 |
+| bee_cli | 30 |
 
 ## Support
 
