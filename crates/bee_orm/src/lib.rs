@@ -12,6 +12,7 @@ pub mod model;
 pub mod pool;
 pub mod queryset;
 pub mod rel;
+pub mod shard;
 pub mod value;
 
 #[cfg(test)]
@@ -23,6 +24,7 @@ pub use migrate::MigrateOptions;
 pub use model::{ColumnDef, DefaultValue, Dialect, M2mDef, Model, Reference, SqlType};
 pub use pool::Row;
 pub use queryset::QuerySet;
+pub use shard::{HashRouter, ShardHandle, ShardRouter, ShardedPools};
 pub use value::{FromValue, Value, decode};
 
 /// The `rustls` this crate links against (feature `postgres-tls`):

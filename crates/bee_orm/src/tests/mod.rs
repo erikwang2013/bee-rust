@@ -11,8 +11,7 @@ mod migrate;
 mod model_ops;
 mod queryset;
 mod rel;
-
-use std::sync::Mutex;
+mod shard;
 
 use async_trait::async_trait;
 
@@ -21,14 +20,16 @@ use crate::{
     Value,
 };
 
+type Calls = std::sync::Arc<std::sync::Mutex<Vec<(String, Vec<Value>)>>>;
+
 /// Records every statement; `query` answers with the preset rows, `execute`
 /// reports one affected row per call.
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct Mock {
     rows: Vec<Row>,
     dialect: Option<Dialect>,
     resolve_prefix: Option<String>,
-    calls: Mutex<Vec<(String, Vec<Value>)>>,
+    calls: Calls,
 }
 
 impl Mock {
