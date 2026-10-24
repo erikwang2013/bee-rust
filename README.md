@@ -337,7 +337,7 @@ bee_rust = { version = "1.3.0", features = ["full"] }
 
 ### 测试覆盖
 
-全仓 401 个测试通过：
+全仓 403 个测试通过：
 
 | Crate | 测试数 |
 |-------|--------|
@@ -349,7 +349,7 @@ bee_rust = { version = "1.3.0", features = ["full"] }
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |
-| bee_orm | 195 |
+| bee_orm | 197 |
 | bee_orm_macro | 24 |
 | bee_session | 2 |
 | bee_router | 40 |

@@ -19,8 +19,10 @@ const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
 /// restart or a dropped socket needs no action from the caller. The *command*
 /// that runs into the break fails with a [`KvError`], and the *next* one
 /// succeeds on a fresh connection. There is no background health-check
-/// thread. Every command is bounded at 30 seconds, and so is a checkout that
-/// waits on an exhausted pool — both fail with [`KvError::ConnectionError`].
+/// thread. Every command's reply is bounded at 30 seconds, and a checkout that
+/// waits on an exhausted pool is bounded too: a checkout failure is
+/// [`KvError::ConnectionError`], while a command that hits its bound is
+/// [`KvError::OperationFailed`].
 #[cfg(feature = "redis")]
 pub struct RedisStore {
     pool: deadpool_redis::Pool,
@@ -38,7 +40,7 @@ impl RedisStore {
     }
 
     /// Create a new `RedisStore` with a pool of at most `max_size`
-    /// connections.
+    /// connections. Values below 1 are clamped to 1.
     ///
     /// Connects eagerly, like [`RedisStore::new`].
     pub async fn with_pool_size(addr: &str, max_size: usize) -> Result<Self, KvError> {

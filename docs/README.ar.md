@@ -313,23 +313,23 @@ bee_rust = { version = "1.3.0", features = ["full"] }
 
 ### تغطية الاختبارات
 
-334 اختبارًا ناجحًا في المستودع كله:
+403 اختبارًا ناجحًا في المستودع كله:
 
 | Crate | عدد الاختبارات |
 |-------|--------|
-| bee_config | 9 |
-| bee_cache | 15 |
+| bee_config | 8 |
+| bee_cache | 16 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 15 |
+| bee_kv | 22 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |
-| bee_orm | 141 |
-| bee_orm_macro | 20 |
+| bee_orm | 197 |
+| bee_orm_macro | 24 |
 | bee_session | 2 |
 | bee_router | 40 |
-| bee_cli | 28 |
+| bee_cli | 30 |
 
 ## نداء دعم
 

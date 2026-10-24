@@ -42,10 +42,11 @@ pub trait Db: Send + Sync {
     /// auto-increment primary key, column defaults). The default runs the
     /// statement through [`execute`](Db::execute) and returns `Ok(None)` —
     /// mocks and hand-written impls keep compiling, and `create` falls back
-    /// to selecting by primary key. `sql` is a plain `INSERT`; `table` /
-    /// `pk_column` are the model's static names, for backends whose
-    /// read-back needs them. `Ok(None)` also covers a backend that ran the
-    /// statement but cannot produce the row.
+    /// to selecting by primary key. `sql` is a plain `INSERT`; `table` is the
+    /// resolved physical table name and `pk_column` is the model's static
+    /// primary-key column, for backends whose read-back needs them.
+    /// `Ok(None)` also covers a backend that ran the statement but cannot
+    /// produce the row.
     async fn insert_returning(
         &self,
         _table: &str,

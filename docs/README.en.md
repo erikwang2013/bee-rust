@@ -248,7 +248,7 @@ bee_rust = { version = "1.3.0", features = ["full"] }
 
 ## Test Coverage
 
-401 tests passing across all crates:
+403 tests passing across all crates:
 
 | Crate | Tests |
 |-------|-------|
@@ -260,7 +260,7 @@ bee_rust = { version = "1.3.0", features = ["full"] }
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |
-| bee_orm | 195 |
+| bee_orm | 197 |
 | bee_orm_macro | 24 |
 | bee_session | 2 |
 | bee_router | 40 |

@@ -63,6 +63,11 @@ fn zero_shards_are_rejected() {
     assert!(HashRouter::new(1, 0).is_err());
 }
 
+#[test]
+fn hash_router_rejects_overflowing_shard_counts() {
+    assert!(HashRouter::new(usize::MAX, 2).is_err());
+}
+
 #[tokio::test]
 async fn for_key_selects_the_router_database() {
     let a = Mock::default();
@@ -107,6 +112,31 @@ async fn sync_all_creates_every_physical_table_in_every_pool() {
 #[test]
 fn sharded_pools_rejects_pool_count_mismatch() {
     let result = ShardedPools::new(vec![Mock::default()], Arc::new(HashRouter::new(2, 1).unwrap()));
+    assert!(result.is_err());
+}
+
+struct ZeroTableRouter;
+impl ShardRouter for ZeroTableRouter {
+    fn db_shards(&self) -> usize {
+        1
+    }
+    fn table_shards(&self) -> usize {
+        0
+    }
+    fn db_index(&self, _: &Value) -> Result<usize> {
+        Ok(0)
+    }
+    fn table_name(&self, logical: &str, _: &Value) -> Result<String> {
+        Ok(logical.to_owned())
+    }
+    fn table_name_at(&self, logical: &str, _: usize) -> Result<String> {
+        Ok(logical.to_owned())
+    }
+}
+
+#[test]
+fn sharded_pools_rejects_a_router_with_zero_table_shards() {
+    let result = ShardedPools::new(vec![Mock::default()], Arc::new(ZeroTableRouter));
     assert!(result.is_err());
 }
 

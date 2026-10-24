@@ -5,7 +5,7 @@
 ## [Unreleased]
 
 ### Added
-- `bee_orm`: MySQL 8.0 / 8.4 / 9.x compatibility, verified by a CI matrix.
+- `bee_orm`: MySQL 8.0 / 8.4 / 9.x compatibility, verified by a CI matrix. MySQL 9 enforces column-level `REFERENCES` (8.0/8.4 parse and ignore it); create referenced tables before referencing ones.
 - `bee_orm`: `shard::{ShardedPools, HashRouter, ShardRouter}` — key-required hash sharding for databases and tables; no cross-shard queries or transactions.
 - `bee_kv` / `bee_cache`: real Redis connection pool (`deadpool-redis`) and `bee_kv::RedisLock` (`SET NX PX` + Lua release).
 

@@ -34,6 +34,7 @@ impl RedisLock {
     }
 
     /// Connect to `addr` with a pool of at most `max_size` connections.
+    /// Values below 1 are clamped to 1.
     pub async fn with_pool_size(addr: &str, max_size: usize) -> Result<Self, KvError> {
         Ok(Self { pool: connect_pool(addr, max_size).await? })
     }

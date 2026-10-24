@@ -313,23 +313,23 @@ bee_rust = { version = "1.3.0", features = ["full"] }
 
 ### টেস্ট কভারেজ
 
-পুরো রিপোজিটরির ৩৩৪টি টেস্ট পাস:
+পুরো রিপোজিটরির ৪০৩টি টেস্ট পাস:
 
 | Crate | টেস্ট সংখ্যা |
 |-------|--------|
-| bee_config | 9 |
-| bee_cache | 15 |
-| bee_template | 2 |
-| bee_logs | 3 |
-| bee_kv | 15 |
-| bee_search | 21 |
-| bee_graph | 19 |
-| bee_tsdb | 19 |
-| bee_orm | 141 |
-| bee_orm_macro | 20 |
-| bee_session | 2 |
-| bee_router | 40 |
-| bee_cli | 28 |
+| bee_config | ৮ |
+| bee_cache | ১৬ |
+| bee_template | ২ |
+| bee_logs | ৩ |
+| bee_kv | ২২ |
+| bee_search | ২১ |
+| bee_graph | ১৯ |
+| bee_tsdb | ১৯ |
+| bee_orm | ১৯৭ |
+| bee_orm_macro | ২৪ |
+| bee_session | ২ |
+| bee_router | ৪০ |
+| bee_cli | ৩০ |
 
 ## সমর্থন স্বাগত
 

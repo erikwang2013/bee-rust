@@ -29,8 +29,8 @@ const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
 /// restart or a dropped socket needs no action from the caller. The *command*
 /// that runs into the break fails with a [`CacheError::ConnectionError`], and
 /// the *next* one succeeds on a fresh connection. There is no background
-/// health-check thread. Every command is bounded at 30 seconds, and so is a
-/// checkout that waits on an exhausted pool — both fail with
+/// health-check thread. Every command's reply is bounded at 30 seconds, and so
+/// is a checkout that waits on an exhausted pool — both fail with
 /// [`CacheError::ConnectionError`].
 pub struct RedisCache {
     pool: deadpool_redis::Pool,
@@ -46,7 +46,8 @@ impl RedisCache {
         Self::with_pool_size(addr, 16).await
     }
 
-    /// Create a cache with a pool of at most `max_size` connections.
+    /// Create a cache with a pool of at most `max_size` connections. Values
+    /// below 1 are clamped to 1.
     ///
     /// Connects eagerly, like [`RedisCache::new`].
     pub async fn with_pool_size(addr: &str, max_size: usize) -> Result<Self, CacheError> {

@@ -17,7 +17,8 @@ use crate::{Db, Dialect, MigrateOptions, Model, OrmError, Result, Row, Value, mi
 /// Maps shard keys to a database ordinal and a physical table name.
 ///
 /// All routing is key-required: a statement without a key cannot pick a
-/// shard, so there is no default database or table.
+/// shard, so there is no default database or table. Both shard counts must be
+/// at least 1; [`ShardedPools::new`] rejects a router that reports 0.
 pub trait ShardRouter: Send + Sync {
     /// The number of database shards the pool set covers.
     fn db_shards(&self) -> usize;
@@ -54,6 +55,9 @@ impl HashRouter {
     pub fn new(db_shards: usize, table_shards: usize) -> Result<Self> {
         if db_shards == 0 || table_shards == 0 {
             return Err(OrmError::QueryError("sharding: shard counts must be at least 1".into()));
+        }
+        if db_shards.checked_mul(table_shards).is_none() {
+            return Err(OrmError::QueryError("sharding: shard counts overflow".into()));
         }
         Ok(Self { db_shards, table_shards })
     }
@@ -147,6 +151,11 @@ impl<P> ShardedPools<P> {
                 router.db_shards(),
                 pools.len()
             )));
+        }
+        if router.db_shards() == 0 || router.table_shards() == 0 {
+            return Err(OrmError::QueryError(
+                "sharding: router must declare at least 1 database and table shard".into(),
+            ));
         }
         Ok(Self { pools, router })
     }

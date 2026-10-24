@@ -61,7 +61,10 @@ async fn fk_reference(
 async fn mysql_major(pool: &Pool) -> Result<u32, OrmError> {
     let rows = pool.query("SELECT VERSION() AS v", &[]).await?;
     let raw = rows[0]["v"].as_str().unwrap_or_default().to_string();
-    Ok(raw.split('.').next().and_then(|major| major.parse().ok()).unwrap_or(0))
+    raw.split('.')
+        .next()
+        .and_then(|major| major.parse().ok())
+        .ok_or_else(|| OrmError::QueryError(format!("mysql_major: unparseable VERSION() `{raw}`")))
 }
 
 /// The column names of a table, sorted.
