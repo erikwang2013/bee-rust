@@ -38,8 +38,12 @@ pub trait ShardRouter: Send + Sync {
     fn table_name_at(&self, logical: &str, index: usize) -> Result<String>;
 }
 
-/// FNV-1a 64 routing: `db = hash % db_shards`, and the table is
-/// `logical_{hash % table_shards}` (the logical name when `table_shards == 1`).
+/// FNV-1a 64 routing over one composite index:
+/// `shard = hash % (db_shards * table_shards)`, `db = shard / table_shards`,
+/// table ordinal = `shard % table_shards` (the logical name when
+/// `table_shards == 1`). One index keeps every database/table pair reachable;
+/// hashing each dimension independently would reach only
+/// `lcm(db_shards, table_shards)` pairs.
 pub struct HashRouter {
     db_shards: usize,
     table_shards: usize,
@@ -53,6 +57,11 @@ impl HashRouter {
         }
         Ok(Self { db_shards, table_shards })
     }
+
+    /// The composite shard ordinal: one hash spans every database/table pair.
+    fn shard_index(&self, key: &Value) -> Result<u64> {
+        Ok(key_hash(key)? % (self.db_shards as u64 * self.table_shards as u64))
+    }
 }
 
 impl ShardRouter for HashRouter {
@@ -65,11 +74,11 @@ impl ShardRouter for HashRouter {
     }
 
     fn db_index(&self, key: &Value) -> Result<usize> {
-        Ok((key_hash(key)? % (self.db_shards as u64)) as usize)
+        Ok((self.shard_index(key)? / self.table_shards as u64) as usize)
     }
 
     fn table_name(&self, logical: &str, key: &Value) -> Result<String> {
-        let index = (key_hash(key)? % (self.table_shards as u64)) as usize;
+        let index = (self.shard_index(key)? % self.table_shards as u64) as usize;
         self.table_name_at(logical, index)
     }
 

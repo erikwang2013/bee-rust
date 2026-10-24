@@ -16,10 +16,22 @@ fn fnv1a_matches_known_vectors() {
 #[test]
 fn hash_router_routes_known_keys() {
     let router = HashRouter::new(2, 4).unwrap();
-    assert_eq!(router.db_index(&Value::Int(1)).unwrap(), 0);
+    assert_eq!(router.db_index(&Value::Int(1)).unwrap(), 1);
     assert_eq!(router.table_name("users", &Value::Int(1)).unwrap(), "users_0");
     assert_eq!(router.db_index(&Value::Int(2)).unwrap(), 1);
     assert_eq!(router.table_name("users", &Value::Int(2)).unwrap(), "users_3");
+}
+
+#[test]
+fn mixed_shard_counts_reach_every_database_table_pair() {
+    let router = HashRouter::new(2, 4).unwrap();
+    let seen: std::collections::HashSet<(usize, String)> = (0..256)
+        .map(|key| {
+            let key = Value::Int(key);
+            (router.db_index(&key).unwrap(), router.table_name("users", &key).unwrap())
+        })
+        .collect();
+    assert_eq!(seen.len(), 8);
 }
 
 #[test]
