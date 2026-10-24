@@ -11,53 +11,84 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
+use deadpool_redis::{Runtime, Timeouts};
 use redis::ErrorKind;
-use redis::aio::{ConnectionManager, ConnectionManagerConfig};
 
 use crate::{Cache, CacheError};
 
-/// A [`Cache`] backed by a Redis server over a reconnecting async connection
-/// manager.
+/// Upper bound on one command's round trip, so a server that accepts TCP but
+/// never replies surfaces as an error instead of hanging the caller.
+const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// A [`Cache`] backed by a pool of Redis connections.
 ///
 /// # Reconnect
 ///
-/// The connection is recovered automatically — a Redis restart or a dropped
-/// socket needs no action from the caller — but the *command* that runs into
-/// the broken connection fails with a [`CacheError::ConnectionError`], and the
-/// *next* one succeeds on a fresh connection. There is no background
-/// health-check thread: the manager only reconnects when a command finds the
-/// connection dead (with exponential backoff and jitter between attempts), so
-/// a caller that must not surface the break has to retry.
+/// A checkout recycles its connection with a PING, so a connection that died
+/// while parked is discarded and replaced on the next checkout — a Redis
+/// restart or a dropped socket needs no action from the caller. The *command*
+/// that runs into the break fails with a [`CacheError::ConnectionError`], and
+/// the *next* one succeeds on a fresh connection. There is no background
+/// health-check thread. Every command is bounded at 30 seconds, and so is a
+/// checkout that waits on an exhausted pool — both fail with
+/// [`CacheError::ConnectionError`].
 pub struct RedisCache {
-    conn: ConnectionManager,
+    pool: deadpool_redis::Pool,
 }
 
 impl RedisCache {
     /// Create a cache by connecting to `addr` (e.g.
-    /// `"redis://127.0.0.1:6379"`).
+    /// `"redis://127.0.0.1:6379"`) with at most 16 pooled connections.
     ///
     /// Connects eagerly: a bad address fails here rather than on the first
     /// command.
     pub async fn new(addr: &str) -> Result<Self, CacheError> {
-        let client = redis::Client::open(addr)
-            .map_err(|e| CacheError::ConnectionError(format!("failed to create client: {e}")))?;
-        let conn = ConnectionManager::new_with_config(
-            client,
-            ConnectionManagerConfig::new()
-                .set_connection_timeout(Duration::from_secs(5))
-                .set_response_timeout(Duration::from_secs(30)),
-        )
-        .await
-        .map_err(|e| CacheError::ConnectionError(format!("failed to connect: {e}")))?;
-        Ok(Self { conn })
+        Self::with_pool_size(addr, 16).await
+    }
+
+    /// Create a cache with a pool of at most `max_size` connections.
+    ///
+    /// Connects eagerly, like [`RedisCache::new`].
+    pub async fn with_pool_size(addr: &str, max_size: usize) -> Result<Self, CacheError> {
+        Ok(Self { pool: connect_pool(addr, max_size).await? })
+    }
+
+    /// Check out a pooled connection, bounding every reply at
+    /// [`RESPONSE_TIMEOUT`].
+    async fn checkout(&self) -> Result<deadpool_redis::Connection, CacheError> {
+        let mut conn = self.pool.get().await.map_err(conn_err)?;
+        conn.set_response_timeout(RESPONSE_TIMEOUT);
+        Ok(conn)
     }
 
     /// `DEL`, returning how many keys were removed — the primitive behind both
     /// [`Cache::delete`] and `set(.., Some(0))`, which must not fail on a
     /// missing key.
     async fn delete_count(&self, key: &str) -> Result<i64, CacheError> {
-        redis::cmd("DEL").arg(key).query_async(&mut self.conn.clone()).await.map_err(map_err)
+        let mut conn = self.checkout().await?;
+        redis::cmd("DEL").arg(key).query_async(&mut conn).await.map_err(map_err)
     }
+}
+
+/// Build a pool for `addr` and prove it serves a command, so a bad address
+/// fails here rather than on the first cache operation.
+async fn connect_pool(addr: &str, max_size: usize) -> Result<deadpool_redis::Pool, CacheError> {
+    let pool = deadpool_redis::Config::from_url(addr)
+        .builder()
+        .map_err(conn_err)?
+        .max_size(max_size.max(1))
+        .timeouts(Timeouts {
+            wait: Some(Duration::from_secs(30)),
+            create: Some(Duration::from_secs(5)),
+            recycle: Some(Duration::from_secs(5)),
+        })
+        .runtime(Runtime::Tokio1)
+        .build()
+        .map_err(conn_err)?;
+    let mut conn = pool.get().await.map_err(conn_err)?;
+    conn.set_response_timeout(RESPONSE_TIMEOUT);
+    redis::cmd("PING").query_async::<String>(&mut conn).await.map_err(conn_err)?;
+    Ok(pool)
 }
 
 #[async_trait]
@@ -65,11 +96,8 @@ impl Cache for RedisCache {
     async fn get(&self, key: &str) -> Result<Option<Vec<u8>>, CacheError> {
         // `Vec<u8>` is converted byte-for-byte (redis-rs special-cases it), so
         // any blob survives the trip.
-        redis::cmd("GET")
-            .arg(key)
-            .query_async::<Option<Vec<u8>>>(&mut self.conn.clone())
-            .await
-            .map_err(map_err)
+        let mut conn = self.checkout().await?;
+        redis::cmd("GET").arg(key).query_async::<Option<Vec<u8>>>(&mut conn).await.map_err(map_err)
     }
 
     async fn set(&self, key: &str, value: Vec<u8>, ttl: Option<u64>) -> Result<(), CacheError> {
@@ -79,7 +107,8 @@ impl Cache for RedisCache {
             self.delete_count(key).await?;
             return Ok(());
         }
-        set_cmd(key, &value, ttl).query_async(&mut self.conn.clone()).await.map_err(map_err)
+        let mut conn = self.checkout().await?;
+        set_cmd(key, &value, ttl).query_async(&mut conn).await.map_err(map_err)
     }
 
     async fn delete(&self, key: &str) -> Result<(), CacheError> {
@@ -92,7 +121,8 @@ impl Cache for RedisCache {
     async fn incr(&self, key: &str) -> Result<i64, CacheError> {
         // `INCR` creates a missing key at 0 and returns the new value, which is
         // exactly the trait's contract.
-        redis::cmd("INCR").arg(key).query_async(&mut self.conn.clone()).await.map_err(map_err)
+        let mut conn = self.checkout().await?;
+        redis::cmd("INCR").arg(key).query_async(&mut conn).await.map_err(map_err)
     }
 }
 
@@ -105,6 +135,12 @@ fn set_cmd(key: &str, value: &[u8], ttl: Option<u64>) -> redis::Cmd {
         cmd.arg("EX").arg(ttl);
     }
     cmd
+}
+
+/// A pool failure — a bad URL, a refused connection, an exhausted or timed-out
+/// checkout — is always the connection.
+fn conn_err(e: impl std::fmt::Display) -> CacheError {
+    CacheError::ConnectionError(e.to_string())
 }
 
 /// A server-side refusal — `INCR` on a non-numeric value, `WRONGTYPE` — is a

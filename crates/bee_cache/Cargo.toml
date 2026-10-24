@@ -16,15 +16,19 @@ tokio = { workspace = true, features = ["sync", "time", "rt"] }
 thiserror.workspace = true
 
 [features]
-redis = ["dep:redis"]
+redis = ["dep:redis", "dep:deadpool-redis"]
 memcache = ["dep:memcache"]
 
 [dependencies.redis]
 version = "0.27"
 optional = true
-# `aio` + `connection-manager` mirror bee_kv's redis features: the backend
-# holds a reconnecting `ConnectionManager`.
-features = ["tokio-comp", "aio", "connection-manager"]
+# `aio` mirrors bee_kv's redis features: the backend runs commands on pooled
+# multiplexed connections.
+features = ["tokio-comp", "aio"]
+
+[dependencies.deadpool-redis]
+version = "0.18"
+optional = true
 
 [dependencies.memcache]
 version = "0.17"
