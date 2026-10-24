@@ -57,6 +57,23 @@ async fn store_lock_shares_the_store_pool() {
 }
 
 #[tokio::test]
+async fn stale_guard_does_not_release_a_successor() {
+    let Some(dsn) = std::env::var("BEE_KV_REDIS_DSN").ok().filter(|s| !s.is_empty()) else {
+        return;
+    };
+    let lock = RedisLock::connect(&dsn).await.unwrap();
+    let k = key("stale");
+
+    let stale = lock.try_lock(&k, Duration::from_millis(200)).await.unwrap().unwrap();
+    tokio::time::sleep(Duration::from_millis(600)).await;
+    let live = lock.try_lock(&k, Duration::from_secs(5)).await.unwrap().unwrap();
+
+    assert!(!stale.release().await.unwrap());
+    assert!(lock.try_lock(&k, Duration::from_secs(5)).await.unwrap().is_none());
+    assert!(live.release().await.unwrap());
+}
+
+#[tokio::test]
 async fn releasing_an_expired_guard_returns_false() {
     let Some(dsn) = std::env::var("BEE_KV_REDIS_DSN").ok().filter(|s| !s.is_empty()) else {
         return;
