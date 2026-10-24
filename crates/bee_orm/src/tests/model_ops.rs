@@ -78,6 +78,14 @@ async fn update_and_deletes_use_the_resolved_table() {
 }
 
 #[tokio::test]
+async fn soft_delete_uses_the_resolved_table() {
+    let db = Mock::renaming("s0_");
+    note(7).delete(&db).await.unwrap();
+    let (sql, _) = db.calls().remove(0);
+    assert_eq!(sql, "UPDATE s0_notes SET deleted = ? WHERE id = ? AND deleted = ?");
+}
+
+#[tokio::test]
 async fn before_hook_error_aborts_before_any_sql() {
     let db = Mock::default();
     let err = Guarded { id: 1, title: "blocked".into() }.insert(&db).await.unwrap_err();
