@@ -47,8 +47,9 @@ async fn sync_all_creates_every_physical_table() {
 async fn keyed_crud_stays_on_the_routed_shard() {
     let (shards, p0, p1, _router) = setup().await;
 
-    // Composite 2×4 routing: Int(5) -> pool 0 / shard_users_0;
-    // Int(1) -> pool 1 / shard_users_0 (same table name, different database).
+    // Composite 2×4 routing, both positive routes exercised below:
+    // Int(5) -> pool 0 / shard_users_0; Int(1) -> pool 1 / shard_users_0
+    // (same physical table name in two distinct databases).
     let db1 = shards.for_key(Value::Int(5)).unwrap();
     let user = ShardUser { id: 0, user_id: 5, name: "alice".into() };
     user.insert(&db1).await.unwrap();
@@ -62,7 +63,17 @@ async fn keyed_crud_stays_on_the_routed_shard() {
     assert!(other.is_empty(), "key 1 must not see key 5's row");
 
     assert_eq!(count(&p0, "shard_users_0").await, 1);
-    assert_eq!(count(&p1, "shard_users_0").await, 0);
+
+    // Positive half: bob is written and read back through the other route,
+    // landing on the same physical table name in the other database.
+    let bob = ShardUser { id: 0, user_id: 1, name: "bob".into() };
+    bob.insert(&db2).await.unwrap();
+    let found = ShardUser::query().filter_eq("user_id", 1).unwrap().all(&db2).await.unwrap();
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].name, "bob");
+
+    assert_eq!(count(&p1, "shard_users_0").await, 1);
+    assert_eq!(count(&p0, "shard_users_0").await, 1);
 }
 
 #[tokio::test]
