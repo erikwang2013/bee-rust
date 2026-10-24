@@ -49,7 +49,7 @@ jobs:
         run: cargo test --workspace --all-features
 
   integration:
-    name: Integration (postgres + mysql + redis + memcached)
+    name: Integration (postgres + redis + memcached)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
@@ -62,17 +62,6 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U postgres"
           --health-interval 10s --health-timeout 5s --health-retries 10
-      mysql:
-        image: mysql:8
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: bee_test
-        ports:
-          - "3306:3306"
-        options: >-
-          --health-cmd "mysqladmin ping -h 127.0.0.1 -proot"
-          --health-interval 10s --health-timeout 5s --health-retries 10
-          --health-start-period 30s
       redis:
         image: redis:7-alpine
         ports:
@@ -89,7 +78,6 @@ jobs:
           --health-interval 10s --health-timeout 5s --health-retries 10
     env:
       BEE_ORM_PG_DSN: postgres://postgres:postgres@127.0.0.1:5432/postgres
-      BEE_ORM_MYSQL_DSN: mysql://root:root@127.0.0.1:3306/bee_test
       BEE_KV_REDIS_DSN: redis://127.0.0.1:6379
       BEE_KV_MEMCACHE_ADDR: 127.0.0.1:11211
     steps:
@@ -133,6 +121,38 @@ jobs:
         env:
           BEE_ORM_PG_TLS_DSN: "postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=require"
         run: cargo test -p bee_orm --all-features --test integration_pg_tls
+
+  integration-mysql:
+    name: Integration (mysql ${{ matrix.mysql }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        mysql: ["8.0", "8.4", "9"]
+    services:
+      mysql:
+        image: mysql:${{ matrix.mysql }}
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: bee_test
+        ports:
+          - "3306:3306"
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+          --health-start-period 30s
+    env:
+      BEE_ORM_MYSQL_DSN: mysql://root:root@127.0.0.1:3306/bee_test
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: stable
+
+      - name: MySQL integration tests (DSN-gated)
+        run: cargo test -p bee_orm --features mysql
 
   audit:
     name: Audit dependencies
