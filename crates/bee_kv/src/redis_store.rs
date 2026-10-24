@@ -6,6 +6,10 @@ use deadpool_redis::{Runtime, Timeouts};
 
 use crate::{KvError, KvStore};
 
+/// Upper bound on one command's round trip, so a server that accepts TCP but
+/// never replies surfaces as an error instead of hanging the caller.
+const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
+
 /// A [`KvStore`] backed by a pool of Redis connections.
 ///
 /// # Reconnect
@@ -15,8 +19,8 @@ use crate::{KvError, KvStore};
 /// restart or a dropped socket needs no action from the caller. The *command*
 /// that runs into the break fails with a [`KvError`], and the *next* one
 /// succeeds on a fresh connection. There is no background health-check
-/// thread. When every connection in the pool is busy, a checkout waits up to
-/// 30 seconds and then fails with [`KvError::ConnectionError`].
+/// thread. Every command is bounded at 30 seconds, and so is a checkout that
+/// waits on an exhausted pool — both fail with [`KvError::ConnectionError`].
 #[cfg(feature = "redis")]
 pub struct RedisStore {
     pool: deadpool_redis::Pool,
@@ -40,6 +44,14 @@ impl RedisStore {
     pub async fn with_pool_size(addr: &str, max_size: usize) -> Result<Self, KvError> {
         Ok(Self { pool: connect_pool(addr, max_size).await? })
     }
+
+    /// Check out a pooled connection, bounding every reply at
+    /// [`RESPONSE_TIMEOUT`].
+    async fn checkout(&self) -> Result<deadpool_redis::Connection, KvError> {
+        let mut conn = self.pool.get().await.map_err(conn_err)?;
+        conn.set_response_timeout(RESPONSE_TIMEOUT);
+        Ok(conn)
+    }
 }
 
 /// Build a pool for `addr` and prove it serves a command, so a bad address
@@ -61,6 +73,7 @@ pub(crate) async fn connect_pool(
         .build()
         .map_err(conn_err)?;
     let mut conn = pool.get().await.map_err(conn_err)?;
+    conn.set_response_timeout(RESPONSE_TIMEOUT);
     redis::cmd("PING").query_async::<String>(&mut conn).await.map_err(conn_err)?;
     Ok(pool)
 }
@@ -69,32 +82,32 @@ pub(crate) async fn connect_pool(
 #[async_trait]
 impl KvStore for RedisStore {
     async fn get(&self, key: &str) -> Result<Option<String>, KvError> {
-        let mut conn = self.pool.get().await.map_err(conn_err)?;
+        let mut conn = self.checkout().await?;
         redis::cmd("GET").arg(key).query_async(&mut conn).await.map_err(op_err)
     }
 
     async fn set(&self, key: &str, value: &str) -> Result<(), KvError> {
-        let mut conn = self.pool.get().await.map_err(conn_err)?;
+        let mut conn = self.checkout().await?;
         redis::cmd("SET").arg(key).arg(value).query_async(&mut conn).await.map_err(op_err)
     }
 
     async fn del(&self, key: &str) -> Result<(), KvError> {
-        let mut conn = self.pool.get().await.map_err(conn_err)?;
+        let mut conn = self.checkout().await?;
         redis::cmd("DEL").arg(key).query_async(&mut conn).await.map_err(op_err)
     }
 
     async fn exists(&self, key: &str) -> Result<bool, KvError> {
-        let mut conn = self.pool.get().await.map_err(conn_err)?;
+        let mut conn = self.checkout().await?;
         redis::cmd("EXISTS").arg(key).query_async(&mut conn).await.map_err(op_err)
     }
 
     async fn incr(&self, key: &str, amount: i64) -> Result<i64, KvError> {
-        let mut conn = self.pool.get().await.map_err(conn_err)?;
+        let mut conn = self.checkout().await?;
         incr_cmd(key, amount).query_async(&mut conn).await.map_err(op_err)
     }
 
     async fn expire(&self, key: &str, seconds: i64) -> Result<(), KvError> {
-        let mut conn = self.pool.get().await.map_err(conn_err)?;
+        let mut conn = self.checkout().await?;
         redis::cmd("EXPIRE").arg(key).arg(seconds).query_async(&mut conn).await.map_err(op_err)
     }
 
@@ -102,7 +115,7 @@ impl KvStore for RedisStore {
         if keys.is_empty() {
             return Ok(Vec::new());
         }
-        let mut conn = self.pool.get().await.map_err(conn_err)?;
+        let mut conn = self.checkout().await?;
         redis::cmd("MGET").arg(keys).query_async(&mut conn).await.map_err(op_err)
     }
 
@@ -114,7 +127,7 @@ impl KvStore for RedisStore {
         for (k, v) in pairs {
             cmd.arg(k).arg(v);
         }
-        let mut conn = self.pool.get().await.map_err(conn_err)?;
+        let mut conn = self.checkout().await?;
         cmd.query_async(&mut conn).await.map_err(op_err)
     }
 }

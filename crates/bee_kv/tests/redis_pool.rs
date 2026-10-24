@@ -18,15 +18,17 @@ async fn concurrent_gets_with_a_small_pool_all_succeed() {
         return;
     };
     let store = Arc::new(RedisStore::with_pool_size(&dsn, 2).await.unwrap());
-    store.set("bee_kv:pool:probe", "ok").await.unwrap();
+    let key = format!("bee_kv:pool:probe:{}", std::process::id());
+    store.set(&key, "ok").await.unwrap();
 
     let mut set = tokio::task::JoinSet::new();
     for _ in 0..32 {
         let store = Arc::clone(&store);
-        set.spawn(async move { store.get("bee_kv:pool:probe").await });
+        let key = key.clone();
+        set.spawn(async move { store.get(&key).await });
     }
     while let Some(result) = set.join_next().await {
         assert_eq!(result.unwrap().unwrap().as_deref(), Some("ok"));
     }
-    store.del("bee_kv:pool:probe").await.unwrap();
+    store.del(&key).await.unwrap();
 }
