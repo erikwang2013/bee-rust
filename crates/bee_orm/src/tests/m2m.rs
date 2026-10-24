@@ -133,6 +133,39 @@ async fn attach_and_detach_bind_both_primary_keys() {
 }
 
 #[tokio::test]
+async fn m2m_direct_sql_uses_the_resolved_join_table() {
+    let mock = Mock::renaming("s0_");
+    m2m::attach(&mock, &Reader { id: 3 }, &Author { id: 7 }).await.unwrap();
+    m2m::detach(&mock, &Reader { id: 3 }, &Author { id: 7 }).await.unwrap();
+    let calls = mock.calls();
+    assert_eq!(calls[0].0, "INSERT INTO s0_reader_author (reader_id, author_id) VALUES (?, ?)");
+    assert_eq!(calls[1].0, "DELETE FROM s0_reader_author WHERE reader_id = ? AND author_id = ?");
+}
+
+#[tokio::test]
+async fn related_ids_uses_the_resolved_join_table() {
+    let mock = Mock {
+        rows: vec![row_of(&[("author_id", json!(7))])],
+        resolve_prefix: Some("s0_".into()),
+        ..Mock::default()
+    };
+    m2m::related_ids::<Reader, Author, _>(&mock, &Reader { id: 3 }).await.unwrap();
+    assert_eq!(mock.calls()[0].0, "SELECT author_id FROM s0_reader_author WHERE reader_id = ?");
+}
+
+#[tokio::test]
+async fn related_for_join_query_uses_the_resolved_join_table() {
+    let row = row_of(&[("local_key", json!(1)), ("foreign_key", json!(2)), ("id", json!(2))]);
+    let mock = Mock { rows: vec![row], resolve_prefix: Some("s0_".into()), ..Mock::default() };
+    m2m::related_for::<Reader, Author, _>(&mock, &[Reader { id: 1 }]).await.unwrap();
+    assert_eq!(
+        mock.calls()[0].0,
+        "SELECT reader_id AS local_key, author_id AS foreign_key FROM s0_reader_author \
+         WHERE reader_id IN (?)"
+    );
+}
+
+#[tokio::test]
 async fn related_for_groups_are_index_aligned_and_unknown_locals_empty() {
     // One row serves both queries of the two-step read: the pair query reads
     // local_key/foreign_key, the row query the pk.
