@@ -2,7 +2,7 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
-## [未发布]
+## [1.4.0] — 2026-10-25
 
 ### 新增
 - `bee_orm`：兼容 MySQL 8.0 / 8.4 / 9.x，由 CI 矩阵验证。MySQL 9 强制执行列级 `REFERENCES`（8.0/8.4 解析后忽略），建表时先建被引用表。

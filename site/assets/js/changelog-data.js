@@ -1,7 +1,30 @@
 /* Bee Rust site — curated release history (source: docs/CHANGELOG.zh.md + CHANGELOG.md) */
 window.BeeChangelog = [
   {
-    version: '1.3.0', date: '2026-10-13', tag: 'latest',
+    version: '1.4.0', date: '2026-10-25', tag: 'latest',
+    zh: {
+      title: 'MySQL 9、分库分表与 Redis 连接池',
+      summary: 'ORM 打通 MySQL 8.0–9.x，新增必须带分片键的两级分片；Redis 后端换成真实连接池，并补上分布式锁。',
+      items: [
+        'MySQL 8.0 / 8.4 / 9.x：CI 三版本矩阵；MySQL 9 强制执行列级 REFERENCES，建表时先建被引用表。',
+        'bee_orm::shard：ShardedPools / HashRouter / ShardHandle；复合哈希路由覆盖全部库×表组合；不支持跨分片查询与事务。',
+        'bee_kv / bee_cache：deadpool-redis 真连接池，30 秒命令响应上限；断线自动替换，池耗尽按等待超时失败。',
+        'bee_kv::RedisLock：SET NX PX 获取，Lua 比较 token 后释放；TTL 兜底，不自动续期。'
+      ]
+    },
+    en: {
+      title: 'MySQL 9, sharding, and a Redis pool',
+      summary: 'The ORM now runs on MySQL 8.0–9.x, gains key-required two-level sharding, and the Redis backends move to real connection pools with a distributed lock.',
+      items: [
+        'MySQL 8.0 / 8.4 / 9.x: a three-version CI matrix; MySQL 9 enforces column-level REFERENCES, so referenced tables must be created first.',
+        'bee_orm::shard: ShardedPools / HashRouter / ShardHandle; composite hashing reaches every database/table pair; no cross-shard queries or transactions.',
+        'bee_kv / bee_cache: real deadpool-redis pools with a 30s per-command bound; killed connections are replaced, pool exhaustion waits then errors.',
+        'bee_kv::RedisLock: SET NX PX acquire and Lua compare-and-delete release; TTL is the fallback, with no automatic renewal.'
+      ]
+    }
+  },
+  {
+    version: '1.3.0', date: '2026-10-13', tag: 'fixes',
     zh: {
       title: '硬化与收敛',
       summary: '这一版不扩功能面，专修特性矩阵、收敛实现与依赖。每个单开后端特性都可独立编译，安全过滤器升级到 security-rust 4。',
