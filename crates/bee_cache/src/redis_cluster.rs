@@ -14,8 +14,9 @@
 //! # Response timeout
 //!
 //! A cluster command is **not** bounded by [`RedisOptions::response_timeout`]:
-//! `deadpool-redis` 0.18 does not surface `ClusterClientBuilder::response_timeout`,
-//! and the async `ClusterConnection` exposes no setter. Only pool checkout
+//! `deadpool-redis` 0.23's cluster `Config` exposes no response timeout (redis
+//! 1.6's `ClusterClientBuilder` has one, but the pool never passes it), and the
+//! async `ClusterConnection` exposes no setter. Only pool checkout
 //! waits (30 seconds), connection creation (5 seconds), and the eager
 //! construction `PING` (30 seconds) are bounded, so a node that accepts TCP but
 //! never replies can hang a later command until the socket closes. Both

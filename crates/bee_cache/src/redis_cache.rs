@@ -16,7 +16,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use deadpool_redis::{Runtime, Timeouts};
-use redis::ErrorKind;
+use redis::{ErrorKind, ServerErrorKind};
 
 use crate::{Cache, CacheError};
 
@@ -210,7 +210,8 @@ pub(crate) fn conn_err(e: impl std::fmt::Display) -> CacheError {
 pub(crate) fn map_err(e: redis::RedisError) -> CacheError {
     let message = e.to_string();
     match e.kind() {
-        ErrorKind::ResponseError => CacheError::SerializeError(message),
+        // redis 1.x nests server error kinds: `ERR` is `Server(ResponseError)`.
+        ErrorKind::Server(ServerErrorKind::ResponseError) => CacheError::SerializeError(message),
         _ => CacheError::ConnectionError(message),
     }
 }

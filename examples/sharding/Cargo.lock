@@ -27,7 +27,7 @@ dependencies = [
 
 [[package]]
 name = "bee_orm"
-version = "1.6.0"
+version = "1.6.1"
 dependencies = [
  "async-trait",
  "bee_orm_macro",
@@ -42,7 +42,7 @@ dependencies = [
 
 [[package]]
 name = "bee_orm_macro"
-version = "1.6.0"
+version = "1.6.1"
 dependencies = [
  "proc-macro2",
  "quote",

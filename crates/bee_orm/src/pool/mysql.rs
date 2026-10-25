@@ -13,8 +13,9 @@
 //! default), which rolls back a leftover transaction. Always end a
 //! transaction with `commit()` or `rollback()` — until then it holds locks.
 //!
-//! mysql_async exposes no pool statistics: [`Pool::pool_status`] reports
-//! `max_size` only, with `size` / `available` as `None`.
+//! mysql_async 0.37 exposes `Pool::metrics()`, but this wrapper does not
+//! surface it: [`Pool::pool_status`] reports `max_size` only, with `size` /
+//! `available` as `None`.
 //!
 //! ```no_run
 //! # async fn demo() -> Result<(), bee_orm::OrmError> {
@@ -39,7 +40,7 @@ use serde_json::Value as Json;
 use super::{PoolStatus, Row, conn_err, query_err};
 use crate::{Db, Dialect, OrmError, Result, Value};
 
-/// ponytail: fixed 30s — mysql_async 0.34.2 has no acquire timeout; make it
+/// ponytail: fixed 30s — mysql_async has no acquire timeout; make it
 /// configurable when a caller needs to tune it.
 const GET_CONN_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -62,8 +63,8 @@ impl Pool {
         Ok(Self { inner: MysqlPool::new(opts), max_size })
     }
 
-    /// Pool occupancy: `max_size` only — mysql_async exposes no statistics,
-    /// so `size` / `available` are `None`.
+    /// Pool occupancy: `max_size` only — the driver's metrics are not
+    /// exposed, so `size` / `available` are `None`.
     pub fn pool_status(&self) -> PoolStatus {
         PoolStatus { max_size: self.max_size as usize, size: None, available: None }
     }
@@ -230,9 +231,9 @@ fn bind(params: &[Value]) -> Vec<mysql_async::Value> {
 }
 
 /// `Bool` → `Int(0|1)`, `Float` → `Double` (lossless), `Text` → `Bytes`,
-/// `Json` → its serialized bytes (a `JSON` column accepts them). The
-/// chrono / decimal variants convert through mysql_common's own impls: dates
-/// as `Date` cells and decimals as their length-encoded text.
+/// `Json` → its serialized bytes (a `JSON` column accepts them). The chrono
+/// variants convert through mysql_common's own impls (dates as `Date` cells);
+/// a decimal binds as its length-encoded text.
 fn to_mysql(value: &Value) -> mysql_async::Value {
     use mysql_async::Value as My;
     match value {
@@ -251,8 +252,10 @@ fn to_mysql(value: &Value) -> mysql_async::Value {
         // naive form (a UTC session makes `timestamp` round-trip exactly).
         #[cfg(feature = "chrono")]
         Value::DateTimeUtc(dt) => My::from(dt.naive_utc()),
+        // mysql_async 0.37's default features leave `mysql_common/rust_decimal`
+        // off; bind the same text form its `From<Decimal>` impl emits.
         #[cfg(feature = "rust_decimal")]
-        Value::Decimal(d) => My::from(*d),
+        Value::Decimal(d) => My::Bytes(d.to_string().into_bytes()),
     }
 }
 

@@ -14,17 +14,16 @@
 //!
 //! ACL credentials in the Sentinel URLs (`redis://user:pass@host:26379`)
 //! authenticate the Sentinel nodes; `rediss://` (with `redis-tls`) selects TLS
-//! to them. The master connection itself has no ACL credentials or TLS here:
-//! `deadpool-redis` 0.18's `Config::from_urls` does not expose the master's
-//! `SentinelNodeConnectionInfo`. An ACL-protected or TLS-only master is
-//! therefore not supported through this store — connect with
-//! [`RedisStore`](crate::RedisStore) directly in that setup. Multi-key reads
-//! and writes use `MGET`/`MSET`, which a single master serves atomically.
+//! to them. The first Sentinel URL also supplies the master connection's ACL
+//! credentials, database, protocol, and TLS mode through
+//! `SentinelNodeConnectionInfo`, so an ACL-protected or TLS-only master works
+//! when its Sentinel URLs carry the same settings. Multi-key reads and writes
+//! use `MGET`/`MSET`, which a single master serves atomically.
 
 use std::time::Duration;
 
 use async_trait::async_trait;
-use deadpool_redis::sentinel::{Config, SentinelServerType};
+use deadpool_redis::sentinel::{Config, SentinelNodeConnectionInfo, SentinelServerType, TlsMode};
 use deadpool_redis::{Runtime, Timeouts};
 
 use crate::KvError;
@@ -124,6 +123,7 @@ async fn connect_pool(
 ) -> Result<deadpool_redis::sentinel::Pool, KvError> {
     let urls = sentinels.iter().map(|url| url.to_string()).collect::<Vec<_>>();
     let pool = Config::from_urls(urls, master_name.to_string(), SentinelServerType::Master)
+        .with_node_connection_info(master_node_info(sentinels))
         .builder()
         .map_err(conn_err)?
         .max_size(max_size.max(1))
@@ -139,6 +139,23 @@ async fn connect_pool(
     conn.set_response_timeout(response_timeout);
     redis::cmd("PING").query_async::<String>(&mut conn).await.map_err(conn_err)?;
     Ok(pool)
+}
+
+/// Master connection settings lifted from the first Sentinel URL. `deadpool-redis`
+/// passes ACL credentials, database, protocol, and TLS to the resolved master
+/// only through `SentinelNodeConnectionInfo`.
+fn master_node_info(sentinels: &[&str]) -> Option<SentinelNodeConnectionInfo> {
+    let info = sentinels.first()?.parse::<redis::ConnectionInfo>().ok()?;
+    let tls_mode = match info.addr() {
+        redis::ConnectionAddr::TcpTls { insecure, .. } => {
+            Some(if *insecure { TlsMode::Insecure } else { TlsMode::Secure })
+        }
+        _ => None,
+    };
+    Some(SentinelNodeConnectionInfo {
+        tls_mode,
+        redis_connection_info: Some(info.redis_settings().clone().into()),
+    })
 }
 
 impl_kv_store_for_ha!(RedisSentinelStore);
@@ -160,6 +177,24 @@ mod tests {
         let config = config();
         assert_eq!(config.master_name, "mymaster");
         assert_eq!(config.urls.as_deref(), Some(&["redis://127.0.0.1:26379".to_string()][..]));
+    }
+
+    #[test]
+    fn the_first_sentinel_url_supplies_the_master_settings() {
+        let info = master_node_info(&["rediss://user:pass@127.0.0.1:26379/2"])
+            .expect("a Sentinel URL yields master connection info");
+        assert!(matches!(info.tls_mode, Some(TlsMode::Secure)));
+        let redis = info.redis_connection_info.expect("redis settings");
+        assert_eq!(redis.username.as_deref(), Some("user"));
+        assert_eq!(redis.password.as_deref(), Some("pass"));
+        assert_eq!(redis.db, 2);
+    }
+
+    #[test]
+    fn a_plain_sentinel_url_keeps_the_master_plaintext() {
+        let info = master_node_info(&["redis://127.0.0.1:26379"]).expect("connection info");
+        assert!(info.tls_mode.is_none());
+        assert!(master_node_info(&[]).is_none());
     }
 
     #[test]
