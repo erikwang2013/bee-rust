@@ -2,6 +2,15 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.5.0] — 2026-10-25
+
+### যা যোগ হয়েছে
+- `bee_orm`: MySQL 5.7 ও MariaDB 10.11+ সমর্থন — CI ম্যাট্রিক্স এখন 5.7 / 8.0 / 8.4 / 9.x প্লাস একটি MariaDB job কভার করে; ইন্টিগ্রেশন টেস্টগুলি সার্ভার ভেন্ডর সনাক্ত করে (MariaDB JSON-কে LONGTEXT হিসেবে রিপোর্ট করে এবং কলাম-স্তরের `REFERENCES` প্রয়োগ করে; MySQL 5.7/8.x এটি পার্স করে উপেক্ষা করে)।
+- `bee_orm`: MySQL-এ `Model::create` এখন মডেলের `columns()` মেটাডেটা ব্যবহার করে প্রতিটি insert-এর `information_schema` প্রোব এড়িয়ে যায়; মেটাডেটা-হীন হাতে লেখা মডেল পুরোনো প্রোব ধরে রাখে। এই হিন্টটি কর্তৃত্বপূর্ণ — schema ও মডেলের ড্রিফট সমর্থিত নয়।
+- `bee_orm::shard`: `ShardedPools::{pools, pool, len, is_empty}` কনফিগার করা শার্ডগুলি অপারেশনের জন্য উন্মুক্ত করে; `ShardHandle` অটো-ইনক্রিমেন্ট হিন্ট ফরওয়ার্ড করে।
+- `bee_kv` / `bee_cache`: `status()` পুল মেট্রিক্স; `with_options` সহ পাবলিক `RedisOptions` (`max_size`, `response_timeout`); `RedisLock::try_lock_with_watchdog` release/drop পর্যন্ত TTL নবীকরণ করে (watchdog TTL কমপক্ষে 30ms হতে হবে)।
+- অভ্যন্তরীণ: একটি ডকুমেন্টেশন-সামঞ্জস্য CI গেট (`scripts/check-docs.sh`), একটি সোশ্যাল-প্রিভিউ রেন্ডার স্ক্রিপ্ট, এবং `tests/mod.rs` থেকে আলাদা করা শেয়ার্ড টেস্ট ফিক্সচার।
+
 ## [1.4.0] — 2026-10-25
 
 ### যা যোগ হয়েছে

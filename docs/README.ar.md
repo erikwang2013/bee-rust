@@ -159,7 +159,7 @@ bee_rust   → جميع الـ crates أعلاه (re-export)
 |------|--------|-----------|-------------|
 | **علائقية** | SQLite | `bee_orm` | `sqlite` (bee_rust: `orm-sqlite`) |
 | | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls` (bee_rust: `orm-postgres` / `orm-postgres-tls`) |
-| | MySQL 8.0 / 8.4 / 9.x | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
+| | MySQL 5.7 / 8.0 / 8.4 / 9.x · MariaDB 10.11+ | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **أنواع الحقول** | التاريخ / Decimal | `bee_orm` | `chrono` / `rust_decimal` (bee_rust: `orm-chrono` / `orm-rust_decimal`) |
 | **KV / تخزين مؤقت** | Redis | `bee_kv` / `bee_cache` | `redis` |
@@ -203,7 +203,7 @@ let security = SecurityFilter::new();  // تفعيل أدوات الكشف ال�
 
 ### ORM (bee_orm)
 
-ماكرو الاشتقاق `#[derive(Model)]` (بدعم `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + استعلامات QuerySet المتسلسلة وتنفيذها (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`، وتجميعات `sum` / `avg` / `min` / `max`) + ترحيلات غير مُدمِّرة (`migrate::create_table` / `add_missing_columns` / `sync`) + قراءة العلاقات (`belongs_to` / has_many `children*` / many-to-many `m2m`) + أعمدة JSON (`serde_json::Value`) + تجمّع اتصالات للخلفيات الثلاث (مع المعاملات والمهلات)، يدعم SQLite و PostgreSQL و MySQL و TiDB. كما يوفّر ORM تقسيمًا للقواعد/الجداول يتطلّب مفتاح تقسيم (`shard::{ShardedPools, HashRouter, ShardHandle}`)؛ يجب أن تحمل الاستعلامات مفتاح التقسيم، ولا تُدعم الاستعلامات أو المعاملات عبر التقسيمات.
+ماكرو الاشتقاق `#[derive(Model)]` (بدعم `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + استعلامات QuerySet المتسلسلة وتنفيذها (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`، وتجميعات `sum` / `avg` / `min` / `max`) + ترحيلات غير مُدمِّرة (`migrate::create_table` / `add_missing_columns` / `sync`) + قراءة العلاقات (`belongs_to` / has_many `children*` / many-to-many `m2m`) + أعمدة JSON (`serde_json::Value`) + تجمّع اتصالات للخلفيات الثلاث (مع المعاملات والمهلات)، يدعم SQLite و PostgreSQL و MySQL و TiDB. كما يوفّر ORM تقسيمًا للقواعد/الجداول يتطلّب مفتاح تقسيم (`shard::{ShardedPools, HashRouter, ShardHandle}`)؛ يجب أن تحمل الاستعلامات مفتاح التقسيم، ولا تُدعم الاستعلامات أو المعاملات عبر التقسيمات. يُدعم MySQL 5.7–9.x وMariaDB 10.11+؛ وتكشف طبقة التقسيم عن تجمّعاتها للعمليات.
 
 ### إدارة التكوين (bee_config)
 
@@ -211,7 +211,7 @@ let security = SecurityFilter::new();  // تفعيل أدوات الكشف ال�
 
 ### محركات التخزين
 
-تجريد موحد عبر traits لـ KV / Cache (Redis / Memcached)، ومحركات البحث (Elasticsearch / OpenSearch / ClickHouse)، وقواعد البيانات الرسومية (Neo4j / NebulaGraph / ArangoDB)، وقواعد بيانات السلاسل الزمنية (InfluxDB / IoTDB / QuestDB)، تُترجم برامج التشغيل حسب feature gates. تستخدم خلفيات Redis (`bee_kv` / `bee_cache`) تجمّعات اتصالات `deadpool-redis` حقيقية مع حدّ 30 ثانية للأمر؛ ويوفّر `bee_kv::RedisLock` قفلًا موزّعًا (`SET NX PX` + تحرير Lua بمقارنة القيمة).
+تجريد موحد عبر traits لـ KV / Cache (Redis / Memcached)، ومحركات البحث (Elasticsearch / OpenSearch / ClickHouse)، وقواعد البيانات الرسومية (Neo4j / NebulaGraph / ArangoDB)، وقواعد بيانات السلاسل الزمنية (InfluxDB / IoTDB / QuestDB)، تُترجم برامج التشغيل حسب feature gates. تستخدم خلفيات Redis (`bee_kv` / `bee_cache`) تجمّعات اتصالات `deadpool-redis` حقيقية مع حدّ 30 ثانية للأمر؛ ويوفّر `bee_kv::RedisLock` قفلًا موزّعًا (`SET NX PX` + تحرير Lua بمقارنة القيمة). تكشف تجمّعات Redis أيضًا عن `status()` و`RedisOptions` بمهلة استجابة قابلة للضبط و`try_lock_with_watchdog` للتجديد التلقائي لمدة TTL.
 
 ### الجلسات والسجلات والقوالب
 
@@ -264,7 +264,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.4.0", features = ["full"] }
+bee_rust = { version = "1.5.0", features = ["full"] }
 ```
 
 ## ملاحظات تقنية
@@ -313,19 +313,19 @@ bee_rust = { version = "1.4.0", features = ["full"] }
 
 ### تغطية الاختبارات
 
-403 اختبارًا ناجحًا في المستودع كله:
+414 اختبارًا ناجحًا في المستودع كله:
 
 | Crate | عدد الاختبارات |
 |-------|--------|
 | bee_config | 8 |
-| bee_cache | 16 |
+| bee_cache | 18 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 22 |
+| bee_kv | 28 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |
-| bee_orm | 197 |
+| bee_orm | 200 |
 | bee_orm_macro | 24 |
 | bee_session | 2 |
 | bee_router | 40 |
@@ -342,66 +342,6 @@ bee_rust = { version = "1.4.0", features = ["full"] }
 **Alipay**
 
 <img src="alipay.png" width="160" height="175" alt="Alipay">
-
-**التحويل المصرفي العالمي (Bank Transfer)**
-
-يمكن للمستخدمين في الخارج تقديم الدعم عبر التحويل المصرفي:
-
-**معلومات المستلم**
-
-| الحقل | القيمة |
-|------|------|
-| اسم المستلم | WANG KEXUN |
-| رقم حساب المستلم | 881015918251 |
-
-**البنك المتلقي**
-
-| الحقل | القيمة |
-|------|------|
-| SWIFT Code | AABLHKHHXXX |
-| اسم البنك | ZA Bank Limited |
-| رقم البنك | 387 |
-| عنوان البنك | Core F, Cyberport 3, 100 Cyberport Road, Hong Kong |
-
-**البنك الوكيل للتحويلات العابرة للحدود (عند الحاجة)**
-
-> ملاحظة: هذه معلومات البنك الوكيل للتحويلات العابرة للحدود (البنك الوسيط)، وليست معلومات البنك المتلقي. استفسر من بنكك المرسِل عما إذا كان يتطلب تقديمها.
-
-- **تحويل الدولار الهونغ كونغي واليوان الصيني والدولار الأمريكي** (البنك الوكيل: Citibank):
-
-| الحقل | القيمة |
-|------|------|
-| اسم البنك | Citibank N.A. Hong Kong |
-| SWIFT Code | CITIHKHXXXX |
-| رقم البنك | 006 |
-| اسم الفرع | Hong Kong Branch |
-| رقم الفرع | 391 |
-| عنوان البنك | Citibank Tower, Citibank Plaza, 3 Garden Road, Central, Hong Kong |
-
-- **تحويل العملات الأخرى** (البنك الوكيل: BNY Mellon):
-
-| الحقل | القيمة |
-|------|------|
-| اسم البنك | THE BANK OF NEW YORK MELLON |
-| SWIFT Code | IRVTUS3NXXX |
-| عنوان البنك | THE BANK OF NEW YORK MELLON, 240 GREENWICH STREET, NEW YORK, United States |
-
-### التبرع بالعملات الرقمية (Crypto Donation)
-
-إذا كان هذا المشروع مفيدًا لك، فمرحبًا بمسح رمز الاستجابة السريعة للتبرع، شكرًا لك!
-
-| الشبكة (Network) | رمز QR (QR Code) | عنوان المحفظة (Wallet Address) |
-|---|---|---|
-| BNB Smart Chain (BEP20) | [<img src="./coin/1.jpg" width="150" alt="BNB Smart Chain (BEP20)">](./coin/1.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Tron (TRC20) | [<img src="./coin/2.jpg" width="150" alt="Tron (TRC20)">](./coin/2.jpg) | `TEdDHWLajt1XvqtPDWmQctdrJaC3pzZZzz` |
-| Ethereum (ERC20) | [<img src="./coin/3.jpg" width="150" alt="Ethereum (ERC20)">](./coin/3.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Aptos | [<img src="./coin/4.jpg" width="150" alt="Aptos">](./coin/4.jpg) | `0x836e3780edfc3f7b2372b39e2a1a3a5d7adfaccd96c726f21cfde1b50dd68030` |
-| Plasma | [<img src="./coin/5.jpg" width="150" alt="Plasma">](./coin/5.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Polygon POS | [<img src="./coin/6.jpg" width="150" alt="Polygon POS">](./coin/6.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Solana | [<img src="./coin/7.jpg" width="150" alt="Solana">](./coin/7.jpg) | `2hfhboHdmdrYsY25XfQSsEWxq5ip4EQsR7f4AzSRMUyr` |
-| The Open Network (TON) | [<img src="./coin/8.jpg" width="150" alt="The Open Network (TON)">](./coin/8.jpg) | `UQB9kFQohzmXUir9QSSZq01iwl9aQZIDdBpNmDklljRtCoGK` |
-| Arbitrum One | [<img src="./coin/9.jpg" width="150" alt="Arbitrum One">](./coin/9.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| AVAX C-Chain | [<img src="./coin/10.jpg" width="150" alt="AVAX C-Chain">](./coin/10.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
 
 ### الترخيص
 

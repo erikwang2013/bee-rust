@@ -2,6 +2,15 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.5.0] — 2026-10-25
+
+### 新增
+- `bee_orm`：支持 MySQL 5.7 与 MariaDB 10.11+——CI 矩阵覆盖 5.7 / 8.0 / 8.4 / 9.x，并新增 MariaDB job；集成测试按服务端识别差异（MariaDB 的 JSON 报告为 LONGTEXT，且强制执行列级 `REFERENCES`；MySQL 5.7/8.x 解析后忽略）。
+- `bee_orm`：MySQL 上的 `Model::create` 现在用模型的 `columns()` 元数据跳过每次 insert 的 `information_schema` 探测；没有元数据的手写模型保留旧探测。该提示是权威的——schema 与模型漂移不支持。
+- `bee_orm::shard`：`ShardedPools::{pools, pool, len, is_empty}` 暴露已配置的分片，便于运维；`ShardHandle` 转发自增提示。
+- `bee_kv` / `bee_cache`：`status()` 池指标；公开 `RedisOptions`（`max_size`、`response_timeout`）与 `with_options`；`RedisLock::try_lock_with_watchdog` 自动续期到 release/drop（watchdog TTL 至少 30ms）。
+- 内部：文档一致性 CI（`scripts/check-docs.sh`）、社交预览生成脚本、测试夹具从 `tests/mod.rs` 拆出。
+
 ## [1.4.0] — 2026-10-25
 
 ### 新增

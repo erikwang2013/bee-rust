@@ -239,7 +239,7 @@ struct Doc {
 
 ### MySQL テーブルレベルの外部キー（opt-in）
 
-> MySQL 9 はカラムレベルの `REFERENCES` を強制します（8.0/8.4 は解析して無視）。参照先テーブルを先に作成してください。
+> MySQL 9 と MariaDB 10.11+ はカラムレベルの `REFERENCES` を強制します。MySQL 5.7/8.x は解析して無視します。参照先テーブルを先に作成してください。
 
 ```rust
 use bee_orm::{MigrateOptions, migrate};
@@ -291,7 +291,7 @@ let back = Event::query().all(&pool).await?;   // 「1.50」は数値として�
 
 ### シャーディング（bee_orm）
 
-key-required なデータベース/テーブルシャーディング。実行可能なハンドルを取得する唯一の方法は `ShardedPools::for_key` です。クエリにはシャードキーが必要です。ルーティングは単一の複合インデックス `hash % (db_shards * table_shards)` を使うため、すべてのデータベース/テーブルの組に到達できます。クロスシャードのクエリ、JOIN、トランザクションはサポートしません。物理テーブル名は SQL に埋め込む前に `[A-Za-z_][A-Za-z0-9_]*` で検証されます。
+key-required なデータベース/テーブルシャーディング。実行可能なハンドルを取得する唯一の方法は `ShardedPools::for_key` です。クエリにはシャードキーが必要です。ルーティングは単一の複合インデックス `hash % (db_shards * table_shards)` を使うため、すべてのデータベース/テーブルの組に到達できます。クロスシャードのクエリ、JOIN、トランザクションはサポートしません。物理テーブル名は SQL に埋め込む前に `[A-Za-z_][A-Za-z0-9_]*` で検証されます。 `ShardedPools::pools()` / `pool(index)` は基盤となるプールを運用および同一シャード内トランザクション向けに公開します。ルーティングには引き続き `for_key` が必要です。
 
 ```rust
 use std::sync::Arc;
@@ -330,7 +330,7 @@ let val = kv.get("key").await?;
 let kv = MemcacheStore::new("127.0.0.1:11211")?;
 ```
 
-> `RedisStore` は `deadpool-redis` プールを保持します。切断された接続は次回 checkout 時に交換され（recycle PING）、各コマンドは 30 秒で制限され、プール枯渇時は最大 30 秒待ってから失敗します。`bee_kv::RedisLock` は `SET NX PX` 取得と Lua compare-and-delete 解放を提供します。 memcached：`incr` はまずカウンタを作成し（無ければ 0）、その後で増減します；カウンタは符号なしで、減算は 0 で止まります（Redis は負になります）；`expire(≤0)` は削除と同じです。
+> `RedisStore` は `deadpool-redis` プールを保持します。切断された接続は次回 checkout 時に交換され（recycle PING）、各コマンドは 30 秒で制限され、プール枯渇時は最大 30 秒待ってから失敗します。`bee_kv::RedisLock` は `SET NX PX` 取得と Lua compare-and-delete 解放を提供します。 memcached：`incr` はまずカウンタを作成し（無ければ 0）、その後で増減します；カウンタは符号なしで、減算は 0 で止まります（Redis は負になります）；`expire(≤0)` は削除と同じです。Redis プールは `status()`、応答タイムアウトを設定できる `RedisOptions`、TTL 自動更新のための `try_lock_with_watchdog` も提供します。
 
 **キャッシュバックエンド（bee_cache）：**
 ```rust

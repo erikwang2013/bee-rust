@@ -239,7 +239,7 @@ struct Doc {
 
 ### Clés étrangères au niveau table sous MySQL (opt-in)
 
-> MySQL 9 applique `REFERENCES` au niveau des colonnes (8.0/8.4 l'analysent et l'ignorent) ; créez d'abord les tables référencées.
+> MySQL 9 et MariaDB 10.11+ appliquent `REFERENCES` au niveau des colonnes ; MySQL 5.7/8.x l'analysent et l'ignorent. Créez d'abord les tables référencées.
 
 ```rust
 use bee_orm::{MigrateOptions, migrate};
@@ -291,7 +291,7 @@ let back = Event::query().all(&pool).await?;   // « 1.50 » revient à une vale
 
 ### Sharding (bee_orm)
 
-Sharding base/table à clé obligatoire. `ShardedPools::for_key` est le seul moyen d'obtenir un handle exécutable ; les requêtes doivent porter la clé de shard. Le routage utilise un index composite `hash % (db_shards * table_shards)`, donc chaque paire base/table est atteignable ; les requêtes, JOIN et transactions inter-shards ne sont pas pris en charge. Les noms physiques de tables sont validés contre `[A-Za-z_][A-Za-z0-9_]*` avant d'être insérés dans le SQL.
+Sharding base/table à clé obligatoire. `ShardedPools::for_key` est le seul moyen d'obtenir un handle exécutable ; les requêtes doivent porter la clé de shard. Le routage utilise un index composite `hash % (db_shards * table_shards)`, donc chaque paire base/table est atteignable ; les requêtes, JOIN et transactions inter-shards ne sont pas pris en charge. Les noms physiques de tables sont validés contre `[A-Za-z_][A-Za-z0-9_]*` avant d'être insérés dans le SQL. `ShardedPools::pools()` / `pool(index)` exposent les pools sous-jacents pour l'exploitation et les transactions au sein d'un même shard ; le routage passe toujours par `for_key`.
 
 ```rust
 use std::sync::Arc;
@@ -330,7 +330,7 @@ let val = kv.get("key").await?;
 let kv = MemcacheStore::new("127.0.0.1:11211")?;
 ```
 
-> `RedisStore` détient un pool `deadpool-redis` : une connexion tuée est remplacée au checkout suivant (PING de recyclage) ; chaque commande est limitée à 30 secondes, et un pool épuisé attend jusqu'à 30 secondes avant d'échouer. `bee_kv::RedisLock` fournit l'acquisition `SET NX PX` et la libération Lua compare-and-delete.
+> `RedisStore` détient un pool `deadpool-redis` : une connexion tuée est remplacée au checkout suivant (PING de recyclage) ; chaque commande est limitée à 30 secondes, et un pool épuisé attend jusqu'à 30 secondes avant d'échouer. `bee_kv::RedisLock` fournit l'acquisition `SET NX PX` et la libération Lua compare-and-delete. Les pools Redis exposent aussi `status()`, `RedisOptions` avec un délai d'attente de réponse configurable, et `try_lock_with_watchdog` pour le renouvellement automatique du TTL.
 
 **Backends de cache (bee_cache) :**
 ```rust

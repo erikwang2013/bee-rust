@@ -17,7 +17,7 @@ cargo add bee_rust
 
 ```toml
 [dependencies]
-bee_rust = "1.4.0"
+bee_rust = "1.5.0"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -76,7 +76,7 @@ curl http://localhost:8080/api/v1/health    # OK
 Минимальное ядро (без ORM и драйверов БД)：
 
 ```toml
-bee_rust = { version = "1.4.0", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.5.0", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## Подкрейты
@@ -93,7 +93,7 @@ bee_rust = { version = "1.4.0", default-features = false, features = ["router", 
 | `bee_cache` | абстракция кэша | `client/cache` |
 | `bee_session` | управление сессиями (Memory/Redis реализовано; Cookie/Database в планах) | `server/web/session` |
 | `bee_template` | рендеринг шаблонов | — (расширено) |
-| `bee_kv` | абстракция KV/кэша + реальный пул Redis и блокировка | `client/cache` (расширено) |
+| `bee_kv` | абстракция KV/кэша + реальный пул Redis и блокировка + status / настраиваемый таймаут / watchdog | `client/cache` (расширено) |
 | `bee_search` | поисковые / аналитические движки | — (новое) |
 | `bee_graph` | графовые базы данных | — (новое) |
 | `bee_tsdb` | базы данных временных рядов | — (новое) |
@@ -102,14 +102,14 @@ bee_rust = { version = "1.4.0", default-features = false, features = ["router", 
 Их можно подключать и по отдельности — например, только клиент Elasticsearch：
 
 ```toml
-bee_search = { version = "1.4.0", features = ["elasticsearch"] }
+bee_search = { version = "1.5.0", features = ["elasticsearch"] }
 ```
 
 ## Поддерживаемые базы данных
 
 | Тип | Базы данных | Crate | Feature |
 |------|-----------|-------|---------|
-| Реляционные | SQLite / PostgreSQL / MySQL 8.0 / 8.4 / 9.x / TiDB | `bee_orm` | `sqlite` / `postgres` / `postgres-tls` / `mysql` |
+| Реляционные | SQLite / PostgreSQL / MySQL 5.7–9.x / MariaDB 10.11+ / TiDB | `bee_orm` | `sqlite` / `postgres` / `postgres-tls` / `mysql` |
 | KV / кэш | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcached` / `memcache` |
 | Поиск / аналитика | Elasticsearch / OpenSearch / ClickHouse | `bee_search` | `elasticsearch` / `opensearch` / `clickhouse` |
 | Графовые | Neo4j / NebulaGraph / ArangoDB | `bee_graph` | `neo4j` / `nebulagraph` / `arangodb` |

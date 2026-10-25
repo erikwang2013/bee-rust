@@ -2,6 +2,15 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.5.0] — 2026-10-25
+
+### أُضيف
+- `bee_orm`: دعم MySQL 5.7 وMariaDB 10.11+ — تغطّي مصفوفة CI الآن الإصدارات 5.7 / 8.0 / 8.4 / 9.x إضافةً إلى وظيفة MariaDB؛ تدرك اختبارات التكامل نوع الخادم (يُبلّغ MariaDB عن JSON بصيغة LONGTEXT ويفرض `REFERENCES` على مستوى العمود؛ بينما MySQL 5.7/8.x يحلّله ويتجاهله).
+- `bee_orm`: يستخدم `Model::create` على MySQL الآن بيانات `columns()` الوصفية للنموذج لتخطّي فحص `information_schema` مع كل insert؛ أما النماذج المكتوبة يدويًا دون بيانات وصفية فتحتفظ بالفحص القديم. هذا التلميح مرجعي — انحراف المخطط عن النموذج غير مدعوم.
+- `bee_orm::shard`: تكشف `ShardedPools::{pools, pool, len, is_empty}` عن التقسيمات المُهيّأة للعمليات؛ ويمرّر `ShardHandle` تلميح الزيادة التلقائية.
+- `bee_kv` / `bee_cache`: مقاييس تجمّع `status()`؛ و`RedisOptions` العامة (`max_size`، `response_timeout`) مع `with_options`؛ ويجدّد `RedisLock::try_lock_with_watchdog` مدة TTL حتى release/drop (يجب أن تكون مدة watchdog TTL ‏30ms على الأقل).
+- داخليًا: بوابة CI لاتساق التوثيق (`scripts/check-docs.sh`)، وسكربت لتصيير المعاينة الاجتماعية، وتركيبات الاختبار المشتركة المستخرجة من `tests/mod.rs`.
+
 ## [1.4.0] — 2026-10-25
 
 ### أُضيف

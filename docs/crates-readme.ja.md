@@ -17,7 +17,7 @@ cargo add bee_rust
 
 ```toml
 [dependencies]
-bee_rust = "1.4.0"
+bee_rust = "1.5.0"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -76,7 +76,7 @@ curl http://localhost:8080/api/v1/health    # OK
 最小構成（ORM もデータベースドライバも不要）：
 
 ```toml
-bee_rust = { version = "1.4.0", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.5.0", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## サブクレート
@@ -93,7 +93,7 @@ bee_rust = { version = "1.4.0", default-features = false, features = ["router", 
 | `bee_cache` | キャッシュ抽象 | `client/cache` |
 | `bee_session` | セッション管理 （Memory/Redis 実装済み、Cookie/Database 計画中） | `server/web/session` |
 | `bee_template` | テンプレートレンダリング | — （拡張） |
-| `bee_kv` | KV/キャッシュ抽象 + 実 Redis プール & ロック | `client/cache` （拡張） |
+| `bee_kv` | KV/キャッシュ抽象 + 実 Redis プール & ロック + status / 設定可能なタイムアウト / watchdog | `client/cache` （拡張） |
 | `bee_search` | 検索 / 分析エンジン | — （新規） |
 | `bee_graph` | グラフデータベース | — （新規） |
 | `bee_tsdb` | 時系列データベース | — （新規） |
@@ -102,14 +102,14 @@ bee_rust = { version = "1.4.0", default-features = false, features = ["router", 
 これらは個別に依存することもできます。たとえば Elasticsearch クライアントだけを使う場合：
 
 ```toml
-bee_search = { version = "1.4.0", features = ["elasticsearch"] }
+bee_search = { version = "1.5.0", features = ["elasticsearch"] }
 ```
 
 ## 対応データベース
 
 | 種別 | データベース | Crate | Feature |
 |------|-----------|-------|---------|
-| リレーショナル | SQLite / PostgreSQL / MySQL 8.0 / 8.4 / 9.x / TiDB | `bee_orm` | `sqlite` / `postgres` / `postgres-tls` / `mysql` |
+| リレーショナル | SQLite / PostgreSQL / MySQL 5.7–9.x / MariaDB 10.11+ / TiDB | `bee_orm` | `sqlite` / `postgres` / `postgres-tls` / `mysql` |
 | KV / キャッシュ | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcached` / `memcache` |
 | 検索 / 分析 | Elasticsearch / OpenSearch / ClickHouse | `bee_search` | `elasticsearch` / `opensearch` / `clickhouse` |
 | グラフ | Neo4j / NebulaGraph / ArangoDB | `bee_graph` | `neo4j` / `nebulagraph` / `arangodb` |

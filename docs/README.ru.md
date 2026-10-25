@@ -159,7 +159,7 @@ bee_rust   → все перечисленные выше crate (re-export)
 |------|--------|-----------|-------------|
 | **Реляционные** | SQLite | `bee_orm` | `sqlite` (bee_rust: `orm-sqlite`) |
 | | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls` (bee_rust: `orm-postgres` / `orm-postgres-tls`) |
-| | MySQL 8.0 / 8.4 / 9.x | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
+| | MySQL 5.7 / 8.0 / 8.4 / 9.x · MariaDB 10.11+ | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **Типы полей** | Дата / Decimal | `bee_orm` | `chrono` / `rust_decimal` (bee_rust: `orm-chrono` / `orm-rust_decimal`) |
 | **KV / кэш** | Redis | `bee_kv` / `bee_cache` | `redis` |
@@ -203,7 +203,7 @@ let security = SecurityFilter::new();  // все 27 детекторов вкл�
 
 ### ORM (bee_orm)
 
-Производный макрос `#[derive(Model)]` (с `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + цепочные запросы и выполнение QuerySet (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, агрегаты `sum` / `avg` / `min` / `max`) + неразрушающие миграции (`migrate::create_table` / `add_missing_columns` / `sync`) + чтение связей (`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON-колонки (`serde_json::Value`) + пулы соединений для всех трёх бэкендов (с транзакциями и таймаутами), поддержка SQLite, PostgreSQL, MySQL, TiDB. ORM также предоставляет шардирование баз/таблиц с обязательным ключом (`shard::{ShardedPools, HashRouter, ShardHandle}`); запросы должны содержать ключ шарда, а межшардовые запросы и транзакции не поддерживаются.
+Производный макрос `#[derive(Model)]` (с `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + цепочные запросы и выполнение QuerySet (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, агрегаты `sum` / `avg` / `min` / `max`) + неразрушающие миграции (`migrate::create_table` / `add_missing_columns` / `sync`) + чтение связей (`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON-колонки (`serde_json::Value`) + пулы соединений для всех трёх бэкендов (с транзакциями и таймаутами), поддержка SQLite, PostgreSQL, MySQL, TiDB. ORM также предоставляет шардирование баз/таблиц с обязательным ключом (`shard::{ShardedPools, HashRouter, ShardHandle}`); запросы должны содержать ключ шарда, а межшардовые запросы и транзакции не поддерживаются. Поддерживаются MySQL 5.7–9.x и MariaDB 10.11+; слой шардирования раскрывает свои пулы для эксплуатации.
 
 ### Управление конфигурацией (bee_config)
 
@@ -211,7 +211,7 @@ let security = SecurityFilter::new();  // все 27 детекторов вкл�
 
 ### Движки хранения
 
-Единая trait-абстракция для KV / Cache (Redis / Memcached), поисковых движков (Elasticsearch / OpenSearch / ClickHouse), графовых БД (Neo4j / NebulaGraph / ArangoDB) и БД временных рядов (InfluxDB / IoTDB / QuestDB); драйверы компилируются по feature-флагам. Бэкенды Redis (`bee_kv` / `bee_cache`) используют настоящие пулы соединений `deadpool-redis` с лимитом 30 секунд на команду; `bee_kv::RedisLock` предоставляет распределённую блокировку (`SET NX PX` + освобождение через Lua compare-and-delete).
+Единая trait-абстракция для KV / Cache (Redis / Memcached), поисковых движков (Elasticsearch / OpenSearch / ClickHouse), графовых БД (Neo4j / NebulaGraph / ArangoDB) и БД временных рядов (InfluxDB / IoTDB / QuestDB); драйверы компилируются по feature-флагам. Бэкенды Redis (`bee_kv` / `bee_cache`) используют настоящие пулы соединений `deadpool-redis` с лимитом 30 секунд на команду; `bee_kv::RedisLock` предоставляет распределённую блокировку (`SET NX PX` + освобождение через Lua compare-and-delete). Пулы Redis также предоставляют `status()`, `RedisOptions` с настраиваемым таймаутом ответа и `try_lock_with_watchdog` для автоматического продления TTL.
 
 ### Session, логирование, шаблоны
 
@@ -264,7 +264,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.4.0", features = ["full"] }
+bee_rust = { version = "1.5.0", features = ["full"] }
 ```
 
 ## Технические заметки
@@ -313,19 +313,19 @@ bee_rust = { version = "1.4.0", features = ["full"] }
 
 ### Покрытие тестами
 
-В репозитории проходят 403 тестов:
+В репозитории проходят 414 тестов:
 
 | Crate | Число тестов |
 |-------|--------|
 | bee_config | 8 |
-| bee_cache | 16 |
+| bee_cache | 18 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 22 |
+| bee_kv | 28 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |
-| bee_orm | 197 |
+| bee_orm | 200 |
 | bee_orm_macro | 24 |
 | bee_session | 2 |
 | bee_router | 40 |
@@ -342,66 +342,6 @@ bee_rust = { version = "1.4.0", features = ["full"] }
 **Alipay**
 
 <img src="alipay.png" width="160" height="175" alt="Alipay">
-
-**Международный перевод (Bank Transfer)**
-
-Пользователи из других стран могут поддержать проект банковским переводом:
-
-**Информация о получателе**
-
-| Поле | Значение |
-|------|------|
-| Имя получателя | WANG KEXUN |
-| Номер счёта получателя | 881015918251 |
-
-**Банк получателя**
-
-| Поле | Значение |
-|------|------|
-| SWIFT Code | AABLHKHHXXX |
-| Название банка | ZA Bank Limited |
-| Код банка | 387 |
-| Адрес банка | Core F, Cyberport 3, 100 Cyberport Road, Hong Kong |
-
-**Банк-корреспондент для международных переводов (при необходимости)**
-
-> Примечание: это информация о банке-корреспонденте (посреднике) для международных переводов, а не о банке получателя. Уточните в своём банке, требуется ли её указывать.
-
-- **Переводы в гонконгских долларах, юанях и долларах США** (банк-корреспондент — Citibank):
-
-| Поле | Значение |
-|------|------|
-| Название банка | Citibank N.A. Hong Kong |
-| SWIFT Code | CITIHKHXXXX |
-| Код банка | 006 |
-| Название отделения | Hong Kong Branch |
-| Код отделения | 391 |
-| Адрес банка | Citibank Tower, Citibank Plaza, 3 Garden Road, Central, Hong Kong |
-
-- **Переводы в других валютах** (банк-корреспондент — BNY Mellon):
-
-| Поле | Значение |
-|------|------|
-| Название банка | THE BANK OF NEW YORK MELLON |
-| SWIFT Code | IRVTUS3NXXX |
-| Адрес банка | THE BANK OF NEW YORK MELLON, 240 GREENWICH STREET, NEW YORK, United States |
-
-### Пожертвование в криптовалюте (Crypto Donation)
-
-Если этот проект помог вам, отсканируйте QR-код, чтобы сделать пожертвование, спасибо!
-
-| Сеть (Network) | QR-код (QR Code) | Адрес кошелька (Wallet Address) |
-|---|---|---|
-| BNB Smart Chain (BEP20) | [<img src="./coin/1.jpg" width="150" alt="BNB Smart Chain (BEP20)">](./coin/1.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Tron (TRC20) | [<img src="./coin/2.jpg" width="150" alt="Tron (TRC20)">](./coin/2.jpg) | `TEdDHWLajt1XvqtPDWmQctdrJaC3pzZZzz` |
-| Ethereum (ERC20) | [<img src="./coin/3.jpg" width="150" alt="Ethereum (ERC20)">](./coin/3.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Aptos | [<img src="./coin/4.jpg" width="150" alt="Aptos">](./coin/4.jpg) | `0x836e3780edfc3f7b2372b39e2a1a3a5d7adfaccd96c726f21cfde1b50dd68030` |
-| Plasma | [<img src="./coin/5.jpg" width="150" alt="Plasma">](./coin/5.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Polygon POS | [<img src="./coin/6.jpg" width="150" alt="Polygon POS">](./coin/6.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Solana | [<img src="./coin/7.jpg" width="150" alt="Solana">](./coin/7.jpg) | `2hfhboHdmdrYsY25XfQSsEWxq5ip4EQsR7f4AzSRMUyr` |
-| The Open Network (TON) | [<img src="./coin/8.jpg" width="150" alt="The Open Network (TON)">](./coin/8.jpg) | `UQB9kFQohzmXUir9QSSZq01iwl9aQZIDdBpNmDklljRtCoGK` |
-| Arbitrum One | [<img src="./coin/9.jpg" width="150" alt="Arbitrum One">](./coin/9.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| AVAX C-Chain | [<img src="./coin/10.jpg" width="150" alt="AVAX C-Chain">](./coin/10.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
 
 ### Лицензия
 

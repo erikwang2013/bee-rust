@@ -17,7 +17,7 @@ cargo add bee_rust
 
 ```toml
 [dependencies]
-bee_rust = "1.4.0"
+bee_rust = "1.5.0"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -76,7 +76,7 @@ curl http://localhost:8080/api/v1/health    # OK
 न्यूनतम कोर (ORM और डेटाबेस ड्राइवर के बिना)：
 
 ```toml
-bee_rust = { version = "1.4.0", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.5.0", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## सब-क्रेट
@@ -93,7 +93,7 @@ bee_rust = { version = "1.4.0", default-features = false, features = ["router", 
 | `bee_cache` | कैश अमूर्तन | `client/cache` |
 | `bee_session` | सेशन प्रबंधन (Memory/Redis लागू; Cookie/Database योजनाबद्ध) | `server/web/session` |
 | `bee_template` | टेम्पलेट रेंडरिंग | — (विस्तारित) |
-| `bee_kv` | KV/कैश अमूर्तन + वास्तविक Redis पूल और लॉक | `client/cache` (विस्तारित) |
+| `bee_kv` | KV/कैश अमूर्तन + वास्तविक Redis पूल और लॉक + status / कॉन्फ़िगर करने योग्य टाइमआउट / watchdog | `client/cache` (विस्तारित) |
 | `bee_search` | खोज / विश्लेषण इंजन | — (नया) |
 | `bee_graph` | ग्राफ़ डेटाबेस | — (नया) |
 | `bee_tsdb` | टाइम-सीरीज़ डेटाबेस | — (नया) |
@@ -102,14 +102,14 @@ bee_rust = { version = "1.4.0", default-features = false, features = ["router", 
 इन्हें अलग-अलग भी निर्भरता बनाया जा सकता है — जैसे केवल Elasticsearch क्लाइंट：
 
 ```toml
-bee_search = { version = "1.4.0", features = ["elasticsearch"] }
+bee_search = { version = "1.5.0", features = ["elasticsearch"] }
 ```
 
 ## समर्थित डेटाबेस
 
 | प्रकार | डेटाबेस | Crate | Feature |
 |------|-----------|-------|---------|
-| रिलेशनल | SQLite / PostgreSQL / MySQL 8.0 / 8.4 / 9.x / TiDB | `bee_orm` | `sqlite` / `postgres` / `postgres-tls` / `mysql` |
+| रिलेशनल | SQLite / PostgreSQL / MySQL 5.7–9.x / MariaDB 10.11+ / TiDB | `bee_orm` | `sqlite` / `postgres` / `postgres-tls` / `mysql` |
 | KV / कैश | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcached` / `memcache` |
 | खोज / विश्लेषण | Elasticsearch / OpenSearch / ClickHouse | `bee_search` | `elasticsearch` / `opensearch` / `clickhouse` |
 | ग्राफ़ | Neo4j / NebulaGraph / ArangoDB | `bee_graph` | `neo4j` / `nebulagraph` / `arangodb` |

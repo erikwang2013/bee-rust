@@ -104,7 +104,7 @@ bee_rust   → all above (re-export)
 |----------|---------|-------|-------------|
 | **Relational** | SQLite | `bee_orm` | `sqlite` (bee_rust: `orm-sqlite`) |
 | | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls` (bee_rust: `orm-postgres` / `orm-postgres-tls`) |
-| | MySQL 8.0 / 8.4 / 9.x | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
+| | MySQL 5.7 / 8.0 / 8.4 / 9.x · MariaDB 10.11+ | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **Field types** | Date / Decimal | `bee_orm` | `chrono` / `rust_decimal` (bee_rust: `orm-chrono` / `orm-rust_decimal`) |
 | **KV / Cache** | Redis | `bee_kv` / `bee_cache` | `redis` |
@@ -148,7 +148,7 @@ let security = SecurityFilter::new();  // all 27 detectors enabled
 
 ### ORM (bee_orm)
 
-`#[derive(Model)]` derive macro (with `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + QuerySet chained queries and execution (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, aggregates `sum` / `avg` / `min` / `max`) + non-destructive migrations (`migrate::create_table` / `add_missing_columns` / `sync`) + relation reads (`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON columns (`serde_json::Value`) + connection pools for all three backends (transactions and timeouts included), supporting SQLite, PostgreSQL, MySQL, and TiDB; key-required sharding (`ShardedPools` + `HashRouter` — every query must carry a shard key; no cross-shard queries or transactions).
+`#[derive(Model)]` derive macro (with `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + QuerySet chained queries and execution (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, aggregates `sum` / `avg` / `min` / `max`) + non-destructive migrations (`migrate::create_table` / `add_missing_columns` / `sync`) + relation reads (`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON columns (`serde_json::Value`) + connection pools for all three backends (transactions and timeouts included), supporting SQLite, PostgreSQL, MySQL, and TiDB; key-required sharding (`ShardedPools` + `HashRouter` — every query must carry a shard key; no cross-shard queries or transactions). MySQL 5.7–9.x and MariaDB 10.11+ are supported; the shard layer exposes its pools for operations.
 
 ### Config (bee_config)
 
@@ -156,7 +156,7 @@ let security = SecurityFilter::new();  // all 27 detectors enabled
 
 ### Storage Engines
 
-Unified trait abstractions for KV / Cache (Redis / Memcached), Search (Elasticsearch / OpenSearch / ClickHouse), Graph (Neo4j / NebulaGraph / ArangoDB), and Time Series (InfluxDB / IoTDB / QuestDB), with drivers compiled behind feature gates. The Redis backends use a real connection pool (`deadpool-redis`), and `bee_kv::RedisLock` provides a distributed lock (`SET NX PX` acquire + Lua release).
+Unified trait abstractions for KV / Cache (Redis / Memcached), Search (Elasticsearch / OpenSearch / ClickHouse), Graph (Neo4j / NebulaGraph / ArangoDB), and Time Series (InfluxDB / IoTDB / QuestDB), with drivers compiled behind feature gates. The Redis backends use a real connection pool (`deadpool-redis`), and `bee_kv::RedisLock` provides a distributed lock (`SET NX PX` acquire + Lua release). Redis pools also expose `status()`, `RedisOptions` with a configurable response timeout, and `try_lock_with_watchdog` for TTL auto-renewal.
 
 ### Session, Logging, Templates
 
@@ -201,7 +201,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.4.0", features = ["full"] }
+bee_rust = { version = "1.5.0", features = ["full"] }
 ```
 
 ## Tech Stack
@@ -248,19 +248,19 @@ bee_rust = { version = "1.4.0", features = ["full"] }
 
 ## Test Coverage
 
-403 tests passing across all crates:
+414 tests passing across all crates:
 
 | Crate | Tests |
 |-------|-------|
 | bee_config | 8 |
-| bee_cache | 16 |
+| bee_cache | 18 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 22 |
+| bee_kv | 28 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |
-| bee_orm | 197 |
+| bee_orm | 200 |
 | bee_orm_macro | 24 |
 | bee_session | 2 |
 | bee_router | 40 |
@@ -277,66 +277,6 @@ If this project helps you, feel free to scan the QR codes below to show your sup
 **Alipay**
 
 <img src="alipay.png" width="160" height="175" alt="Alipay">
-
-**Global Bank Transfer**
-
-Users outside China can show support via bank transfer:
-
-**Payee Information**
-
-| Field | Value |
-|-------|-------|
-| Payee Name | WANG KEXUN |
-| Account Number | 881015918251 |
-
-**Receiving Bank**
-
-| Field | Value |
-|-------|-------|
-| SWIFT Code | AABLHKHHXXX |
-| Bank Name | ZA Bank Limited |
-| Bank Code | 387 |
-| Bank Address | Core F, Cyberport 3, 100 Cyberport Road, Hong Kong |
-
-**Correspondent Bank (if required)**
-
-> Note: This is the correspondent (intermediary) bank information for cross-border remittance, NOT the receiving bank. Please check with your remitting bank whether this information is required.
-
-- **For HKD, CNY, and USD remittances** (correspondent bank: Citibank):
-
-| Field | Value |
-|-------|-------|
-| Bank Name | Citibank N.A. Hong Kong |
-| SWIFT Code | CITIHKHXXXX |
-| Bank Code | 006 |
-| Branch Name | Hong Kong Branch |
-| Branch Code | 391 |
-| Bank Address | Citibank Tower, Citibank Plaza, 3 Garden Road, Central, Hong Kong |
-
-- **For other currencies** (correspondent bank: BNY Mellon):
-
-| Field | Value |
-|-------|-------|
-| Bank Name | THE BANK OF NEW YORK MELLON |
-| SWIFT Code | IRVTUS3NXXX |
-| Bank Address | THE BANK OF NEW YORK MELLON, 240 GREENWICH STREET, NEW YORK, United States |
-
-### Crypto Donation
-
-If this project helps you, donations are welcome. Thank you!
-
-| Network | QR Code | Wallet Address |
-|---|---|---|
-| BNB Smart Chain (BEP20) | [<img src="coin/1.jpg" width="150" alt="BNB Smart Chain (BEP20)">](coin/1.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Tron (TRC20) | [<img src="coin/2.jpg" width="150" alt="Tron (TRC20)">](coin/2.jpg) | `TEdDHWLajt1XvqtPDWmQctdrJaC3pzZZzz` |
-| Ethereum (ERC20) | [<img src="coin/3.jpg" width="150" alt="Ethereum (ERC20)">](coin/3.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Aptos | [<img src="coin/4.jpg" width="150" alt="Aptos">](coin/4.jpg) | `0x836e3780edfc3f7b2372b39e2a1a3a5d7adfaccd96c726f21cfde1b50dd68030` |
-| Plasma | [<img src="coin/5.jpg" width="150" alt="Plasma">](coin/5.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Polygon POS | [<img src="coin/6.jpg" width="150" alt="Polygon POS">](coin/6.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Solana | [<img src="coin/7.jpg" width="150" alt="Solana">](coin/7.jpg) | `2hfhboHdmdrYsY25XfQSsEWxq5ip4EQsR7f4AzSRMUyr` |
-| The Open Network (TON) | [<img src="coin/8.jpg" width="150" alt="The Open Network (TON)">](coin/8.jpg) | `UQB9kFQohzmXUir9QSSZq01iwl9aQZIDdBpNmDklljRtCoGK` |
-| Arbitrum One | [<img src="coin/9.jpg" width="150" alt="Arbitrum One">](coin/9.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| AVAX C-Chain | [<img src="coin/10.jpg" width="150" alt="AVAX C-Chain">](coin/10.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
 
 ## License
 

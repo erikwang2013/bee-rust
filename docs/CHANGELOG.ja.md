@@ -2,6 +2,15 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.5.0] — 2026-10-25
+
+### 追加
+- `bee_orm`: MySQL 5.7 と MariaDB 10.11+ のサポート — CI マトリクスは 5.7 / 8.0 / 8.4 / 9.x に加えて MariaDB ジョブをカバーします。統合テストはサーバーのベンダーを判別します（MariaDB は JSON を LONGTEXT として報告し、カラムレベルの `REFERENCES` を強制します。MySQL 5.7/8.x は解析して無視します）。
+- `bee_orm`: MySQL の `Model::create` はモデルの `columns()` メタデータを使い、insert ごとの `information_schema` プローブを省略するようになりました。メタデータを持たない手書きモデルは従来のプローブを維持します。このヒントは権威的です — schema とモデルのドリフトはサポート対象外です。
+- `bee_orm::shard`: `ShardedPools::{pools, pool, len, is_empty}` が設定済みのシャードを運用向けに公開します。`ShardHandle` は自動インクリメントのヒントを転送します。
+- `bee_kv` / `bee_cache`: `status()` によるプールメトリクス。`with_options` 付きの公開 `RedisOptions`（`max_size`、`response_timeout`）。`RedisLock::try_lock_with_watchdog` は release/drop まで TTL を更新します（watchdog TTL は 30ms 以上が必要）。
+- 内部: ドキュメント整合性の CI ゲート（`scripts/check-docs.sh`）、ソーシャルプレビューのレンダースクリプト、`tests/mod.rs` から分離した共有テストフィクスチャ。
+
 ## [1.4.0] — 2026-10-25
 
 ### 追加

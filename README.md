@@ -183,7 +183,7 @@ bee_rust   → 全部上述 crate (re-export)
 |------|--------|-----------|-------------|
 | **关系型** | SQLite | `bee_orm` | `sqlite`（bee_rust：`orm-sqlite`） |
 | | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls`（bee_rust：`orm-postgres` / `orm-postgres-tls`） |
-| | MySQL 8.0 / 8.4 / 9.x | `bee_orm` | `mysql`（bee_rust：`orm-mysql`） |
+| | MySQL 5.7 / 8.0 / 8.4 / 9.x · MariaDB 10.11+ | `bee_orm` | `mysql`（bee_rust：`orm-mysql`） |
 | | TiDB | `bee_orm` | `mysql` |
 | **字段类型** | 日期 / Decimal | `bee_orm` | `chrono` / `rust_decimal`（bee_rust：`orm-chrono` / `orm-rust_decimal`） |
 | **KV / 缓存** | Redis | `bee_kv` / `bee_cache` | `redis` |
@@ -227,7 +227,7 @@ let security = SecurityFilter::new();  // 27 个检测器全开
 
 ### ORM（bee_orm）
 
-`#[derive(Model)]` 派生宏（支持 `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`）+ QuerySet 链式查询与执行（`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`，聚合 `sum` / `avg` / `min` / `max`）+ 非破坏性迁移（`migrate::create_table` / `add_missing_columns` / `sync`）+ 关系查询（`belongs_to` / has_many `children*` / 多对多 `m2m`）+ JSON 列（`serde_json::Value`）+ 三后端连接池（含事务与超时控制），支持 SQLite、PostgreSQL、MySQL、TiDB；分库分表（`ShardedPools` + `HashRouter`，查询必须带分片键；不支持跨分片查询/事务）。
+`#[derive(Model)]` 派生宏（支持 `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`）+ QuerySet 链式查询与执行（`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`，聚合 `sum` / `avg` / `min` / `max`）+ 非破坏性迁移（`migrate::create_table` / `add_missing_columns` / `sync`）+ 关系查询（`belongs_to` / has_many `children*` / 多对多 `m2m`）+ JSON 列（`serde_json::Value`）+ 三后端连接池（含事务与超时控制），支持 SQLite、PostgreSQL、MySQL、TiDB；分库分表（`ShardedPools` + `HashRouter`，查询必须带分片键；不支持跨分片查询/事务）。支持 MySQL 5.7–9.x 与 MariaDB 10.11+；分片层暴露底层连接池供运维使用。
 
 ### 配置管理（bee_config）
 
@@ -235,7 +235,7 @@ let security = SecurityFilter::new();  // 27 个检测器全开
 
 ### 存储引擎
 
-KV / Cache（Redis / Memcached）、搜索引擎（Elasticsearch / OpenSearch / ClickHouse）、图数据库（Neo4j / NebulaGraph / ArangoDB）、时序数据库（InfluxDB / IoTDB / QuestDB）统一 trait 抽象，驱动按 feature gate 编译；Redis 后端使用真实连接池（`deadpool-redis`），并提供分布式锁 `bee_kv::RedisLock`（`SET NX PX` 获取 + Lua 释放）。
+KV / Cache（Redis / Memcached）、搜索引擎（Elasticsearch / OpenSearch / ClickHouse）、图数据库（Neo4j / NebulaGraph / ArangoDB）、时序数据库（InfluxDB / IoTDB / QuestDB）统一 trait 抽象，驱动按 feature gate 编译；Redis 后端使用真实连接池（`deadpool-redis`），并提供分布式锁 `bee_kv::RedisLock`（`SET NX PX` 获取 + Lua 释放）。Redis 池还提供 `status()`、可配置响应超时的 `RedisOptions`，以及 TTL 自动续期的 `try_lock_with_watchdog`。
 
 ### Session、日志、模板
 
@@ -288,7 +288,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.4.0", features = ["full"] }
+bee_rust = { version = "1.5.0", features = ["full"] }
 ```
 
 ## 技术说明
@@ -337,19 +337,19 @@ bee_rust = { version = "1.4.0", features = ["full"] }
 
 ### 测试覆盖
 
-全仓 403 个测试通过：
+全仓 414 个测试通过：
 
 | Crate | 测试数 |
 |-------|--------|
 | bee_config | 8 |
-| bee_cache | 16 |
+| bee_cache | 18 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 22 |
+| bee_kv | 28 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |
-| bee_orm | 197 |
+| bee_orm | 200 |
 | bee_orm_macro | 24 |
 | bee_session | 2 |
 | bee_router | 40 |
@@ -366,66 +366,6 @@ bee_rust = { version = "1.4.0", features = ["full"] }
 **支付宝**
 
 <img src="docs/alipay.png" width="160" height="175" alt="支付宝">
-
-**全球转账（Bank Transfer）**
-
-海外用户可通过银行转账支持：
-
-**收款人信息**
-
-| 项目 | 内容 |
-|------|------|
-| 收款人姓名 | WANG KEXUN |
-| 收款账户号码 | 881015918251 |
-
-**收款银行**
-
-| 项目 | 内容 |
-|------|------|
-| SWIFT Code | AABLHKHHXXX |
-| 银行名称 | ZA Bank Limited |
-| 银行编号 | 387 |
-| 银行地址 | Core F, Cyberport 3, 100 Cyberport Road, Hong Kong |
-
-**跨境汇款代理银行（如需）**
-
-> 注意：此为跨境汇款代理银行（中转银行）信息，非收款银行信息。请向你的汇款银行查询是否需要提供。
-
-- **汇入港元、人民币及美元**（代理银行为 Citibank）：
-
-| 项目 | 内容 |
-|------|------|
-| 银行名称 | Citibank N.A. Hong Kong |
-| SWIFT Code | CITIHKHXXXX |
-| 银行编号 | 006 |
-| 分行名称 | Hong Kong Branch |
-| 分行编号 | 391 |
-| 银行地址 | Citibank Tower, Citibank Plaza, 3 Garden Road, Central, Hong Kong |
-
-- **汇入其他币种**（代理银行为 BNY Mellon）：
-
-| 项目 | 内容 |
-|------|------|
-| 银行名称 | THE BANK OF NEW YORK MELLON |
-| SWIFT Code | IRVTUS3NXXX |
-| 银行地址 | THE BANK OF NEW YORK MELLON, 240 GREENWICH STREET, NEW YORK, United States |
-
-### 虚拟币打赏 (Crypto Donation)
-
-如果这个项目对你有帮助，欢迎扫描二维码打赏支持，谢谢！
-
-| 主网 (Network) | 二维码 (QR Code) | 钱包地址 (Wallet Address) |
-|---|---|---|
-| BNB Smart Chain (BEP20) | [<img src="docs/coin/1.jpg" width="150" alt="BNB Smart Chain (BEP20)">](docs/coin/1.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Tron (TRC20) | [<img src="docs/coin/2.jpg" width="150" alt="Tron (TRC20)">](docs/coin/2.jpg) | `TEdDHWLajt1XvqtPDWmQctdrJaC3pzZZzz` |
-| Ethereum (ERC20) | [<img src="docs/coin/3.jpg" width="150" alt="Ethereum (ERC20)">](docs/coin/3.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Aptos | [<img src="docs/coin/4.jpg" width="150" alt="Aptos">](docs/coin/4.jpg) | `0x836e3780edfc3f7b2372b39e2a1a3a5d7adfaccd96c726f21cfde1b50dd68030` |
-| Plasma | [<img src="docs/coin/5.jpg" width="150" alt="Plasma">](docs/coin/5.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Polygon POS | [<img src="docs/coin/6.jpg" width="150" alt="Polygon POS">](docs/coin/6.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Solana | [<img src="docs/coin/7.jpg" width="150" alt="Solana">](docs/coin/7.jpg) | `2hfhboHdmdrYsY25XfQSsEWxq5ip4EQsR7f4AzSRMUyr` |
-| The Open Network (TON) | [<img src="docs/coin/8.jpg" width="150" alt="The Open Network (TON)">](docs/coin/8.jpg) | `UQB9kFQohzmXUir9QSSZq01iwl9aQZIDdBpNmDklljRtCoGK` |
-| Arbitrum One | [<img src="docs/coin/9.jpg" width="150" alt="Arbitrum One">](docs/coin/9.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| AVAX C-Chain | [<img src="docs/coin/10.jpg" width="150" alt="AVAX C-Chain">](docs/coin/10.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
 
 ### 许可证
 

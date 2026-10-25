@@ -159,7 +159,7 @@ bee_rust   → উপরের সব crate (re-export)
 |------|--------|-----------|-------------|
 | **রিলেশনাল** | SQLite | `bee_orm` | `sqlite` (bee_rust: `orm-sqlite`) |
 | | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls` (bee_rust: `orm-postgres` / `orm-postgres-tls`) |
-| | MySQL 8.0 / 8.4 / 9.x | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
+| | MySQL 5.7 / 8.0 / 8.4 / 9.x · MariaDB 10.11+ | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **ফিল্ডের ধরন** | তারিখ / Decimal | `bee_orm` | `chrono` / `rust_decimal` (bee_rust: `orm-chrono` / `orm-rust_decimal`) |
 | **KV / ক্যাশ** | Redis | `bee_kv` / `bee_cache` | `redis` |
@@ -203,7 +203,7 @@ let security = SecurityFilter::new();  // ২৭টি ডিটেক্টর 
 
 ### ORM (bee_orm)
 
-`#[derive(Model)]` ডেরাইভ ম্যাক্রো (`#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]` সহ) + QuerySet চেইনড কোয়েরি ও এক্সিকিউশন (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, অ্যাগ্রিগেট `sum` / `avg` / `min` / `max`) + অবিনাশী মাইগ্রেশন (`migrate::create_table` / `add_missing_columns` / `sync`) + রিলেশন পড়া (`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON কলাম (`serde_json::Value`) + তিন বেকএন্ডের কানেকশন পুল (ট্রানজ্যাকশন ও টাইমআউটসহ), SQLite, PostgreSQL, MySQL, TiDB সমর্থন করে। ORM এখন key-required ডেটাবেস/টেবিল শার্ডিং (`shard::{ShardedPools, HashRouter, ShardHandle}`) দেয়; কোয়েরিতে শার্ড কী থাকতে হবে, এবং ক্রস-শার্ড কোয়েরি/ট্রানজেকশন সমর্থিত নয়।
+`#[derive(Model)]` ডেরাইভ ম্যাক্রো (`#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]` সহ) + QuerySet চেইনড কোয়েরি ও এক্সিকিউশন (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, অ্যাগ্রিগেট `sum` / `avg` / `min` / `max`) + অবিনাশী মাইগ্রেশন (`migrate::create_table` / `add_missing_columns` / `sync`) + রিলেশন পড়া (`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON কলাম (`serde_json::Value`) + তিন বেকএন্ডের কানেকশন পুল (ট্রানজ্যাকশন ও টাইমআউটসহ), SQLite, PostgreSQL, MySQL, TiDB সমর্থন করে। ORM এখন key-required ডেটাবেস/টেবিল শার্ডিং (`shard::{ShardedPools, HashRouter, ShardHandle}`) দেয়; কোয়েরিতে শার্ড কী থাকতে হবে, এবং ক্রস-শার্ড কোয়েরি/ট্রানজেকশন সমর্থিত নয়। MySQL 5.7–9.x এবং MariaDB 10.11+ সমর্থিত; শার্ড স্তরটি অপারেশনের জন্য তার পুলগুলি উন্মুক্ত করে।
 
 ### কনফিগ ম্যানেজমেন্ট (bee_config)
 
@@ -211,7 +211,7 @@ let security = SecurityFilter::new();  // ২৭টি ডিটেক্টর 
 
 ### স্টোরেজ ইঞ্জিন
 
-KV / Cache (Redis / Memcached), সার্চ ইঞ্জিন (Elasticsearch / OpenSearch / ClickHouse), গ্রাফ ডেটাবেস (Neo4j / NebulaGraph / ArangoDB), টাইম-সিরিজ ডেটাবেস (InfluxDB / IoTDB / QuestDB) — সব একীভূত trait অ্যাবস্ট্রাকশন, ড্রাইভার feature gate অনুযায়ী কম্পাইল হয়। Redis ব্যাকএন্ড (`bee_kv` / `bee_cache`) প্রকৃত `deadpool-redis` কানেকশন পুল ও 30 সেকেন্ডের কমান্ড সীমা ব্যবহার করে; `bee_kv::RedisLock` ডিস্ট্রিবিউটেড লক (`SET NX PX` + Lua compare-and-delete রিলিজ) দেয়।
+KV / Cache (Redis / Memcached), সার্চ ইঞ্জিন (Elasticsearch / OpenSearch / ClickHouse), গ্রাফ ডেটাবেস (Neo4j / NebulaGraph / ArangoDB), টাইম-সিরিজ ডেটাবেস (InfluxDB / IoTDB / QuestDB) — সব একীভূত trait অ্যাবস্ট্রাকশন, ড্রাইভার feature gate অনুযায়ী কম্পাইল হয়। Redis ব্যাকএন্ড (`bee_kv` / `bee_cache`) প্রকৃত `deadpool-redis` কানেকশন পুল ও 30 সেকেন্ডের কমান্ড সীমা ব্যবহার করে; `bee_kv::RedisLock` ডিস্ট্রিবিউটেড লক (`SET NX PX` + Lua compare-and-delete রিলিজ) দেয়। Redis পুলগুলি `status()`, কনফিগারযোগ্য রেসপন্স টাইমআউটসহ `RedisOptions`, এবং TTL স্বয়ংক্রিয় নবীকরণের জন্য `try_lock_with_watchdog`-ও দেয়।
 
 ### Session, লগ, টেমপ্লেট
 
@@ -264,7 +264,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.4.0", features = ["full"] }
+bee_rust = { version = "1.5.0", features = ["full"] }
 ```
 
 ## প্রযুক্তিগত নোট
@@ -313,19 +313,19 @@ bee_rust = { version = "1.4.0", features = ["full"] }
 
 ### টেস্ট কভারেজ
 
-পুরো রিপোজিটরির ৪০৩টি টেস্ট পাস:
+পুরো রিপোজিটরির ৪১৪টি টেস্ট পাস:
 
 | Crate | টেস্ট সংখ্যা |
 |-------|--------|
 | bee_config | ৮ |
-| bee_cache | ১৬ |
+| bee_cache | ১৮ |
 | bee_template | ২ |
 | bee_logs | ৩ |
-| bee_kv | ২২ |
+| bee_kv | ২৮ |
 | bee_search | ২১ |
 | bee_graph | ১৯ |
 | bee_tsdb | ১৯ |
-| bee_orm | ১৯৭ |
+| bee_orm | ২০০ |
 | bee_orm_macro | ২৪ |
 | bee_session | ২ |
 | bee_router | ৪০ |
@@ -342,66 +342,6 @@ bee_rust = { version = "1.4.0", features = ["full"] }
 **Alipay**
 
 <img src="alipay.png" width="160" height="175" alt="Alipay">
-
-**গ্লোবাল ট্রান্সফার (Bank Transfer)**
-
-বিদেশি ব্যবহারকারীরা ব্যাংক ট্রান্সফারের মাধ্যমে সমর্থন করতে পারেন:
-
-**প্রাপকের তথ্য**
-
-| আইটেম | বিবরণ |
-|------|------|
-| প্রাপকের নাম | WANG KEXUN |
-| প্রাপকের অ্যাকাউন্ট নম্বর | 881015918251 |
-
-**প্রাপক ব্যাংক**
-
-| আইটেম | বিবরণ |
-|------|------|
-| SWIFT Code | AABLHKHHXXX |
-| ব্যাংকের নাম | ZA Bank Limited |
-| ব্যাংক কোড | 387 |
-| ব্যাংকের ঠিকানা | Core F, Cyberport 3, 100 Cyberport Road, Hong Kong |
-
-**ক্রস-বর্ডার রেমিট্যান্স এজেন্ট ব্যাংক (প্রয়োজন হলে)**
-
-> নোট: এটি ক্রস-বর্ডার রেমিট্যান্স এজেন্ট ব্যাংক (মধ্যস্থ ব্যাংক) এর তথ্য, প্রাপক ব্যাংকের তথ্য নয়। তোমার রেমিট্যান্স ব্যাংককে জিজ্ঞেস করো এটা দরকার কি না।
-
-- **HKD, CNY ও USD-তে পাঠালে** (এজেন্ট ব্যাংক Citibank):
-
-| আইটেম | বিবরণ |
-|------|------|
-| ব্যাংকের নাম | Citibank N.A. Hong Kong |
-| SWIFT Code | CITIHKHXXXX |
-| ব্যাংক কোড | 006 |
-| শাখার নাম | Hong Kong Branch |
-| শাখা কোড | 391 |
-| ব্যাংকের ঠিকানা | Citibank Tower, Citibank Plaza, 3 Garden Road, Central, Hong Kong |
-
-- **অন্যান্য মুদ্রায় পাঠালে** (এজেন্ট ব্যাংক BNY Mellon):
-
-| আইটেম | বিবরণ |
-|------|------|
-| ব্যাংকের নাম | THE BANK OF NEW YORK MELLON |
-| SWIFT Code | IRVTUS3NXXX |
-| ব্যাংকের ঠিকানা | THE BANK OF NEW YORK MELLON, 240 GREENWICH STREET, NEW YORK, United States |
-
-### ক্রিপ্টো দান (Crypto Donation)
-
-এই প্রকল্পটি আপনার কাজে লাগলে, দান করতে QR কোড স্ক্যান করুন, ধন্যবাদ!
-
-| নেটওয়ার্ক (Network) | QR কোড (QR Code) | ওয়ালেট ঠিকানা (Wallet Address) |
-|---|---|---|
-| BNB Smart Chain (BEP20) | [<img src="./coin/1.jpg" width="150" alt="BNB Smart Chain (BEP20)">](./coin/1.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Tron (TRC20) | [<img src="./coin/2.jpg" width="150" alt="Tron (TRC20)">](./coin/2.jpg) | `TEdDHWLajt1XvqtPDWmQctdrJaC3pzZZzz` |
-| Ethereum (ERC20) | [<img src="./coin/3.jpg" width="150" alt="Ethereum (ERC20)">](./coin/3.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Aptos | [<img src="./coin/4.jpg" width="150" alt="Aptos">](./coin/4.jpg) | `0x836e3780edfc3f7b2372b39e2a1a3a5d7adfaccd96c726f21cfde1b50dd68030` |
-| Plasma | [<img src="./coin/5.jpg" width="150" alt="Plasma">](./coin/5.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Polygon POS | [<img src="./coin/6.jpg" width="150" alt="Polygon POS">](./coin/6.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Solana | [<img src="./coin/7.jpg" width="150" alt="Solana">](./coin/7.jpg) | `2hfhboHdmdrYsY25XfQSsEWxq5ip4EQsR7f4AzSRMUyr` |
-| The Open Network (TON) | [<img src="./coin/8.jpg" width="150" alt="The Open Network (TON)">](./coin/8.jpg) | `UQB9kFQohzmXUir9QSSZq01iwl9aQZIDdBpNmDklljRtCoGK` |
-| Arbitrum One | [<img src="./coin/9.jpg" width="150" alt="Arbitrum One">](./coin/9.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| AVAX C-Chain | [<img src="./coin/10.jpg" width="150" alt="AVAX C-Chain">](./coin/10.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
 
 ### লাইসেন্স
 

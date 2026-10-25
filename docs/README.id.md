@@ -159,7 +159,7 @@ bee_rust   → semua crate di atas (re-export)
 |------|--------|-----------|-------------|
 | **Relasional** | SQLite | `bee_orm` | `sqlite` (bee_rust: `orm-sqlite`) |
 | | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls` (bee_rust: `orm-postgres` / `orm-postgres-tls`) |
-| | MySQL 8.0 / 8.4 / 9.x | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
+| | MySQL 5.7 / 8.0 / 8.4 / 9.x · MariaDB 10.11+ | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **Jenis field** | Tanggal / Decimal | `bee_orm` | `chrono` / `rust_decimal` (bee_rust: `orm-chrono` / `orm-rust_decimal`) |
 | **KV / Cache** | Redis | `bee_kv` / `bee_cache` | `redis` |
@@ -203,7 +203,7 @@ let security = SecurityFilter::new();  // 27 detektor semuanya aktif
 
 ### ORM (bee_orm)
 
-Macro turunan `#[derive(Model)]` (dengan `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + query berantai dan eksekusi QuerySet (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, agregat `sum` / `avg` / `min` / `max`) + migrasi non-destruktif (`migrate::create_table` / `add_missing_columns` / `sync`) + pembacaan relasi (`belongs_to` / has_many `children*` / many-to-many `m2m`) + kolom JSON (`serde_json::Value`) + connection pool untuk ketiga backend (dengan transaksi dan timeout), mendukung SQLite, PostgreSQL, MySQL, TiDB. ORM juga menyediakan sharding basis data/tabel yang wajib memakai kunci (`shard::{ShardedPools, HashRouter, ShardHandle}`); kueri harus membawa kunci shard, dan kueri/transaksi lintas shard tidak didukung.
+Macro turunan `#[derive(Model)]` (dengan `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + query berantai dan eksekusi QuerySet (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, agregat `sum` / `avg` / `min` / `max`) + migrasi non-destruktif (`migrate::create_table` / `add_missing_columns` / `sync`) + pembacaan relasi (`belongs_to` / has_many `children*` / many-to-many `m2m`) + kolom JSON (`serde_json::Value`) + connection pool untuk ketiga backend (dengan transaksi dan timeout), mendukung SQLite, PostgreSQL, MySQL, TiDB. ORM juga menyediakan sharding basis data/tabel yang wajib memakai kunci (`shard::{ShardedPools, HashRouter, ShardHandle}`); kueri harus membawa kunci shard, dan kueri/transaksi lintas shard tidak didukung. MySQL 5.7–9.x dan MariaDB 10.11+ didukung; lapisan shard mengekspos pool-nya untuk operasi.
 
 ### Manajemen Konfigurasi (bee_config)
 
@@ -211,7 +211,7 @@ Macro turunan `#[derive(Config)]`, mendukung pemuatan INI / YAML / ENV dan hot-r
 
 ### Mesin Penyimpanan
 
-Abstraksi trait terpadu untuk KV / Cache (Redis / Memcached), mesin pencarian (Elasticsearch / OpenSearch / ClickHouse), basis data graf (Neo4j / NebulaGraph / ArangoDB), basis data deret waktu (InfluxDB / IoTDB / QuestDB); driver dikompilasi sesuai feature gate. Backend Redis (`bee_kv` / `bee_cache`) memakai pool koneksi `deadpool-redis` sungguhan dengan batas 30 detik per perintah; `bee_kv::RedisLock` menyediakan distributed lock (`SET NX PX` + pelepasan Lua compare-and-delete).
+Abstraksi trait terpadu untuk KV / Cache (Redis / Memcached), mesin pencarian (Elasticsearch / OpenSearch / ClickHouse), basis data graf (Neo4j / NebulaGraph / ArangoDB), basis data deret waktu (InfluxDB / IoTDB / QuestDB); driver dikompilasi sesuai feature gate. Backend Redis (`bee_kv` / `bee_cache`) memakai pool koneksi `deadpool-redis` sungguhan dengan batas 30 detik per perintah; `bee_kv::RedisLock` menyediakan distributed lock (`SET NX PX` + pelepasan Lua compare-and-delete). Pool Redis juga mengekspos `status()`, `RedisOptions` dengan timeout respons yang dapat dikonfigurasi, dan `try_lock_with_watchdog` untuk pembaruan TTL otomatis.
 
 ### Session, Logging, Template
 
@@ -264,7 +264,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.4.0", features = ["full"] }
+bee_rust = { version = "1.5.0", features = ["full"] }
 ```
 
 ## Catatan Teknis
@@ -313,19 +313,19 @@ bee_rust = { version = "1.4.0", features = ["full"] }
 
 ### Cakupan Pengujian
 
-Seluruh 403 pengujian di repositori lolos:
+Seluruh 414 pengujian di repositori lolos:
 
 | Crate | Jumlah Pengujian |
 |-------|--------|
 | bee_config | 8 |
-| bee_cache | 16 |
+| bee_cache | 18 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 22 |
+| bee_kv | 28 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |
-| bee_orm | 197 |
+| bee_orm | 200 |
 | bee_orm_macro | 24 |
 | bee_session | 2 |
 | bee_router | 40 |
@@ -342,66 +342,6 @@ Jika proyek ini bermanfaat untukmu, silakan pindai kode QR untuk memberi dukunga
 **Alipay**
 
 <img src="alipay.png" width="160" height="175" alt="Alipay">
-
-**Transfer Bank Global (Bank Transfer)**
-
-Pengguna luar negeri dapat mendukung melalui transfer bank:
-
-**Informasi Penerima**
-
-| Item | Isi |
-|------|------|
-| Nama penerima | WANG KEXUN |
-| Nomor rekening penerima | 881015918251 |
-
-**Bank Penerima**
-
-| Item | Isi |
-|------|------|
-| SWIFT Code | AABLHKHHXXX |
-| Nama bank | ZA Bank Limited |
-| Kode bank | 387 |
-| Alamat bank | Core F, Cyberport 3, 100 Cyberport Road, Hong Kong |
-
-**Bank Perantara Transfer Lintas Negara (Jika Diperlukan)**
-
-> Catatan: Ini adalah informasi bank perantara (bank penerus) untuk transfer lintas negara, bukan informasi bank penerima. Silakan tanyakan ke bank pengirimmu apakah informasi ini diperlukan.
-
-- **Untuk setoran dolar Hong Kong, RMB, dan dolar AS** (bank perantara: Citibank):
-
-| Item | Isi |
-|------|------|
-| Nama bank | Citibank N.A. Hong Kong |
-| SWIFT Code | CITIHKHXXXX |
-| Kode bank | 006 |
-| Nama cabang | Hong Kong Branch |
-| Kode cabang | 391 |
-| Alamat bank | Citibank Tower, Citibank Plaza, 3 Garden Road, Central, Hong Kong |
-
-- **Untuk mata uang lainnya** (bank perantara: BNY Mellon):
-
-| Item | Isi |
-|------|------|
-| Nama bank | THE BANK OF NEW YORK MELLON |
-| SWIFT Code | IRVTUS3NXXX |
-| Alamat bank | THE BANK OF NEW YORK MELLON, 240 GREENWICH STREET, NEW YORK, United States |
-
-### Donasi Kripto (Crypto Donation)
-
-Jika proyek ini membantu Anda, silakan pindai kode QR untuk berdonasi, terima kasih!
-
-| Jaringan (Network) | Kode QR (QR Code) | Alamat dompet (Wallet Address) |
-|---|---|---|
-| BNB Smart Chain (BEP20) | [<img src="./coin/1.jpg" width="150" alt="BNB Smart Chain (BEP20)">](./coin/1.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Tron (TRC20) | [<img src="./coin/2.jpg" width="150" alt="Tron (TRC20)">](./coin/2.jpg) | `TEdDHWLajt1XvqtPDWmQctdrJaC3pzZZzz` |
-| Ethereum (ERC20) | [<img src="./coin/3.jpg" width="150" alt="Ethereum (ERC20)">](./coin/3.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Aptos | [<img src="./coin/4.jpg" width="150" alt="Aptos">](./coin/4.jpg) | `0x836e3780edfc3f7b2372b39e2a1a3a5d7adfaccd96c726f21cfde1b50dd68030` |
-| Plasma | [<img src="./coin/5.jpg" width="150" alt="Plasma">](./coin/5.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Polygon POS | [<img src="./coin/6.jpg" width="150" alt="Polygon POS">](./coin/6.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Solana | [<img src="./coin/7.jpg" width="150" alt="Solana">](./coin/7.jpg) | `2hfhboHdmdrYsY25XfQSsEWxq5ip4EQsR7f4AzSRMUyr` |
-| The Open Network (TON) | [<img src="./coin/8.jpg" width="150" alt="The Open Network (TON)">](./coin/8.jpg) | `UQB9kFQohzmXUir9QSSZq01iwl9aQZIDdBpNmDklljRtCoGK` |
-| Arbitrum One | [<img src="./coin/9.jpg" width="150" alt="Arbitrum One">](./coin/9.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| AVAX C-Chain | [<img src="./coin/10.jpg" width="150" alt="AVAX C-Chain">](./coin/10.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
 
 ### Lisensi
 

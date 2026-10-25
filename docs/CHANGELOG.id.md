@@ -2,6 +2,15 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.5.0] — 2026-10-25
+
+### Ditambahkan
+- `bee_orm`: dukungan MySQL 5.7 dan MariaDB 10.11+ — matriks CI kini mencakup 5.7 / 8.0 / 8.4 / 9.x plus job MariaDB; pengujian integrasi mengenali vendor server (MariaDB melaporkan JSON sebagai LONGTEXT dan menegakkan `REFERENCES` tingkat kolom; MySQL 5.7/8.x mem-parse dan mengabaikannya).
+- `bee_orm`: `Model::create` di MySQL kini memakai metadata `columns()` milik model untuk melewati probe `information_schema` pada setiap insert; model tulisan tangan tanpa metadata tetap memakai probe lama. Petunjuk ini bersifat otoritatif — penyimpangan schema/model tidak didukung.
+- `bee_orm::shard`: `ShardedPools::{pools, pool, len, is_empty}` mengekspos shard yang dikonfigurasi untuk operasi; `ShardHandle` meneruskan petunjuk auto-increment.
+- `bee_kv` / `bee_cache`: metrik pool `status()`; `RedisOptions` publik (`max_size`, `response_timeout`) dengan `with_options`; `RedisLock::try_lock_with_watchdog` memperbarui TTL hingga release/drop (TTL watchdog minimal 30ms).
+- Internal: gate CI konsistensi dokumentasi (`scripts/check-docs.sh`), skrip render pratinjau sosial, dan fixture pengujian bersama yang dipisahkan dari `tests/mod.rs`.
+
 ## [1.4.0] — 2026-10-25
 
 ### Ditambahkan

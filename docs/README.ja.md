@@ -159,7 +159,7 @@ bee_rust   → 上記すべての crate (re-export)
 |------|--------|-----------|-------------|
 | **リレーショナル** | SQLite | `bee_orm` | `sqlite`（bee_rust：`orm-sqlite`） |
 | | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls`（bee_rust：`orm-postgres` / `orm-postgres-tls`） |
-| | MySQL 8.0 / 8.4 / 9.x | `bee_orm` | `mysql`（bee_rust：`orm-mysql`） |
+| | MySQL 5.7 / 8.0 / 8.4 / 9.x · MariaDB 10.11+ | `bee_orm` | `mysql`（bee_rust：`orm-mysql`） |
 | | TiDB | `bee_orm` | `mysql` |
 | **フィールド型** | 日付 / Decimal | `bee_orm` | `chrono` / `rust_decimal`（bee_rust：`orm-chrono` / `orm-rust_decimal`） |
 | **KV / キャッシュ** | Redis | `bee_kv` / `bee_cache` | `redis` |
@@ -203,7 +203,7 @@ let security = SecurityFilter::new();  // 27 個の検出器をすべて有効�
 
 ### ORM（bee_orm）
 
-`#[derive(Model)]` 派生マクロ（`#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]` 対応）+ QuerySet のチェーン式クエリと実行（`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`、集計 `sum` / `avg` / `min` / `max`）+ 非破壊マイグレーション（`migrate::create_table` / `add_missing_columns` / `sync`）+ リレーション読み取り（`belongs_to` / has_many `children*` / many-to-many `m2m`）+ JSON カラム（`serde_json::Value`）+ 3 バックエンドのコネクションプール（トランザクション・タイムアウト対応）。SQLite、PostgreSQL、MySQL、TiDB をサポート。 ORM は必須のシャードキーを使うデータベース/テーブルシャーディング（`shard::{ShardedPools, HashRouter, ShardHandle}`）も提供します。クエリにはシャードキーが必要で、クロスシャードのクエリやトランザクションはサポートしません。
+`#[derive(Model)]` 派生マクロ（`#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]` 対応）+ QuerySet のチェーン式クエリと実行（`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`、集計 `sum` / `avg` / `min` / `max`）+ 非破壊マイグレーション（`migrate::create_table` / `add_missing_columns` / `sync`）+ リレーション読み取り（`belongs_to` / has_many `children*` / many-to-many `m2m`）+ JSON カラム（`serde_json::Value`）+ 3 バックエンドのコネクションプール（トランザクション・タイムアウト対応）。SQLite、PostgreSQL、MySQL、TiDB をサポート。 ORM は必須のシャードキーを使うデータベース/テーブルシャーディング（`shard::{ShardedPools, HashRouter, ShardHandle}`）も提供します。クエリにはシャードキーが必要で、クロスシャードのクエリやトランザクションはサポートしません。MySQL 5.7–9.x と MariaDB 10.11+ をサポートし、シャード層は運用向けにプールを公開します。
 
 ### 設定管理（bee_config）
 
@@ -211,7 +211,7 @@ let security = SecurityFilter::new();  // 27 個の検出器をすべて有効�
 
 ### ストレージエンジン
 
-KV / Cache（Redis / Memcached）、検索エンジン（Elasticsearch / OpenSearch / ClickHouse）、グラフデータベース（Neo4j / NebulaGraph / ArangoDB）、時系列データベース（InfluxDB / IoTDB / QuestDB）を統一 trait で抽象化し、ドライバは feature gate に応じてコンパイルされます。 Redis バックエンド（`bee_kv` / `bee_cache`）は実際の `deadpool-redis` コネクションプールと 30 秒のコマンド上限を使います。`bee_kv::RedisLock` は分散ロック（`SET NX PX` + Lua の compare-and-delete 解放）を提供します。
+KV / Cache（Redis / Memcached）、検索エンジン（Elasticsearch / OpenSearch / ClickHouse）、グラフデータベース（Neo4j / NebulaGraph / ArangoDB）、時系列データベース（InfluxDB / IoTDB / QuestDB）を統一 trait で抽象化し、ドライバは feature gate に応じてコンパイルされます。 Redis バックエンド（`bee_kv` / `bee_cache`）は実際の `deadpool-redis` コネクションプールと 30 秒のコマンド上限を使います。`bee_kv::RedisLock` は分散ロック（`SET NX PX` + Lua の compare-and-delete 解放）を提供します。Redis プールは `status()`、応答タイムアウトを設定できる `RedisOptions`、TTL 自動更新のための `try_lock_with_watchdog` も提供します。
 
 ### Session、ログ、テンプレート
 
@@ -264,7 +264,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.4.0", features = ["full"] }
+bee_rust = { version = "1.5.0", features = ["full"] }
 ```
 
 ## 技術詳細
@@ -313,19 +313,19 @@ bee_rust = { version = "1.4.0", features = ["full"] }
 
 ### テストカバレッジ
 
-リポジトリ全体で 403 個のテストがパス：
+リポジトリ全体で 414 個のテストがパス：
 
 | Crate | テスト数 |
 |-------|--------|
 | bee_config | 8 |
-| bee_cache | 16 |
+| bee_cache | 18 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 22 |
+| bee_kv | 28 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |
-| bee_orm | 197 |
+| bee_orm | 200 |
 | bee_orm_macro | 24 |
 | bee_session | 2 |
 | bee_router | 40 |
@@ -342,66 +342,6 @@ bee_rust = { version = "1.4.0", features = ["full"] }
 **Alipay**
 
 <img src="alipay.png" width="160" height="175" alt="Alipay">
-
-**海外送金（Bank Transfer）**
-
-海外のユーザーは銀行振込でサポートできます：
-
-**受取人情報**
-
-| 項目 | 内容 |
-|------|------|
-| 受取人名 | WANG KEXUN |
-| 受取口座番号 | 881015918251 |
-
-**受取銀行**
-
-| 項目 | 内容 |
-|------|------|
-| SWIFT Code | AABLHKHHXXX |
-| 銀行名 | ZA Bank Limited |
-| 銀行番号 | 387 |
-| 銀行住所 | Core F, Cyberport 3, 100 Cyberport Road, Hong Kong |
-
-**クロスボーダー送金の代理銀行（必要な場合）**
-
-> 注意：これはクロスボーダー送金の代理銀行（中継銀行）の情報であり、受取銀行の情報ではありません。あなたの送金銀行に提供が必要かどうかお問い合わせください。
-
-- **香港ドル、人民元、米ドルの送金**（代理銀行は Citibank）：
-
-| 項目 | 内容 |
-|------|------|
-| 銀行名 | Citibank N.A. Hong Kong |
-| SWIFT Code | CITIHKHXXXX |
-| 銀行番号 | 006 |
-| 支店名 | Hong Kong Branch |
-| 支店番号 | 391 |
-| 銀行住所 | Citibank Tower, Citibank Plaza, 3 Garden Road, Central, Hong Kong |
-
-- **その他の通貨の送金**（代理銀行は BNY Mellon）：
-
-| 項目 | 内容 |
-|------|------|
-| 銀行名 | THE BANK OF NEW YORK MELLON |
-| SWIFT Code | IRVTUS3NXXX |
-| 銀行住所 | THE BANK OF NEW YORK MELLON, 240 GREENWICH STREET, NEW YORK, United States |
-
-### 仮想通貨の寄付 (Crypto Donation)
-
-このプロジェクトがお役に立ったら、QRコードをスキャンして寄付してください。ありがとうございます！
-
-| ネットワーク (Network) | QRコード (QR Code) | ウォレットアドレス (Wallet Address) |
-|---|---|---|
-| BNB Smart Chain (BEP20) | [<img src="./coin/1.jpg" width="150" alt="BNB Smart Chain (BEP20)">](./coin/1.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Tron (TRC20) | [<img src="./coin/2.jpg" width="150" alt="Tron (TRC20)">](./coin/2.jpg) | `TEdDHWLajt1XvqtPDWmQctdrJaC3pzZZzz` |
-| Ethereum (ERC20) | [<img src="./coin/3.jpg" width="150" alt="Ethereum (ERC20)">](./coin/3.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Aptos | [<img src="./coin/4.jpg" width="150" alt="Aptos">](./coin/4.jpg) | `0x836e3780edfc3f7b2372b39e2a1a3a5d7adfaccd96c726f21cfde1b50dd68030` |
-| Plasma | [<img src="./coin/5.jpg" width="150" alt="Plasma">](./coin/5.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Polygon POS | [<img src="./coin/6.jpg" width="150" alt="Polygon POS">](./coin/6.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Solana | [<img src="./coin/7.jpg" width="150" alt="Solana">](./coin/7.jpg) | `2hfhboHdmdrYsY25XfQSsEWxq5ip4EQsR7f4AzSRMUyr` |
-| The Open Network (TON) | [<img src="./coin/8.jpg" width="150" alt="The Open Network (TON)">](./coin/8.jpg) | `UQB9kFQohzmXUir9QSSZq01iwl9aQZIDdBpNmDklljRtCoGK` |
-| Arbitrum One | [<img src="./coin/9.jpg" width="150" alt="Arbitrum One">](./coin/9.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| AVAX C-Chain | [<img src="./coin/10.jpg" width="150" alt="AVAX C-Chain">](./coin/10.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
 
 ### ライセンス
 

@@ -159,7 +159,7 @@ bee_rust   → todos los crates anteriores (re-export)
 |------|--------|-----------|-------------|
 | **Relacional** | SQLite | `bee_orm` | `sqlite` (bee_rust: `orm-sqlite`) |
 | | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls` (bee_rust: `orm-postgres` / `orm-postgres-tls`) |
-| | MySQL 8.0 / 8.4 / 9.x | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
+| | MySQL 5.7 / 8.0 / 8.4 / 9.x · MariaDB 10.11+ | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **Tipos de campo** | Fecha / Decimal | `bee_orm` | `chrono` / `rust_decimal` (bee_rust: `orm-chrono` / `orm-rust_decimal`) |
 | **KV / caché** | Redis | `bee_kv` / `bee_cache` | `redis` |
@@ -203,7 +203,7 @@ let security = SecurityFilter::new();  // Los 27 detectores activados
 
 ### ORM (bee_orm)
 
-La macro derivada `#[derive(Model)]` (con `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + consultas encadenadas y ejecución de QuerySet (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, agregados `sum` / `avg` / `min` / `max`) + migraciones no destructivas (`migrate::create_table` / `add_missing_columns` / `sync`) + lecturas de relaciones (`belongs_to` / has_many `children*` / many-to-many `m2m`) + columnas JSON (`serde_json::Value`) + pools de conexiones para los tres backends (con transacciones y timeouts), con soporte para SQLite, PostgreSQL, MySQL y TiDB. El ORM también ofrece sharding de base de datos/tabla con clave obligatoria (`shard::{ShardedPools, HashRouter, ShardHandle}`); las consultas deben llevar una clave de shard y no se admiten consultas ni transacciones entre shards.
+La macro derivada `#[derive(Model)]` (con `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + consultas encadenadas y ejecución de QuerySet (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, agregados `sum` / `avg` / `min` / `max`) + migraciones no destructivas (`migrate::create_table` / `add_missing_columns` / `sync`) + lecturas de relaciones (`belongs_to` / has_many `children*` / many-to-many `m2m`) + columnas JSON (`serde_json::Value`) + pools de conexiones para los tres backends (con transacciones y timeouts), con soporte para SQLite, PostgreSQL, MySQL y TiDB. El ORM también ofrece sharding de base de datos/tabla con clave obligatoria (`shard::{ShardedPools, HashRouter, ShardHandle}`); las consultas deben llevar una clave de shard y no se admiten consultas ni transacciones entre shards. Se admiten MySQL 5.7–9.x y MariaDB 10.11+; la capa de sharding expone sus pools para operaciones.
 
 ### Gestión de configuración (bee_config)
 
@@ -211,7 +211,7 @@ La macro derivada `#[derive(Config)]`, con soporte para cargar INI / YAML / ENV 
 
 ### Motores de almacenamiento
 
-KV / caché (Redis / Memcached), motores de búsqueda (Elasticsearch / OpenSearch / ClickHouse), bases de datos de grafos (Neo4j / NebulaGraph / ArangoDB) y bases de datos de series temporales (InfluxDB / IoTDB / QuestDB) comparten una abstracción unificada por trait; los drivers se compilan según los feature flags. Los backends Redis (`bee_kv` / `bee_cache`) usan pools de conexiones reales de `deadpool-redis` con un límite de 30 segundos por comando; `bee_kv::RedisLock` ofrece un bloqueo distribuido (`SET NX PX` + liberación Lua con comparación).
+KV / caché (Redis / Memcached), motores de búsqueda (Elasticsearch / OpenSearch / ClickHouse), bases de datos de grafos (Neo4j / NebulaGraph / ArangoDB) y bases de datos de series temporales (InfluxDB / IoTDB / QuestDB) comparten una abstracción unificada por trait; los drivers se compilan según los feature flags. Los backends Redis (`bee_kv` / `bee_cache`) usan pools de conexiones reales de `deadpool-redis` con un límite de 30 segundos por comando; `bee_kv::RedisLock` ofrece un bloqueo distribuido (`SET NX PX` + liberación Lua con comparación). Los pools de Redis también exponen `status()`, `RedisOptions` con un tiempo de espera de respuesta configurable y `try_lock_with_watchdog` para la renovación automática del TTL.
 
 ### Sesión, registros y plantillas
 
@@ -264,7 +264,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.4.0", features = ["full"] }
+bee_rust = { version = "1.5.0", features = ["full"] }
 ```
 
 ## Notas técnicas
@@ -313,19 +313,19 @@ bee_rust = { version = "1.4.0", features = ["full"] }
 
 ### Cobertura de tests
 
-Los 403 tests del repositorio pasan:
+Los 414 tests del repositorio pasan:
 
 | Crate | N.º de tests |
 |-------|--------|
 | bee_config | 8 |
-| bee_cache | 16 |
+| bee_cache | 18 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 22 |
+| bee_kv | 28 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |
-| bee_orm | 197 |
+| bee_orm | 200 |
 | bee_orm_macro | 24 |
 | bee_session | 2 |
 | bee_router | 40 |
@@ -342,66 +342,6 @@ Si este proyecto te resulta útil, ¡escanea el código QR para hacer una donaci
 **Alipay**
 
 <img src="alipay.png" width="160" height="175" alt="Alipay">
-
-**Transferencias internacionales (Bank Transfer)**
-
-Los usuarios en el extranjero pueden apoyar el proyecto mediante transferencia bancaria:
-
-**Información del beneficiario**
-
-| Campo | Valor |
-|------|------|
-| Nombre del beneficiario | WANG KEXUN |
-| Número de cuenta del beneficiario | 881015918251 |
-
-**Banco receptor**
-
-| Campo | Valor |
-|------|------|
-| SWIFT Code | AABLHKHHXXX |
-| Nombre del banco | ZA Bank Limited |
-| Código del banco | 387 |
-| Dirección del banco | Core F, Cyberport 3, 100 Cyberport Road, Hong Kong |
-
-**Banco intermediario para transferencias transfronterizas (si es necesario)**
-
-> Nota: esta es la información del banco intermediario (banco corresponsal) para transferencias transfronterizas, no la del banco receptor. Consulta a tu banco emisor si es necesario proporcionarla.
-
-- **Para transferencias en dólares de Hong Kong, yuanes y dólares estadounidenses** (banco intermediario: Citibank):
-
-| Campo | Valor |
-|------|------|
-| Nombre del banco | Citibank N.A. Hong Kong |
-| SWIFT Code | CITIHKHXXXX |
-| Código del banco | 006 |
-| Nombre de la sucursal | Hong Kong Branch |
-| Código de la sucursal | 391 |
-| Dirección del banco | Citibank Tower, Citibank Plaza, 3 Garden Road, Central, Hong Kong |
-
-- **Para transferencias en otras divisas** (banco intermediario: BNY Mellon):
-
-| Campo | Valor |
-|------|------|
-| Nombre del banco | THE BANK OF NEW YORK MELLON |
-| SWIFT Code | IRVTUS3NXXX |
-| Dirección del banco | THE BANK OF NEW YORK MELLON, 240 GREENWICH STREET, NEW YORK, United States |
-
-### Donación en criptomonedas (Crypto Donation)
-
-Si este proyecto te resulta útil, escanea el código QR para donar, ¡gracias!
-
-| Red (Network) | Código QR (QR Code) | Dirección de billetera (Wallet Address) |
-|---|---|---|
-| BNB Smart Chain (BEP20) | [<img src="./coin/1.jpg" width="150" alt="BNB Smart Chain (BEP20)">](./coin/1.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Tron (TRC20) | [<img src="./coin/2.jpg" width="150" alt="Tron (TRC20)">](./coin/2.jpg) | `TEdDHWLajt1XvqtPDWmQctdrJaC3pzZZzz` |
-| Ethereum (ERC20) | [<img src="./coin/3.jpg" width="150" alt="Ethereum (ERC20)">](./coin/3.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Aptos | [<img src="./coin/4.jpg" width="150" alt="Aptos">](./coin/4.jpg) | `0x836e3780edfc3f7b2372b39e2a1a3a5d7adfaccd96c726f21cfde1b50dd68030` |
-| Plasma | [<img src="./coin/5.jpg" width="150" alt="Plasma">](./coin/5.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Polygon POS | [<img src="./coin/6.jpg" width="150" alt="Polygon POS">](./coin/6.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Solana | [<img src="./coin/7.jpg" width="150" alt="Solana">](./coin/7.jpg) | `2hfhboHdmdrYsY25XfQSsEWxq5ip4EQsR7f4AzSRMUyr` |
-| The Open Network (TON) | [<img src="./coin/8.jpg" width="150" alt="The Open Network (TON)">](./coin/8.jpg) | `UQB9kFQohzmXUir9QSSZq01iwl9aQZIDdBpNmDklljRtCoGK` |
-| Arbitrum One | [<img src="./coin/9.jpg" width="150" alt="Arbitrum One">](./coin/9.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| AVAX C-Chain | [<img src="./coin/10.jpg" width="150" alt="AVAX C-Chain">](./coin/10.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
 
 ### Licencia
 

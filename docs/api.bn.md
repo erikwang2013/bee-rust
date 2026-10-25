@@ -239,7 +239,7 @@ struct Doc {
 
 ### MySQL টেবিল-স্তরের বিদেশি-কী (opt-in)
 
-> MySQL 9 কলাম-স্তরের `REFERENCES` প্রয়োগ করে (8.0/8.4 এটি পার্স করে উপেক্ষা করে); প্রথমে রেফারেন্সকৃত টেবিল তৈরি করুন।
+> MySQL 9 ও MariaDB 10.11+ কলাম-স্তরের `REFERENCES` প্রয়োগ করে; MySQL 5.7/8.x এটি পার্স করে উপেক্ষা করে। প্রথমে রেফারেন্সকৃত টেবিল তৈরি করুন।
 
 ```rust
 use bee_orm::{MigrateOptions, migrate};
@@ -291,7 +291,7 @@ let back = Event::query().all(&pool).await?;   // "1.50" সমান মান�
 
 ### শার্ডিং (bee_orm)
 
-key-required ডেটাবেস/টেবিল শার্ডিং। `ShardedPools::for_key` হলো executable হ্যান্ডল পাওয়ার একমাত্র উপায়; কোয়েরিতে শার্ড কী থাকতে হবে। রাউটিং composite ইনডেক্স `hash % (db_shards * table_shards)` ব্যবহার করে, তাই প্রতিটি ডেটাবেস/টেবিল জোড়া পৌঁছানো যায়; ক্রস-শার্ড কোয়েরি, JOIN বা ট্রানজেকশন সমর্থিত নয়। SQL-এ বসানোর আগে physical টেবিল নাম `[A-Za-z_][A-Za-z0-9_]*` দিয়ে যাচাই করা হয়।
+key-required ডেটাবেস/টেবিল শার্ডিং। `ShardedPools::for_key` হলো executable হ্যান্ডল পাওয়ার একমাত্র উপায়; কোয়েরিতে শার্ড কী থাকতে হবে। রাউটিং composite ইনডেক্স `hash % (db_shards * table_shards)` ব্যবহার করে, তাই প্রতিটি ডেটাবেস/টেবিল জোড়া পৌঁছানো যায়; ক্রস-শার্ড কোয়েরি, JOIN বা ট্রানজেকশন সমর্থিত নয়। SQL-এ বসানোর আগে physical টেবিল নাম `[A-Za-z_][A-Za-z0-9_]*` দিয়ে যাচাই করা হয়। `ShardedPools::pools()` / `pool(index)` অপারেশন ও একই-শার্ড লেনদেনের জন্য অন্তর্নিহিত পুল উন্মুক্ত করে; রাউটিং এখনও `for_key` ছাড়া সম্ভব নয়।
 
 ```rust
 use std::sync::Arc;
@@ -330,7 +330,7 @@ let val = kv.get("key").await?;
 let kv = MemcacheStore::new("127.0.0.1:11211")?;
 ```
 
-> `RedisStore` একটি `deadpool-redis` পুল ধরে: নিহত কানেকশন পরের checkout-এ প্রতিস্থাপিত হয় (recycle PING); প্রতিটি কমান্ড 30 সেকেন্ডে সীমিত, এবং exhausted পুল ব্যর্থ হওয়ার আগে সর্বোচ্চ 30 সেকেন্ড অপেক্ষা করে। `bee_kv::RedisLock` `SET NX PX` অধিগ্রহণ ও Lua compare-and-delete রিলিজ দেয়। memcached: `incr` আগে কাউন্টার তৈরি করে (না থাকলে 0) তারপর পার্থক্য প্রয়োগ করে; কাউন্টার unsigned, তাই কমানো 0-তে থামে (Redis ঋণাত্মক হয়); `expire(≤0)` মুছে ফেলার সমতুল্য।
+> `RedisStore` একটি `deadpool-redis` পুল ধরে: নিহত কানেকশন পরের checkout-এ প্রতিস্থাপিত হয় (recycle PING); প্রতিটি কমান্ড 30 সেকেন্ডে সীমিত, এবং exhausted পুল ব্যর্থ হওয়ার আগে সর্বোচ্চ 30 সেকেন্ড অপেক্ষা করে। `bee_kv::RedisLock` `SET NX PX` অধিগ্রহণ ও Lua compare-and-delete রিলিজ দেয়। memcached: `incr` আগে কাউন্টার তৈরি করে (না থাকলে 0) তারপর পার্থক্য প্রয়োগ করে; কাউন্টার unsigned, তাই কমানো 0-তে থামে (Redis ঋণাত্মক হয়); `expire(≤0)` মুছে ফেলার সমতুল্য। Redis পুলগুলি `status()`, কনফিগারযোগ্য রেসপন্স টাইমআউটসহ `RedisOptions`, এবং TTL স্বয়ংক্রিয় নবীকরণের জন্য `try_lock_with_watchdog`-ও দেয়।
 
 **ক্যাশ ব্যাকএন্ড (bee_cache):**
 ```rust

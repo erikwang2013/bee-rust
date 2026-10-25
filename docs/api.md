@@ -239,7 +239,7 @@ struct Doc {
 
 ### mysql 表级外键（opt-in）
 
-> MySQL 9 强制执行列级 `REFERENCES`（8.0/8.4 解析后忽略）；建表时先建被引用表。
+> MySQL 9 与 MariaDB 10.11+ 强制执行列级 `REFERENCES`；MySQL 5.7/8.x 解析后忽略。建表时先建被引用表。
 
 ```rust
 use bee_orm::{MigrateOptions, migrate};
@@ -291,7 +291,7 @@ let back = Event::query().all(&pool).await?;   // "1.50" 往返数值仍相等
 
 ### 分库分表（bee_orm）
 
-必须带分片键的库/表两级分片。`ShardedPools::for_key` 是拿到可执行句柄的唯一入口；查询必须带分片键。路由使用复合序号 `hash % (db_shards * table_shards)`，所有库×表组合都可达；不支持跨分片查询、JOIN 与事务。物理表名在拼进 SQL 前按 `[A-Za-z_][A-Za-z0-9_]*` 校验。
+必须带分片键的库/表两级分片。`ShardedPools::for_key` 是拿到可执行句柄的唯一入口；查询必须带分片键。路由使用复合序号 `hash % (db_shards * table_shards)`，所有库×表组合都可达；不支持跨分片查询、JOIN 与事务。物理表名在拼进 SQL 前按 `[A-Za-z_][A-Za-z0-9_]*` 校验。 `ShardedPools::pools()` / `pool(index)` 暴露底层连接池，供运维与同分片事务使用；路由仍必须走 `for_key`。
 
 ```rust
 use std::sync::Arc;
@@ -330,7 +330,7 @@ let val = kv.get("key").await?;
 let kv = MemcacheStore::new("127.0.0.1:11211")?;
 ```
 
-> `RedisStore` 持有 `deadpool-redis` 连接池：被杀的连接会在下次 checkout 时替换（recycle PING）；每条命令有 30 秒上限，池耗尽最多等待 30 秒后失败。`bee_kv::RedisLock` 提供 `SET NX PX` 获取与 Lua 比较删除释放。 memcached：`incr` 先建计数器（缺键为 0）再增减；计数器无符号，减到 0 封底（Redis 可为负）；`expire(≤0)` 等价删除。
+> `RedisStore` 持有 `deadpool-redis` 连接池：被杀的连接会在下次 checkout 时替换（recycle PING）；每条命令有 30 秒上限，池耗尽最多等待 30 秒后失败。`bee_kv::RedisLock` 提供 `SET NX PX` 获取与 Lua 比较删除释放。 memcached：`incr` 先建计数器（缺键为 0）再增减；计数器无符号，减到 0 封底（Redis 可为负）；`expire(≤0)` 等价删除。Redis 池还提供 `status()`、可配置响应超时的 `RedisOptions`，以及 TTL 自动续期的 `try_lock_with_watchdog`。
 
 **缓存后端（bee_cache）：**
 ```rust

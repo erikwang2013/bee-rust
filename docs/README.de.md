@@ -159,7 +159,7 @@ bee_rust   → alle oben genannten Crates (re-export)
 |------|--------|-----------|-------------|
 | **Relational** | SQLite | `bee_orm` | `sqlite` (bee_rust: `orm-sqlite`) |
 | | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls` (bee_rust: `orm-postgres` / `orm-postgres-tls`) |
-| | MySQL 8.0 / 8.4 / 9.x | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
+| | MySQL 5.7 / 8.0 / 8.4 / 9.x · MariaDB 10.11+ | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **Feldtypen** | Datum / Decimal | `bee_orm` | `chrono` / `rust_decimal` (bee_rust: `orm-chrono` / `orm-rust_decimal`) |
 | **KV / Cache** | Redis | `bee_kv` / `bee_cache` | `redis` |
@@ -203,7 +203,7 @@ let security = SecurityFilter::new();  // alle 27 Detektoren aktiv
 
 ### ORM (bee_orm)
 
-`#[derive(Model)]`-Derivierungsmakro (mit `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + QuerySet-Kettenabfragen und -Ausführung (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, Aggregate `sum` / `avg` / `min` / `max`) + nicht-destruktive Migrationen (`migrate::create_table` / `add_missing_columns` / `sync`) + Beziehungs-Leseabfragen (`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON-Spalten (`serde_json::Value`) + Verbindungspools für alle drei Backends (inkl. Transaktionen und Timeouts), unterstützt SQLite, PostgreSQL, MySQL, TiDB. Das ORM bietet außerdem schlüsselpflichtiges Datenbank-/Tabellen-Sharding (`shard::{ShardedPools, HashRouter, ShardHandle}`); Abfragen müssen einen Shard-Schlüssel tragen, und Abfragen bzw. Transaktionen über mehrere Shards werden nicht unterstützt.
+`#[derive(Model)]`-Derivierungsmakro (mit `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + QuerySet-Kettenabfragen und -Ausführung (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, Aggregate `sum` / `avg` / `min` / `max`) + nicht-destruktive Migrationen (`migrate::create_table` / `add_missing_columns` / `sync`) + Beziehungs-Leseabfragen (`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON-Spalten (`serde_json::Value`) + Verbindungspools für alle drei Backends (inkl. Transaktionen und Timeouts), unterstützt SQLite, PostgreSQL, MySQL, TiDB. Das ORM bietet außerdem schlüsselpflichtiges Datenbank-/Tabellen-Sharding (`shard::{ShardedPools, HashRouter, ShardHandle}`); Abfragen müssen einen Shard-Schlüssel tragen, und Abfragen bzw. Transaktionen über mehrere Shards werden nicht unterstützt. MySQL 5.7–9.x und MariaDB 10.11+ werden unterstützt; die Shard-Schicht legt ihre Pools für den Betrieb offen.
 
 ### Konfigurationsverwaltung (bee_config)
 
@@ -211,7 +211,7 @@ let security = SecurityFilter::new();  // alle 27 Detektoren aktiv
 
 ### Speicher-Engines
 
-KV / Cache (Redis / Memcached), Suchmaschine (Elasticsearch / OpenSearch / ClickHouse), Graphdatenbank (Neo4j / NebulaGraph / ArangoDB), Zeitreihendatenbank (InfluxDB / IoTDB / QuestDB) — einheitliche Trait-Abstraktion, Treiber werden per Feature-Gate kompiliert. Redis-Backends (`bee_kv` / `bee_cache`) nutzen echte `deadpool-redis`-Verbindungspools mit einer 30-Sekunden-Befehlsgrenze; `bee_kv::RedisLock` bietet eine verteilte Sperre (`SET NX PX` + Lua-Compare-and-Delete-Freigabe).
+KV / Cache (Redis / Memcached), Suchmaschine (Elasticsearch / OpenSearch / ClickHouse), Graphdatenbank (Neo4j / NebulaGraph / ArangoDB), Zeitreihendatenbank (InfluxDB / IoTDB / QuestDB) — einheitliche Trait-Abstraktion, Treiber werden per Feature-Gate kompiliert. Redis-Backends (`bee_kv` / `bee_cache`) nutzen echte `deadpool-redis`-Verbindungspools mit einer 30-Sekunden-Befehlsgrenze; `bee_kv::RedisLock` bietet eine verteilte Sperre (`SET NX PX` + Lua-Compare-and-Delete-Freigabe). Redis-Pools bieten außerdem `status()`, `RedisOptions` mit konfigurierbarem Antwort-Timeout und `try_lock_with_watchdog` zur automatischen TTL-Verlängerung.
 
 ### Session, Logging, Templates
 
@@ -264,7 +264,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.4.0", features = ["full"] }
+bee_rust = { version = "1.5.0", features = ["full"] }
 ```
 
 ## Technische Hinweise
@@ -313,19 +313,19 @@ bee_rust = { version = "1.4.0", features = ["full"] }
 
 ### Testabdeckung
 
-Alle 403 Tests des Repositories bestehen:
+Alle 414 Tests des Repositories bestehen:
 
 | Crate | Anzahl der Tests |
 |-------|--------|
 | bee_config | 8 |
-| bee_cache | 16 |
+| bee_cache | 18 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 22 |
+| bee_kv | 28 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |
-| bee_orm | 197 |
+| bee_orm | 200 |
 | bee_orm_macro | 24 |
 | bee_session | 2 |
 | bee_router | 40 |
@@ -342,66 +342,6 @@ Wenn dir dieses Projekt hilft, scanne gern den QR-Code und unterstütze es mit e
 **Alipay**
 
 <img src="alipay.png" width="160" height="175" alt="Alipay">
-
-**Globale Überweisung (Bank Transfer)**
-
-Nutzer außerhalb Chinas können per Banküberweisung unterstützen:
-
-**Empfängerinformationen**
-
-| Feld | Wert |
-|------|------|
-| Name des Empfängers | WANG KEXUN |
-| Kontonummer des Empfängers | 881015918251 |
-
-**Empfängerbank**
-
-| Feld | Wert |
-|------|------|
-| SWIFT-Code | AABLHKHHXXX |
-| Bankname | ZA Bank Limited |
-| Bankleitzahl | 387 |
-| Bankadresse | Core F, Cyberport 3, 100 Cyberport Road, Hong Kong |
-
-**Korrespondenzbank für grenzüberschreitende Überweisungen (falls erforderlich)**
-
-> Hinweis: Dies sind Informationen der Korrespondenzbank (Zwischenbank) für grenzüberschreitende Überweisungen, nicht der Empfängerbank. Frage bei deiner überweisenden Bank nach, ob diese Angaben benötigt werden.
-
-- **Einzahlungen in Hongkong-Dollar, Renminbi und US-Dollar** (Korrespondenzbank: Citibank):
-
-| Feld | Wert |
-|------|------|
-| Bankname | Citibank N.A. Hong Kong |
-| SWIFT-Code | CITIHKHXXXX |
-| Bankleitzahl | 006 |
-| Filialname | Hong Kong Branch |
-| Filialnummer | 391 |
-| Bankadresse | Citibank Tower, Citibank Plaza, 3 Garden Road, Central, Hong Kong |
-
-- **Einzahlungen in anderen Währungen** (Korrespondenzbank: BNY Mellon):
-
-| Feld | Wert |
-|------|------|
-| Bankname | THE BANK OF NEW YORK MELLON |
-| SWIFT-Code | IRVTUS3NXXX |
-| Bankadresse | THE BANK OF NEW YORK MELLON, 240 GREENWICH STREET, NEW YORK, United States |
-
-### Krypto-Spenden (Crypto Donation)
-
-Wenn dieses Projekt Ihnen hilft, scannen Sie gerne den QR-Code, um zu spenden. Vielen Dank!
-
-| Netzwerk (Network) | QR-Code (QR Code) | Wallet-Adresse (Wallet Address) |
-|---|---|---|
-| BNB Smart Chain (BEP20) | [<img src="./coin/1.jpg" width="150" alt="BNB Smart Chain (BEP20)">](./coin/1.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Tron (TRC20) | [<img src="./coin/2.jpg" width="150" alt="Tron (TRC20)">](./coin/2.jpg) | `TEdDHWLajt1XvqtPDWmQctdrJaC3pzZZzz` |
-| Ethereum (ERC20) | [<img src="./coin/3.jpg" width="150" alt="Ethereum (ERC20)">](./coin/3.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Aptos | [<img src="./coin/4.jpg" width="150" alt="Aptos">](./coin/4.jpg) | `0x836e3780edfc3f7b2372b39e2a1a3a5d7adfaccd96c726f21cfde1b50dd68030` |
-| Plasma | [<img src="./coin/5.jpg" width="150" alt="Plasma">](./coin/5.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Polygon POS | [<img src="./coin/6.jpg" width="150" alt="Polygon POS">](./coin/6.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| Solana | [<img src="./coin/7.jpg" width="150" alt="Solana">](./coin/7.jpg) | `2hfhboHdmdrYsY25XfQSsEWxq5ip4EQsR7f4AzSRMUyr` |
-| The Open Network (TON) | [<img src="./coin/8.jpg" width="150" alt="The Open Network (TON)">](./coin/8.jpg) | `UQB9kFQohzmXUir9QSSZq01iwl9aQZIDdBpNmDklljRtCoGK` |
-| Arbitrum One | [<img src="./coin/9.jpg" width="150" alt="Arbitrum One">](./coin/9.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
-| AVAX C-Chain | [<img src="./coin/10.jpg" width="150" alt="AVAX C-Chain">](./coin/10.jpg) | `0x355d429f97511897ccb4e271ec888205f9ab6629` |
 
 ### Lizenz
 

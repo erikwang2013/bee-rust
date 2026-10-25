@@ -2,6 +2,15 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.5.0] — 2026-10-25
+
+### जोड़ा गया
+- `bee_orm`: MySQL 5.7 और MariaDB 10.11+ का समर्थन — CI मैट्रिक्स अब 5.7 / 8.0 / 8.4 / 9.x के साथ-साथ एक MariaDB job भी कवर करता है; इंटीग्रेशन टेस्ट सर्वर विक्रेता को पहचानते हैं (MariaDB JSON को LONGTEXT के रूप में रिपोर्ट करता है और कॉलम-स्तरीय `REFERENCES` लागू करता है; MySQL 5.7/8.x इसे पार्स करके अनदेखा करते हैं)।
+- `bee_orm`: MySQL पर `Model::create` अब मॉडल के `columns()` मेटाडेटा का उपयोग करके प्रत्येक insert की `information_schema` जाँच छोड़ता है; मेटाडेटा-रहित हस्तलिखित मॉडल पुरानी जाँच रखते हैं। यह संकेत आधिकारिक है — schema और मॉडल का बदलाव समर्थित नहीं है।
+- `bee_orm::shard`: `ShardedPools::{pools, pool, len, is_empty}` कॉन्फ़िगर किए गए शार्ड्स को संचालन के लिए उजागर करते हैं; `ShardHandle` ऑटो-इंक्रीमेंट संकेत आगे भेजता है।
+- `bee_kv` / `bee_cache`: `status()` पूल मेट्रिक्स; `with_options` के साथ सार्वजनिक `RedisOptions` (`max_size`, `response_timeout`); `RedisLock::try_lock_with_watchdog` release/drop तक TTL का नवीनीकरण करता है (watchdog TTL कम से कम 30ms होना चाहिए)।
+- आंतरिक: एक दस्तावेज़-संगति CI गेट (`scripts/check-docs.sh`), एक सोशल-प्रीव्यू रेंडर स्क्रिप्ट, और `tests/mod.rs` से अलग किए गए साझा टेस्ट फ़िक्सचर।
+
 ## [1.4.0] — 2026-10-25
 
 ### जोड़ा गया

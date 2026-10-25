@@ -1,7 +1,32 @@
 /* Bee Rust site — curated release history (source: docs/CHANGELOG.zh.md + CHANGELOG.md) */
 window.BeeChangelog = [
   {
-    version: '1.4.0', date: '2026-10-25', tag: 'latest',
+    version: '1.5.0', date: '2026-10-25', tag: 'latest',
+    zh: {
+      title: 'MySQL 5.7、create 快路径与 Redis 看门狗',
+      summary: 'ORM 支持 MySQL 5.7 与 MariaDB 10.11，create() 在 MySQL 上跳过 catalog 探测；ShardedPools 开放池访问器；Redis 补齐状态、超时配置与锁自动续期。',
+      items: [
+        'MySQL 5.7 / 8.0 / 8.4 / 9.x 与 MariaDB 10.11：CI 矩阵覆盖五个服务端；MariaDB 的 JSON 实为带校验的 LONGTEXT，内联 REFERENCES 会被强制执行。',
+        'bee_orm：Model::create() 在 MySQL 上按模型 AUTO_INCREMENT 元数据走快路径，跳过每次插入的 information_schema 探测；ShardedPools 新增 pools() / pool() / len() / is_empty() 访问器，作为跨分片操作与事务的逃生口。',
+        'bee_kv / bee_cache：RedisOptions 统一连接池大小与响应超时（默认 30s），RedisStore / RedisCache 新增 status() 池指标。',
+        'bee_kv::RedisLock：try_lock_with_watchdog 按 TTL/3 在后台续期，直到释放或丢弃；try_lock 仍不续期。',
+        'CI：新增 docs 一致性检查（版本、安装片段与测试计数），在 push 与 PR 上运行。'
+      ]
+    },
+    en: {
+      title: 'MySQL 5.7, a create fast path, and a Redis watchdog',
+      summary: 'The ORM adds MySQL 5.7 and MariaDB 10.11, create() skips the MySQL catalog probe, ShardedPools exposes its pools, and Redis gains status, configurable timeouts, and lock renewal.',
+      items: [
+        'MySQL 5.7 / 8.0 / 8.4 / 9.x and MariaDB 10.11: a five-server CI matrix; MariaDB stores JSON as validated LONGTEXT and enforces inline REFERENCES.',
+        'bee_orm: Model::create() takes a fast path on MySQL when model metadata marks the pk AUTO_INCREMENT, skipping the per-insert information_schema probe; ShardedPools gains pools() / pool() / len() / is_empty() as the escape hatch for cross-shard operations and transactions.',
+        'bee_kv / bee_cache: RedisOptions sets pool size and response timeout (30s default), and RedisStore / RedisCache expose status() pool metrics.',
+        'bee_kv::RedisLock: try_lock_with_watchdog renews the TTL every TTL/3 in the background until release or drop; try_lock still does not renew.',
+        'CI: a docs consistency gate (version, install snippets, test counts) now runs on push and pull requests.'
+      ]
+    }
+  },
+  {
+    version: '1.4.0', date: '2026-10-25', tag: 'orm',
     zh: {
       title: 'MySQL 9、分库分表与 Redis 连接池',
       summary: 'ORM 打通 MySQL 8.0–9.x，新增必须带分片键的两级分片；Redis 后端换成真实连接池，并补上分布式锁。',

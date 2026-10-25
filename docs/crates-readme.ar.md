@@ -17,7 +17,7 @@ cargo add bee_rust
 
 ```toml
 [dependencies]
-bee_rust = "1.4.0"
+bee_rust = "1.5.0"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -76,7 +76,7 @@ curl http://localhost:8080/api/v1/health    # OK
 النواة الدنيا (بدون ORM أو مشغّلات قواعد البيانات)：
 
 ```toml
-bee_rust = { version = "1.4.0", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.5.0", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## الحزم الفرعية
@@ -93,7 +93,7 @@ bee_rust = { version = "1.4.0", default-features = false, features = ["router", 
 | `bee_cache` | تجريد التخزين المؤقت | `client/cache` |
 | `bee_session` | إدارة الجلسات (Memory/Redis مطبَّق؛ Cookie/Database مخطط لها) | `server/web/session` |
 | `bee_template` | عرض القوالب | — (موسّع) |
-| `bee_kv` | تجريد KV/التخزين المؤقت + تجمّع Redis حقيقي وقفل | `client/cache` (موسّع) |
+| `bee_kv` | تجريد KV/التخزين المؤقت + تجمّع Redis حقيقي وقفل + status / مهلة قابلة للضبط / watchdog | `client/cache` (موسّع) |
 | `bee_search` | محرّكات البحث / التحليل | — (جديد) |
 | `bee_graph` | قواعد بيانات الرسوم البيانية | — (جديد) |
 | `bee_tsdb` | قواعد بيانات السلاسل الزمنية | — (جديد) |
@@ -102,14 +102,14 @@ bee_rust = { version = "1.4.0", default-features = false, features = ["router", 
 يمكن الاعتماد عليها منفردة أيضًا — مثلًا عميل Elasticsearch فقط：
 
 ```toml
-bee_search = { version = "1.4.0", features = ["elasticsearch"] }
+bee_search = { version = "1.5.0", features = ["elasticsearch"] }
 ```
 
 ## قواعد البيانات المدعومة
 
 | النوع | قواعد البيانات | Crate | Feature |
 |------|-----------|-------|---------|
-| علائقية | SQLite / PostgreSQL / MySQL 8.0 / 8.4 / 9.x / TiDB | `bee_orm` | `sqlite` / `postgres` / `postgres-tls` / `mysql` |
+| علائقية | SQLite / PostgreSQL / MySQL 5.7–9.x / MariaDB 10.11+ / TiDB | `bee_orm` | `sqlite` / `postgres` / `postgres-tls` / `mysql` |
 | KV / تخزين مؤقت | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcached` / `memcache` |
 | بحث / تحليل | Elasticsearch / OpenSearch / ClickHouse | `bee_search` | `elasticsearch` / `opensearch` / `clickhouse` |
 | رسوم بيانية | Neo4j / NebulaGraph / ArangoDB | `bee_graph` | `neo4j` / `nebulagraph` / `arangodb` |

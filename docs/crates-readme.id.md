@@ -17,7 +17,7 @@ Atau tuliskan di `Cargo.toml`：
 
 ```toml
 [dependencies]
-bee_rust = "1.4.0"
+bee_rust = "1.5.0"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -76,7 +76,7 @@ Proyek yang benar-benar bisa dijalankan ada di [examples/hello](https://github.c
 Inti minimal (tanpa ORM dan driver basis data)：
 
 ```toml
-bee_rust = { version = "1.4.0", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.5.0", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## Sub-crate
@@ -93,7 +93,7 @@ Framework ini terdiri dari crate yang bisa dipakai secara mandiri; `bee_rust` ad
 | `bee_cache` | abstraksi cache | `client/cache` |
 | `bee_session` | manajemen sesi (Memory/Redis diimplementasikan; Cookie/Database direncanakan) | `server/web/session` |
 | `bee_template` | render template | — (diperluas) |
-| `bee_kv` | abstraksi KV/cache + pool Redis nyata & lock | `client/cache` (diperluas) |
+| `bee_kv` | abstraksi KV/cache + pool Redis nyata & lock + status / timeout yang dapat dikonfigurasi / watchdog | `client/cache` (diperluas) |
 | `bee_search` | engine pencarian / analitik | — (baru) |
 | `bee_graph` | basis data graf | — (baru) |
 | `bee_tsdb` | basis data time-series | — (baru) |
@@ -102,14 +102,14 @@ Framework ini terdiri dari crate yang bisa dipakai secara mandiri; `bee_rust` ad
 Mereka juga bisa dijadikan dependensi terpisah — misalnya hanya klien Elasticsearch：
 
 ```toml
-bee_search = { version = "1.4.0", features = ["elasticsearch"] }
+bee_search = { version = "1.5.0", features = ["elasticsearch"] }
 ```
 
 ## Basis data yang didukung
 
 | Jenis | Basis data | Crate | Feature |
 |------|-----------|-------|---------|
-| Relasional | SQLite / PostgreSQL / MySQL 8.0 / 8.4 / 9.x / TiDB | `bee_orm` | `sqlite` / `postgres` / `postgres-tls` / `mysql` |
+| Relasional | SQLite / PostgreSQL / MySQL 5.7–9.x / MariaDB 10.11+ / TiDB | `bee_orm` | `sqlite` / `postgres` / `postgres-tls` / `mysql` |
 | KV / cache | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcached` / `memcache` |
 | Pencarian / analitik | Elasticsearch / OpenSearch / ClickHouse | `bee_search` | `elasticsearch` / `opensearch` / `clickhouse` |
 | Graf | Neo4j / NebulaGraph / ArangoDB | `bee_graph` | `neo4j` / `nebulagraph` / `arangodb` |

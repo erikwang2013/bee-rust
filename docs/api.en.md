@@ -239,7 +239,7 @@ struct Doc {
 
 ### MySQL table-level foreign keys (opt-in)
 
-> MySQL 9 enforces column-level `REFERENCES` (8.0/8.4 parse and ignore it); create referenced tables before referencing ones.
+> MySQL 9 and MariaDB 10.11+ enforce column-level `REFERENCES`; MySQL 5.7/8.x parse and ignore it. Create referenced tables first.
 
 ```rust
 use bee_orm::{MigrateOptions, migrate};
@@ -291,7 +291,7 @@ let back = Event::query().all(&pool).await?;   // "1.50" round-trips to an equal
 
 ### Sharding (bee_orm)
 
-Key-required database/table sharding. `ShardedPools::for_key` is the only way to obtain an executable handle; queries must carry the shard key. Routing uses one composite index `hash % (db_shards * table_shards)`, so every database/table pair is reachable; cross-shard queries, joins, and transactions are not supported. Physical table names are validated against `[A-Za-z_][A-Za-z0-9_]*` before they are spliced into SQL.
+Key-required database/table sharding. `ShardedPools::for_key` is the only way to obtain an executable handle; queries must carry the shard key. Routing uses one composite index `hash % (db_shards * table_shards)`, so every database/table pair is reachable; cross-shard queries, joins, and transactions are not supported. Physical table names are validated against `[A-Za-z_][A-Za-z0-9_]*` before they are spliced into SQL. `ShardedPools::pools()` / `pool(index)` expose the underlying pools for operations and same-shard transactions; routing still requires `for_key`.
 
 ```rust
 use std::sync::Arc;
@@ -330,7 +330,7 @@ let val = kv.get("key").await?;
 let kv = MemcacheStore::new("127.0.0.1:11211")?;
 ```
 
-> `RedisStore` holds a `deadpool-redis` pool: a killed connection is replaced on the next checkout (recycle PING); every command is bounded at 30 seconds, and an exhausted pool waits up to 30 seconds before failing. `bee_kv::RedisLock` provides `SET NX PX` acquisition and Lua compare-and-delete release. memcached: `incr` creates the counter first (0 when absent) and then applies the delta; counters are unsigned, so decrementing floors at 0 (Redis goes negative); `expire(≤0)` deletes the key.
+> `RedisStore` holds a `deadpool-redis` pool: a killed connection is replaced on the next checkout (recycle PING); every command is bounded at 30 seconds, and an exhausted pool waits up to 30 seconds before failing. `bee_kv::RedisLock` provides `SET NX PX` acquisition and Lua compare-and-delete release. memcached: `incr` creates the counter first (0 when absent) and then applies the delta; counters are unsigned, so decrementing floors at 0 (Redis goes negative); `expire(≤0)` deletes the key. Redis pools also expose `status()`, `RedisOptions` with a configurable response timeout, and `try_lock_with_watchdog` for TTL auto-renewal.
 
 **Cache backends (bee_cache):**
 ```rust

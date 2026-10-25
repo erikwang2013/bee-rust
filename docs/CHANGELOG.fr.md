@@ -2,6 +2,15 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.5.0] — 2026-10-25
+
+### Ajouts
+- `bee_orm` : prise en charge de MySQL 5.7 et MariaDB 10.11+ — la matrice CI couvre désormais 5.7 / 8.0 / 8.4 / 9.x plus un job MariaDB ; les tests d'intégration tiennent compte du vendeur (MariaDB renvoie le JSON en LONGTEXT et applique `REFERENCES` au niveau des colonnes ; MySQL 5.7/8.x l'analysent et l'ignorent).
+- `bee_orm` : `Model::create` sur MySQL utilise désormais les métadonnées `columns()` du modèle pour éviter la sonde `information_schema` à chaque insert ; les modèles écrits à la main sans métadonnées conservent l'ancienne sonde. Cet indice fait foi — une dérive schéma/modèle n'est pas prise en charge.
+- `bee_orm::shard` : `ShardedPools::{pools, pool, len, is_empty}` exposent les shards configurés pour l'exploitation ; `ShardHandle` relaie l'indice d'auto-incrément.
+- `bee_kv` / `bee_cache` : métriques de pool `status()` ; `RedisOptions` public (`max_size`, `response_timeout`) avec `with_options` ; `RedisLock::try_lock_with_watchdog` renouvelle le TTL jusqu'au release/drop (le TTL du watchdog doit être ≥ 30ms).
+- Interne : une garde CI de cohérence de la documentation (`scripts/check-docs.sh`), un script de rendu d'aperçu social et les fixtures de test partagées extraites de `tests/mod.rs`.
+
 ## [1.4.0] — 2026-10-25
 
 ### Ajouts
