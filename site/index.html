@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Bee Rust · 生产级 Rust Web 框架</title>
-<meta name="description" content="Bee Rust 是生产级 Rust Web 框架：Beego 哲学，用 trait、macro 与类型系统表达。内置 MVC、ORM、过滤器链、CLI 与存储引擎。">
+<meta name="description" content="Bee Rust 是生产级 Rust Web 框架：Beego 哲学，用 trait、macro 与类型系统表达。内置 MVC、ORM（MySQL 8.0–9.x、分库分表）、过滤器链、CLI 与存储引擎（Redis 真连接池与分布式锁）。">
 <meta name="author" content="erik">
 <meta name="applicable-device" content="pc,mobile">
 <meta name="theme-color" content="#12100D">
@@ -16,7 +16,7 @@
 <meta property="og:locale" content="zh_CN">
 <meta property="og:locale:alternate" content="en_US">
 <meta property="og:title" content="Bee Rust · 生产级 Rust Web 框架">
-<meta property="og:description" content="Beego 的设计哲学，用 Rust 的 trait、macro 与类型系统重新表达。">
+<meta property="og:description" content="Beego 的设计哲学，用 Rust 的 trait、macro 与类型系统重新表达；ORM 支持 MySQL 8.0–9.x 与分库分表，Redis 提供真连接池和分布式锁。">
 <meta property="og:image" content="https://bee-rust.erik.xyz/assets/img/social-preview.jpg">
 <meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:width" content="1280">
@@ -24,7 +24,7 @@
 <meta property="og:image:alt" content="Bee Rust 社交预览卡：蜜白蜂巢背景上的 Bee Rust 字标与 Rusty">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Bee Rust · 生产级 Rust Web 框架">
-<meta name="twitter:description" content="Beego 的设计哲学，用 Rust 的 trait、macro 与类型系统重新表达。">
+<meta name="twitter:description" content="Beego 的设计哲学，用 Rust 的 trait、macro 与类型系统重新表达；ORM 支持 MySQL 8.0–9.x 与分库分表，Redis 提供真连接池和分布式锁。">
 <meta name="twitter:image" content="https://bee-rust.erik.xyz/assets/img/social-preview.jpg">
 <meta name="twitter:image:alt" content="Bee Rust 社交预览卡：蜜白蜂巢背景上的 Bee Rust 字标与 Rusty">
 <link rel="icon" href="assets/img/rusty-face.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
@@ -114,7 +114,7 @@
     {
       "@type": "Question",
       "name": "支持哪些数据库？",
-      "acceptedAnswer": { "@type": "Answer", "text": "SQLite、PostgreSQL、MySQL、TiDB（bee_orm）；Redis、Memcached；Elasticsearch、OpenSearch、ClickHouse；Neo4j、NebulaGraph、ArangoDB；InfluxDB、IoTDB、QuestDB。每个后端都由独立 feature 门控，详见架构。" }
+      "acceptedAnswer": { "@type": "Answer", "text": "SQLite、PostgreSQL、MySQL 8.0 / 8.4 / 9.x、TiDB（bee_orm，支持必须带分片键的分库分表）；Redis（真实连接池与 RedisLock）、Memcached；Elasticsearch、OpenSearch、ClickHouse；Neo4j、NebulaGraph、ArangoDB；InfluxDB、IoTDB、QuestDB。每个后端都由独立 feature 门控，详见架构。" }
     },
     {
       "@type": "Question",
@@ -210,10 +210,10 @@
       </header>
       <div class="feature-grid">
         <article class="feature-card" data-reveal><div class="hex-badge">WEB</div><h3 data-en="Web core">Web 核心</h3><p data-en="MVC controllers, Context, namespaced routing, RESTful methods, and a request filter chain. ctx.json() / text() / html() / redirect() / abort().">MVC 控制器、Context、命名空间路由、RESTful 方法注册与请求过滤器链。ctx.json() / text() / html() / redirect() / abort()。</p><div class="tags"><span>bee_router</span></div></article>
-        <article class="feature-card" data-reveal><div class="hex-badge">ORM</div><h3 data-en="ORM">ORM</h3><p data-en="#[derive(Model)] + QuerySet, CRUD, three connection pools with transactions and timeouts, non-destructive migrations, belongs_to / has_many / m2m, JSON columns, and chrono / rust_decimal mapping.">#[derive(Model)] + QuerySet、CRUD、三后端连接池（事务与超时控制）、非破坏性迁移、belongs_to / has_many / m2m、JSON 列与 chrono / rust_decimal 类型映射。</p><div class="tags"><span>bee_orm</span></div></article>
+        <article class="feature-card" data-reveal><div class="hex-badge">ORM</div><h3 data-en="ORM">ORM</h3><p data-en="#[derive(Model)] + QuerySet, CRUD, three connection pools with transactions and timeouts, MySQL 8.0 / 8.4 / 9.x, key-required database/table sharding (ShardedPools / HashRouter; no cross-shard queries or transactions), non-destructive migrations, belongs_to / has_many / m2m, JSON columns, and chrono / rust_decimal mapping.">#[derive(Model)] + QuerySet、CRUD、三后端连接池（事务与超时控制）、MySQL 8.0 / 8.4 / 9.x、必须带分片键的库/表两级分片（ShardedPools / HashRouter；不支持跨分片查询与事务）、非破坏性迁移、belongs_to / has_many / m2m、JSON 列与 chrono / rust_decimal 类型映射。</p><div class="tags"><span>bee_orm</span></div></article>
         <article class="feature-card" data-reveal><div class="hex-badge">SEC</div><h3 data-en="Security filter">安全检测</h3><p data-en="32 built-in detectors from security-rust 4: XSS, SQL injection, command injection, SSRF, path traversal, Log4Shell, reDoS, and more. One line to enable.">security-rust 4 的 32 个内置检测器：XSS、SQL 注入、命令注入、SSRF、路径穿越、Log4Shell、reDoS 等。一行代码开启。</p><div class="tags"><span>security</span></div></article>
         <article class="feature-card" data-reveal><div class="hex-badge">CFG</div><h3 data-en="Config, logs, templates">配置、日志、模板</h3><p data-en="INI / YAML / ENV with hot reload, levelled logging over tracing, and tera templates.">INI / YAML / ENV 加载与热更新、基于 tracing 的多级日志、tera 模板渲染。</p><div class="tags"><span>bee_config</span><span>bee_logs</span><span>bee_template</span></div></article>
-        <article class="feature-card" data-reveal><div class="hex-badge">DB</div><h3 data-en="Storage engines">多存储引擎</h3><p data-en="One trait per family: Redis, Memcached, Elasticsearch, OpenSearch, ClickHouse, Neo4j, NebulaGraph, ArangoDB, InfluxDB, IoTDB, QuestDB.">每类一套 trait：Redis、Memcached、Elasticsearch、OpenSearch、ClickHouse、Neo4j、NebulaGraph、ArangoDB、InfluxDB、IoTDB、QuestDB。</p><div class="tags"><span>bee_kv</span><span>bee_search</span><span>bee_graph</span><span>bee_tsdb</span></div></article>
+        <article class="feature-card" data-reveal><div class="hex-badge">DB</div><h3 data-en="Storage engines">多存储引擎</h3><p data-en="One trait per family: Redis with a real deadpool-redis pool and RedisLock, Memcached, Elasticsearch, OpenSearch, ClickHouse, Neo4j, NebulaGraph, ArangoDB, InfluxDB, IoTDB, QuestDB.">每类一套 trait：Redis（deadpool-redis 真连接池 + RedisLock 分布式锁）、Memcached、Elasticsearch、OpenSearch、ClickHouse、Neo4j、NebulaGraph、ArangoDB、InfluxDB、IoTDB、QuestDB。</p><div class="tags"><span>bee_kv</span><span>bee_search</span><span>bee_graph</span><span>bee_tsdb</span></div></article>
         <article class="feature-card" data-reveal><div class="hex-badge">CLI</div><h3 data-en="CLI">CLI</h3><p data-en="Scaffold a project, generate controllers and models, run with hot reload, pack a release, and drive migrations.">创建脚手架、生成控制器与模型、热重载运行、打包发布，以及执行迁移。</p><div class="tags"><span>bee_cli</span></div></article>
       </div>
       <div class="evolution" data-reveal>
@@ -244,7 +244,7 @@
             <div class="arch-crate"><b>bee_router</b><small data-en="routing · controllers · filters">路由 · 控制器 · 过滤器</small></div><div class="arch-crate"><b>bee_template</b><small data-en="tera templates">tera 模板</small></div><div class="arch-crate"><b>bee_session</b><small data-en="memory · redis · cookie/database planned">Memory · Redis · Cookie/Database 规划</small></div>
           </div>
           <div class="arch-col"><h3 data-en="Data layer">数据层</h3>
-            <div class="arch-crate"><b>bee_orm</b><small data-en="models · QuerySet · pools">模型 · QuerySet · 连接池</small></div><div class="arch-crate"><b>bee_config</b><small data-en="INI / YAML / ENV">INI / YAML / ENV</small></div><div class="arch-crate"><b>bee_cache</b><small data-en="memory · redis · memcache">Memory · Redis · Memcache</small></div><div class="arch-crate"><b>bee_kv</b><small data-en="redis · memcached">Redis · Memcached</small></div>
+            <div class="arch-crate"><b>bee_orm</b><small data-en="models · QuerySet · pools · sharding">模型 · QuerySet · 连接池 · 分片</small></div><div class="arch-crate"><b>bee_config</b><small data-en="INI / YAML / ENV">INI / YAML / ENV</small></div><div class="arch-crate"><b>bee_cache</b><small data-en="memory · redis · memcache">Memory · Redis · Memcache</small></div><div class="arch-crate"><b>bee_kv</b><small data-en="redis pool · lock · memcached">Redis 池 · 锁 · Memcached</small></div>
           </div>
           <div class="arch-col"><h3 data-en="Tool layer">工具层</h3>
             <div class="arch-crate"><b>bee_cli</b><small data-en="scaffold · codegen · run · pack · migrate">脚手架 · 代码生成 · 运行 · 打包 · 迁移</small></div><div class="arch-crate"><b>bee_logs</b><small data-en="tracing integration">tracing 集成</small></div>
@@ -252,7 +252,7 @@
         </div>
         <div class="arch-arrow" aria-hidden="true"></div>
         <div class="arch-layer arch-layer--storage"><span class="arch-label" data-en="Storage engines">存储引擎</span>
-          <div class="arch-storage"><span><b data-en="Relational">关系型</b> SQLite · PostgreSQL · MySQL · TiDB <code>bee_orm</code></span><span><b data-en="KV / cache">KV / 缓存</b> Redis · Memcached <code>bee_kv</code> <code>bee_cache</code></span><span><b data-en="Search">搜索</b> Elasticsearch · OpenSearch · ClickHouse <code>bee_search</code></span><span><b data-en="Graph">图</b> Neo4j · NebulaGraph · ArangoDB <code>bee_graph</code></span><span><b data-en="Time series">时序</b> InfluxDB · IoTDB · QuestDB <code>bee_tsdb</code></span></div>
+          <div class="arch-storage"><span><b data-en="Relational">关系型</b> SQLite · PostgreSQL · MySQL 8.0 / 8.4 / 9.x · TiDB <code>bee_orm</code></span><span><b data-en="KV / cache">KV / 缓存</b> Redis · Memcached <code>bee_kv</code> <code>bee_cache</code></span><span><b data-en="Search">搜索</b> Elasticsearch · OpenSearch · ClickHouse <code>bee_search</code></span><span><b data-en="Graph">图</b> Neo4j · NebulaGraph · ArangoDB <code>bee_graph</code></span><span><b data-en="Time series">时序</b> InfluxDB · IoTDB · QuestDB <code>bee_tsdb</code></span></div>
         </div>
       </div>
       <p class="arch-note" data-reveal data-en="search, graph and tsdb are opt-in — they are not part of the default full set. Every storage backend is behind its own feature flag.">search / graph / tsdb 按需开启，不在默认 full 内；每个存储后端都由独立 feature 门控。</p>
@@ -508,7 +508,7 @@ cd my-app &amp;&amp; cargo run</code></pre>
         </article>
         <article class="faq-card">
           <h3 data-en="Which databases are supported?">支持哪些数据库？</h3>
-          <p data-en="SQLite, PostgreSQL, MySQL, and TiDB through bee_orm; Redis and Memcached; Elasticsearch, OpenSearch, and ClickHouse; Neo4j, NebulaGraph, and ArangoDB; InfluxDB, IoTDB, and QuestDB. Each backend is behind its own feature flag — see the <a href='#architecture'>architecture section</a>.">SQLite、PostgreSQL、MySQL、TiDB（bee_orm）；Redis、Memcached；Elasticsearch、OpenSearch、ClickHouse；Neo4j、NebulaGraph、ArangoDB；InfluxDB、IoTDB、QuestDB。每个后端都由独立 feature 门控，详见<a href="#architecture">架构</a>。</p>
+          <p data-en="SQLite, PostgreSQL, MySQL 8.0 / 8.4 / 9.x, and TiDB through bee_orm (with key-required database/table sharding); Redis (real connection pool and RedisLock) and Memcached; Elasticsearch, OpenSearch, and ClickHouse; Neo4j, NebulaGraph, and ArangoDB; InfluxDB, IoTDB, and QuestDB. Each backend is behind its own feature flag — see the <a href='#architecture'>architecture section</a>.">SQLite、PostgreSQL、MySQL 8.0 / 8.4 / 9.x、TiDB（bee_orm，支持必须带分片键的分库分表）；Redis（真实连接池与 RedisLock）、Memcached；Elasticsearch、OpenSearch、ClickHouse；Neo4j、NebulaGraph、ArangoDB；InfluxDB、IoTDB、QuestDB。每个后端都由独立 feature 门控，详见<a href="#architecture">架构</a>。</p>
         </article>
         <article class="faq-card">
           <h3 data-en="How do I install it?">如何安装？</h3>
