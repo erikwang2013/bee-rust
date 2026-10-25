@@ -2,6 +2,13 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.4.0] — 2026-10-25
+
+### Neu hinzugefügt
+- `bee_orm`: MySQL 8.0 / 8.4 / 9.x-Kompatibilität, durch eine CI-Matrix verifiziert. MySQL 9 erzwingt spaltenweises `REFERENCES` (8.0/8.4 parsen und ignorieren es); referenzierte Tabellen zuerst anlegen.
+- `bee_orm`: `shard::{ShardedPools, HashRouter, ShardRouter}` — schlüsselpflichtiges Hash-Sharding für Datenbanken und Tabellen; keine Abfragen oder Transaktionen über mehrere Shards.
+- `bee_kv` / `bee_cache`: echter Redis-Verbindungspool (`deadpool-redis`) und `bee_kv::RedisLock` (`SET NX PX` + Lua-Freigabe).
+
 ## [1.3.0] — 2026-10-13
 
 ### Behoben

@@ -239,6 +239,8 @@ struct Doc {
 
 ### مفاتيح أجنبية على مستوى الجدول في MySQL (opt-in)
 
+> يفرض MySQL 9 `REFERENCES` على مستوى العمود (8.0/8.4 يحلّله ويتجاهله)؛ أنشئ الجداول المُشار إليها أولاً.
+
 ```rust
 use bee_orm::{MigrateOptions, migrate};
 
@@ -287,6 +289,20 @@ let back = Event::query().all(&pool).await?;   // "1.50" يعود بقيمة م�
 > سقف الدقة: في pg يُقرأ `numeric` فوق 29 رقمًا معنويًا كـ `NULL` (يرفضه FromSql الأصلي)؛ وفي mysql يمر النص، والزيادة تفشل عند فك الترميز في serde لديك؛ للمبالغ يُفضَّل `#[bee(sql_type = Raw("decimal(12,2)"))]`.
 > عقد الترجمة: مع إيقاف feature يفشل نموذج يحمل حقل تاريخ بـ E0277 (`Value: From<NaiveDate>` غير متحقق) — لا عمود خاطئ بصمت.
 
+### التقسيم (bee_orm)
+
+تقسيم قواعد/جداول يتطلّب مفتاحًا. `ShardedPools::for_key` هو الطريق الوحيد للحصول على مقبض قابل للتنفيذ؛ يجب أن تحمل الاستعلامات مفتاح التقسيم. يستخدم التوجيه فهرسًا مركبًا `hash % (db_shards * table_shards)`، لذا كل زوج قاعدة/جدول قابل للوصول؛ لا تُدعم الاستعلامات أو JOIN أو المعاملات عبر التقسيمات. تُتحقَّق أسماء الجداول الفيزيائية مقابل `[A-Za-z_][A-Za-z0-9_]*` قبل إدراجها في SQL.
+
+```rust
+use std::sync::Arc;
+use bee_orm::shard::{HashRouter, ShardedPools};
+
+let shards = ShardedPools::new(vec![pool0, pool1], Arc::new(HashRouter::new(2, 4)?))?;
+let db = shards.for_key(user_id)?;                  // the only way to get an executable handle
+let users = User::query().filter_eq("user_id", user_id)?.all(&db).await?;
+shards.sync_all::<User>(Default::default()).await?; // create every physical table
+```
+
 ## إدارة التكوين (bee_config)
 
 ```rust
@@ -314,7 +330,7 @@ let val = kv.get("key").await?;
 let kv = MemcacheStore::new("127.0.0.1:11211")?;
 ```
 
-> داخل `RedisStore` يوجد `ConnectionManager`: الاتصال المقطوع يُعاد تلقائيًا (عند الطلب — دون خيط خلفي — مع تراجع أُسّي واهتزاز عشوائي) — الأمر الذي يصادف القطع يفشل، والتالي ينتظر الاتصال الجديد. memcached: ينشئ `incr` العدّاد أولاً (0 إن لم يوجد) ثم يطبّق الفرق؛ العدّادات غير موقّعة لذا يتوقف التنقيص عند 0 (في Redis ينزل إلى السالب)؛ `expire(≤0)` يعادل الحذف.
+> يحتفظ `RedisStore` بتجمّع `deadpool-redis`: تُستبدل الاتصال المقتول عند checkout التالي (recycle PING)؛ كل أمر محدود بـ 30 ثانية، وتنتظر المجموعة المستنفدة حتى 30 ثانية قبل الفشل. يوفّر `bee_kv::RedisLock` الحصول عبر `SET NX PX` والتحرير بـ Lua compare-and-delete. memcached: ينشئ `incr` العدّاد أولاً (0 إن لم يوجد) ثم يطبّق الفرق؛ العدّادات غير موقّعة لذا يتوقف التنقيص عند 0 (في Redis ينزل إلى السالب)؛ `expire(≤0)` يعادل الحذف.
 
 **خلفيات التخزين المؤقت (bee_cache):**
 ```rust

@@ -17,7 +17,7 @@ Ou adicione ao `Cargo.toml`：
 
 ```toml
 [dependencies]
-bee_rust = "1.3.0"
+bee_rust = "1.4.0"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -76,7 +76,7 @@ Há um projeto totalmente executável em [examples/hello](https://github.com/eri
 Núcleo mínimo (sem ORM nem drivers de banco)：
 
 ```toml
-bee_rust = { version = "1.3.0", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.4.0", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## Sub-crates
@@ -87,13 +87,13 @@ O framework é um conjunto de crates usáveis de forma independente; `bee_rust` 
 |-------|--------------|-------------------|
 | `bee_rust` | meta-crate, ponto de entrada único | — |
 | `bee_router` | roteamento + controladores + `Context` + filtros | `server/web`, `context` |
-| `bee_orm` | ORM + QuerySet + CRUD + pool de conexões + migrações não destrutivas + relações belongs_to/has_many | `client/orm` |
+| `bee_orm` | ORM + QuerySet + CRUD + pool de conexões + migrações não destrutivas + relações belongs_to/has_many + sharding com chave obrigatória | `client/orm` |
 | `bee_config` | configuração + recarga a quente | `client/config` |
 | `bee_logs` | logs | `logs` |
 | `bee_cache` | abstração de cache | `client/cache` |
 | `bee_session` | gerenciamento de sessão (Memory/Redis implementado; Cookie/Database planejado) | `server/web/session` |
 | `bee_template` | renderização de templates | — (estendido) |
-| `bee_kv` | abstração de KV/cache | `client/cache` (estendido) |
+| `bee_kv` | abstração de KV/cache + pool Redis real e lock | `client/cache` (estendido) |
 | `bee_search` | engines de busca / análise | — (novo) |
 | `bee_graph` | bancos de dados de grafo | — (novo) |
 | `bee_tsdb` | bancos de dados de séries temporais | — (novo) |
@@ -102,14 +102,14 @@ O framework é um conjunto de crates usáveis de forma independente; `bee_rust` 
 Eles também podem ser usados separadamente — por exemplo, apenas um cliente Elasticsearch：
 
 ```toml
-bee_search = { version = "1.3.0", features = ["elasticsearch"] }
+bee_search = { version = "1.4.0", features = ["elasticsearch"] }
 ```
 
 ## Bancos de dados suportados
 
 | Tipo | Bancos de dados | Crate | Feature |
 |------|-----------|-------|---------|
-| Relacionais | SQLite / PostgreSQL / MySQL / TiDB | `bee_orm` | `sqlite` / `postgres` / `postgres-tls` / `mysql` |
+| Relacionais | SQLite / PostgreSQL / MySQL 8.0 / 8.4 / 9.x / TiDB | `bee_orm` | `sqlite` / `postgres` / `postgres-tls` / `mysql` |
 | KV / cache | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcached` / `memcache` |
 | Busca / análise | Elasticsearch / OpenSearch / ClickHouse | `bee_search` | `elasticsearch` / `opensearch` / `clickhouse` |
 | Grafo | Neo4j / NebulaGraph / ArangoDB | `bee_graph` | `neo4j` / `nebulagraph` / `arangodb` |

@@ -239,6 +239,8 @@ struct Doc {
 
 ### MySQL 테이블 수준 외래 키(opt-in)
 
+> MySQL 9는 컬럼 수준 `REFERENCES`를 강제합니다(8.0/8.4는 파싱 후 무시). 참조 대상 테이블을 먼저 생성하세요.
+
 ```rust
 use bee_orm::{MigrateOptions, migrate};
 
@@ -287,6 +289,20 @@ let back = Event::query().all(&pool).await?;   // "1.50"은 같은 값으로 왕
 > 정밀도 상한: pg `numeric`은 유효 자릿수 29를 넘으면 `NULL`로 읽힘(네이티브 FromSql 거부); mysql은 텍스트 경로라 초과분은 디코드 시 serde에서 오류; 금액에는 `#[bee(sql_type = Raw("decimal(12,2)"))]` 권장.
 > 컴파일 계약: feature가 꺼져 있으면 날짜 필드 모델은 E0277(`Value: From<NaiveDate>` 불충족)로 실패 — 조용히 잘못된 열이 되지 않습니다.
 
+### 샤딩 (bee_orm)
+
+key-required 데이터베이스/테이블 샤딩. 실행 가능한 핸들을 얻는 유일한 방법은 `ShardedPools::for_key`입니다. 쿼리에는 샤드 키가 있어야 합니다. 라우팅은 단일 복합 인덱스 `hash % (db_shards * table_shards)`를 사용하므로 모든 데이터베이스/테이블 쌍에 도달할 수 있습니다. 크로스 샤드 쿼리, JOIN, 트랜잭션은 지원하지 않습니다. 물리 테이블 이름은 SQL에 삽입되기 전에 `[A-Za-z_][A-Za-z0-9_]*`로 검증됩니다.
+
+```rust
+use std::sync::Arc;
+use bee_orm::shard::{HashRouter, ShardedPools};
+
+let shards = ShardedPools::new(vec![pool0, pool1], Arc::new(HashRouter::new(2, 4)?))?;
+let db = shards.for_key(user_id)?;                  // the only way to get an executable handle
+let users = User::query().filter_eq("user_id", user_id)?.all(&db).await?;
+shards.sync_all::<User>(Default::default()).await?; // create every physical table
+```
+
 ## 설정 관리 (bee_config)
 
 ```rust
@@ -314,7 +330,7 @@ let val = kv.get("key").await?;
 let kv = MemcacheStore::new("127.0.0.1:11211")?;
 ```
 
-> `RedisStore` 내부는 `ConnectionManager`입니다: 끊긴 연결은 자동으로 재연결됩니다(명령 시 트리거 — 백그라운드 스레드 없음 — 지수 백오프와 지터) — 끊김에 걸린 명령은 오류가 되고, 다음 명령은 새 연결을 기다립니다. memcached: `incr`은 먼저 카운터를 만들고(없으면 0) 그다음 증감합니다; 카운터는 부호 없음이라 감소는 0에서 멈춥니다(Redis는 음수로 내려갑니다); `expire(≤0)`은 삭제와 같습니다.
+> `RedisStore`는 `deadpool-redis` 풀을 보유합니다. 끊긴 연결은 다음 checkout에서 교체되고(recycle PING), 각 명령은 30초로 제한되며, 풀이 고갈되면 최대 30초 대기 후 실패합니다. `bee_kv::RedisLock`은 `SET NX PX` 획득과 Lua compare-and-delete 해제를 제공합니다. memcached: `incr`은 먼저 카운터를 만들고(없으면 0) 그다음 증감합니다; 카운터는 부호 없음이라 감소는 0에서 멈춥니다(Redis는 음수로 내려갑니다); `expire(≤0)`은 삭제와 같습니다.
 
 **캐시 백엔드(bee_cache):**
 ```rust

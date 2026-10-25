@@ -159,7 +159,7 @@ bee_rust   → جميع الـ crates أعلاه (re-export)
 |------|--------|-----------|-------------|
 | **علائقية** | SQLite | `bee_orm` | `sqlite` (bee_rust: `orm-sqlite`) |
 | | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls` (bee_rust: `orm-postgres` / `orm-postgres-tls`) |
-| | MySQL | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
+| | MySQL 8.0 / 8.4 / 9.x | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **أنواع الحقول** | التاريخ / Decimal | `bee_orm` | `chrono` / `rust_decimal` (bee_rust: `orm-chrono` / `orm-rust_decimal`) |
 | **KV / تخزين مؤقت** | Redis | `bee_kv` / `bee_cache` | `redis` |
@@ -203,7 +203,7 @@ let security = SecurityFilter::new();  // تفعيل أدوات الكشف ال�
 
 ### ORM (bee_orm)
 
-ماكرو الاشتقاق `#[derive(Model)]` (بدعم `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + استعلامات QuerySet المتسلسلة وتنفيذها (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`، وتجميعات `sum` / `avg` / `min` / `max`) + ترحيلات غير مُدمِّرة (`migrate::create_table` / `add_missing_columns` / `sync`) + قراءة العلاقات (`belongs_to` / has_many `children*` / many-to-many `m2m`) + أعمدة JSON (`serde_json::Value`) + تجمّع اتصالات للخلفيات الثلاث (مع المعاملات والمهلات)، يدعم SQLite و PostgreSQL و MySQL و TiDB.
+ماكرو الاشتقاق `#[derive(Model)]` (بدعم `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + استعلامات QuerySet المتسلسلة وتنفيذها (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`، وتجميعات `sum` / `avg` / `min` / `max`) + ترحيلات غير مُدمِّرة (`migrate::create_table` / `add_missing_columns` / `sync`) + قراءة العلاقات (`belongs_to` / has_many `children*` / many-to-many `m2m`) + أعمدة JSON (`serde_json::Value`) + تجمّع اتصالات للخلفيات الثلاث (مع المعاملات والمهلات)، يدعم SQLite و PostgreSQL و MySQL و TiDB. كما يوفّر ORM تقسيمًا للقواعد/الجداول يتطلّب مفتاح تقسيم (`shard::{ShardedPools, HashRouter, ShardHandle}`)؛ يجب أن تحمل الاستعلامات مفتاح التقسيم، ولا تُدعم الاستعلامات أو المعاملات عبر التقسيمات.
 
 ### إدارة التكوين (bee_config)
 
@@ -211,7 +211,7 @@ let security = SecurityFilter::new();  // تفعيل أدوات الكشف ال�
 
 ### محركات التخزين
 
-تجريد موحد عبر traits لـ KV / Cache (Redis / Memcached)، ومحركات البحث (Elasticsearch / OpenSearch / ClickHouse)، وقواعد البيانات الرسومية (Neo4j / NebulaGraph / ArangoDB)، وقواعد بيانات السلاسل الزمنية (InfluxDB / IoTDB / QuestDB)، تُترجم برامج التشغيل حسب feature gates.
+تجريد موحد عبر traits لـ KV / Cache (Redis / Memcached)، ومحركات البحث (Elasticsearch / OpenSearch / ClickHouse)، وقواعد البيانات الرسومية (Neo4j / NebulaGraph / ArangoDB)، وقواعد بيانات السلاسل الزمنية (InfluxDB / IoTDB / QuestDB)، تُترجم برامج التشغيل حسب feature gates. تستخدم خلفيات Redis (`bee_kv` / `bee_cache`) تجمّعات اتصالات `deadpool-redis` حقيقية مع حدّ 30 ثانية للأمر؛ ويوفّر `bee_kv::RedisLock` قفلًا موزّعًا (`SET NX PX` + تحرير Lua بمقارنة القيمة).
 
 ### الجلسات والسجلات والقوالب
 
@@ -264,7 +264,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.3.0", features = ["full"] }
+bee_rust = { version = "1.4.0", features = ["full"] }
 ```
 
 ## ملاحظات تقنية

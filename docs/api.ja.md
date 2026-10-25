@@ -239,6 +239,8 @@ struct Doc {
 
 ### MySQL テーブルレベルの外部キー（opt-in）
 
+> MySQL 9 はカラムレベルの `REFERENCES` を強制します（8.0/8.4 は解析して無視）。参照先テーブルを先に作成してください。
+
 ```rust
 use bee_orm::{MigrateOptions, migrate};
 
@@ -287,6 +289,20 @@ let back = Event::query().all(&pool).await?;   // 「1.50」は数値として�
 > 精度の天井：pg の `numeric` は有効桁 29 を超えると `NULL` で読み戻り（ネイティブ FromSql が拒否）；mysql はテキスト経由なので超過分はデコード時に serde でエラー；金額には `#[bee(sql_type = Raw("decimal(12,2)"))]` を推奨。
 > コンパイル時契約：feature を切ると日付フィールドのモデルは E0277（`Value: From<NaiveDate>` 未充足）で失敗——黙って誤った列にはなりません。
 
+### シャーディング（bee_orm）
+
+key-required なデータベース/テーブルシャーディング。実行可能なハンドルを取得する唯一の方法は `ShardedPools::for_key` です。クエリにはシャードキーが必要です。ルーティングは単一の複合インデックス `hash % (db_shards * table_shards)` を使うため、すべてのデータベース/テーブルの組に到達できます。クロスシャードのクエリ、JOIN、トランザクションはサポートしません。物理テーブル名は SQL に埋め込む前に `[A-Za-z_][A-Za-z0-9_]*` で検証されます。
+
+```rust
+use std::sync::Arc;
+use bee_orm::shard::{HashRouter, ShardedPools};
+
+let shards = ShardedPools::new(vec![pool0, pool1], Arc::new(HashRouter::new(2, 4)?))?;
+let db = shards.for_key(user_id)?;                  // the only way to get an executable handle
+let users = User::query().filter_eq("user_id", user_id)?.all(&db).await?;
+shards.sync_all::<User>(Default::default()).await?; // create every physical table
+```
+
 ## 設定管理（bee_config）
 
 ```rust
@@ -314,7 +330,7 @@ let val = kv.get("key").await?;
 let kv = MemcacheStore::new("127.0.0.1:11211")?;
 ```
 
-> `RedisStore` の内部は `ConnectionManager`：切断された接続は自動再接続されます（コマンド契機——バックグラウンドスレッドなし——指数バックオフとジッター付き）——切断に当たったコマンドはエラーになり、次のコマンドは新しい接続を待ちます。memcached：`incr` はまずカウンタを作成し（無ければ 0）、その後で増減します；カウンタは符号なしで、減算は 0 で止まります（Redis は負になります）；`expire(≤0)` は削除と同じです。
+> `RedisStore` は `deadpool-redis` プールを保持します。切断された接続は次回 checkout 時に交換され（recycle PING）、各コマンドは 30 秒で制限され、プール枯渇時は最大 30 秒待ってから失敗します。`bee_kv::RedisLock` は `SET NX PX` 取得と Lua compare-and-delete 解放を提供します。 memcached：`incr` はまずカウンタを作成し（無ければ 0）、その後で増減します；カウンタは符号なしで、減算は 0 で止まります（Redis は負になります）；`expire(≤0)` は削除と同じです。
 
 **キャッシュバックエンド（bee_cache）：**
 ```rust

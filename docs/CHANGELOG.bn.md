@@ -2,6 +2,13 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.4.0] — 2026-10-25
+
+### যা যোগ হয়েছে
+- `bee_orm`: MySQL 8.0 / 8.4 / 9.x সামঞ্জস্য, CI ম্যাট্রিক্সে যাচাইকৃত। MySQL 9 কলাম-স্তরের `REFERENCES` প্রয়োগ করে (8.0/8.4 এটি পার্স করে উপেক্ষা করে); প্রথমে রেফারেন্সকৃত টেবিল তৈরি করুন।
+- `bee_orm`: `shard::{ShardedPools, HashRouter, ShardRouter}` — ডেটাবেস ও টেবিলের জন্য key-required হ্যাশ শার্ডিং; ক্রস-শার্ড কোয়েরি বা ট্রানজেকশন নেই।
+- `bee_kv` / `bee_cache`: প্রকৃত Redis কানেকশন পুল (`deadpool-redis`) এবং `bee_kv::RedisLock` (`SET NX PX` + Lua রিলিজ)।
+
 ## [1.3.0] — 2026-10-13
 
 ### যা ঠিক করা হয়েছে

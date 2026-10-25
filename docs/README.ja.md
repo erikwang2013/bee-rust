@@ -159,7 +159,7 @@ bee_rust   → 上記すべての crate (re-export)
 |------|--------|-----------|-------------|
 | **リレーショナル** | SQLite | `bee_orm` | `sqlite`（bee_rust：`orm-sqlite`） |
 | | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls`（bee_rust：`orm-postgres` / `orm-postgres-tls`） |
-| | MySQL | `bee_orm` | `mysql`（bee_rust：`orm-mysql`） |
+| | MySQL 8.0 / 8.4 / 9.x | `bee_orm` | `mysql`（bee_rust：`orm-mysql`） |
 | | TiDB | `bee_orm` | `mysql` |
 | **フィールド型** | 日付 / Decimal | `bee_orm` | `chrono` / `rust_decimal`（bee_rust：`orm-chrono` / `orm-rust_decimal`） |
 | **KV / キャッシュ** | Redis | `bee_kv` / `bee_cache` | `redis` |
@@ -203,7 +203,7 @@ let security = SecurityFilter::new();  // 27 個の検出器をすべて有効�
 
 ### ORM（bee_orm）
 
-`#[derive(Model)]` 派生マクロ（`#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]` 対応）+ QuerySet のチェーン式クエリと実行（`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`、集計 `sum` / `avg` / `min` / `max`）+ 非破壊マイグレーション（`migrate::create_table` / `add_missing_columns` / `sync`）+ リレーション読み取り（`belongs_to` / has_many `children*` / many-to-many `m2m`）+ JSON カラム（`serde_json::Value`）+ 3 バックエンドのコネクションプール（トランザクション・タイムアウト対応）。SQLite、PostgreSQL、MySQL、TiDB をサポート。
+`#[derive(Model)]` 派生マクロ（`#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]` 対応）+ QuerySet のチェーン式クエリと実行（`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`、集計 `sum` / `avg` / `min` / `max`）+ 非破壊マイグレーション（`migrate::create_table` / `add_missing_columns` / `sync`）+ リレーション読み取り（`belongs_to` / has_many `children*` / many-to-many `m2m`）+ JSON カラム（`serde_json::Value`）+ 3 バックエンドのコネクションプール（トランザクション・タイムアウト対応）。SQLite、PostgreSQL、MySQL、TiDB をサポート。 ORM は必須のシャードキーを使うデータベース/テーブルシャーディング（`shard::{ShardedPools, HashRouter, ShardHandle}`）も提供します。クエリにはシャードキーが必要で、クロスシャードのクエリやトランザクションはサポートしません。
 
 ### 設定管理（bee_config）
 
@@ -211,7 +211,7 @@ let security = SecurityFilter::new();  // 27 個の検出器をすべて有効�
 
 ### ストレージエンジン
 
-KV / Cache（Redis / Memcached）、検索エンジン（Elasticsearch / OpenSearch / ClickHouse）、グラフデータベース（Neo4j / NebulaGraph / ArangoDB）、時系列データベース（InfluxDB / IoTDB / QuestDB）を統一 trait で抽象化し、ドライバは feature gate に応じてコンパイルされます。
+KV / Cache（Redis / Memcached）、検索エンジン（Elasticsearch / OpenSearch / ClickHouse）、グラフデータベース（Neo4j / NebulaGraph / ArangoDB）、時系列データベース（InfluxDB / IoTDB / QuestDB）を統一 trait で抽象化し、ドライバは feature gate に応じてコンパイルされます。 Redis バックエンド（`bee_kv` / `bee_cache`）は実際の `deadpool-redis` コネクションプールと 30 秒のコマンド上限を使います。`bee_kv::RedisLock` は分散ロック（`SET NX PX` + Lua の compare-and-delete 解放）を提供します。
 
 ### Session、ログ、テンプレート
 
@@ -264,7 +264,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.3.0", features = ["full"] }
+bee_rust = { version = "1.4.0", features = ["full"] }
 ```
 
 ## 技術詳細

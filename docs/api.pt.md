@@ -239,6 +239,8 @@ struct Doc {
 
 ### Chaves estrangeiras em nível de tabela no MySQL (opt-in)
 
+> MySQL 9 aplica `REFERENCES` no nível da coluna (8.0/8.4 analisam e ignoram); crie primeiro as tabelas referenciadas.
+
 ```rust
 use bee_orm::{MigrateOptions, migrate};
 
@@ -287,6 +289,20 @@ let back = Event::query().all(&pool).await?;   // "1.50" volta com valor igual
 > Teto de precisão: no pg, `numeric` acima de 29 dígitos significativos volta como `NULL` (o FromSql nativo recusa); no mysql vai por texto, o excesso só falha na decodificação no seu serde; para dinheiro prefira `#[bee(sql_type = Raw("decimal(12,2)"))]`.
 > Contrato de compilação: com a feature desligada, um modelo com campo de data falha com E0277 (`Value: From<NaiveDate>` não satisfeito) — nunca uma coluna silenciosamente errada.
 
+### Sharding (bee_orm)
+
+Sharding de banco/tabela com chave obrigatória. `ShardedPools::for_key` é a única forma de obter um handle executável; as consultas devem levar a chave de shard. O roteamento usa um índice composto `hash % (db_shards * table_shards)`, então todos os pares banco/tabela são alcançáveis; consultas, JOINs e transações entre shards não são suportados. Nomes físicos de tabela são validados contra `[A-Za-z_][A-Za-z0-9_]*` antes de serem inseridos no SQL.
+
+```rust
+use std::sync::Arc;
+use bee_orm::shard::{HashRouter, ShardedPools};
+
+let shards = ShardedPools::new(vec![pool0, pool1], Arc::new(HashRouter::new(2, 4)?))?;
+let db = shards.for_key(user_id)?;                  // the only way to get an executable handle
+let users = User::query().filter_eq("user_id", user_id)?.all(&db).await?;
+shards.sync_all::<User>(Default::default()).await?; // create every physical table
+```
+
 ## Gerenciamento de configuração (bee_config)
 
 ```rust
@@ -314,7 +330,7 @@ let val = kv.get("key").await?;
 let kv = MemcacheStore::new("127.0.0.1:11211")?;
 ```
 
-> O `RedisStore` usa um `ConnectionManager`: uma conexão derrubada se reconecta sozinha (sob demanda — sem thread em segundo plano — com backoff exponencial e jitter) — o comando que esbarra na queda falha e o próximo espera a conexão nova. memcached: `incr` cria o contador primeiro (0 se ausente) e então aplica o delta; contadores são sem sinal, então decrementar fica em 0 (no Redis vai a negativo); `expire(≤0)` equivale a excluir.
+> `RedisStore` mantém um pool `deadpool-redis`: uma conexão morta é substituída no próximo checkout (PING de reciclagem); cada comando é limitado a 30 segundos, e um pool esgotado espera até 30 segundos antes de falhar. `bee_kv::RedisLock` oferece aquisição `SET NX PX` e liberação Lua compare-and-delete. memcached: `incr` cria o contador primeiro (0 se ausente) e então aplica o delta; contadores são sem sinal, então decrementar fica em 0 (no Redis vai a negativo); `expire(≤0)` equivale a excluir.
 
 **Backends de cache (bee_cache):**
 ```rust

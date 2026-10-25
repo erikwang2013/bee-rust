@@ -159,7 +159,7 @@ bee_rust   → উপরের সব crate (re-export)
 |------|--------|-----------|-------------|
 | **রিলেশনাল** | SQLite | `bee_orm` | `sqlite` (bee_rust: `orm-sqlite`) |
 | | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls` (bee_rust: `orm-postgres` / `orm-postgres-tls`) |
-| | MySQL | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
+| | MySQL 8.0 / 8.4 / 9.x | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **ফিল্ডের ধরন** | তারিখ / Decimal | `bee_orm` | `chrono` / `rust_decimal` (bee_rust: `orm-chrono` / `orm-rust_decimal`) |
 | **KV / ক্যাশ** | Redis | `bee_kv` / `bee_cache` | `redis` |
@@ -203,7 +203,7 @@ let security = SecurityFilter::new();  // ২৭টি ডিটেক্টর 
 
 ### ORM (bee_orm)
 
-`#[derive(Model)]` ডেরাইভ ম্যাক্রো (`#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]` সহ) + QuerySet চেইনড কোয়েরি ও এক্সিকিউশন (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, অ্যাগ্রিগেট `sum` / `avg` / `min` / `max`) + অবিনাশী মাইগ্রেশন (`migrate::create_table` / `add_missing_columns` / `sync`) + রিলেশন পড়া (`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON কলাম (`serde_json::Value`) + তিন বেকএন্ডের কানেকশন পুল (ট্রানজ্যাকশন ও টাইমআউটসহ), SQLite, PostgreSQL, MySQL, TiDB সমর্থন করে।
+`#[derive(Model)]` ডেরাইভ ম্যাক্রো (`#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]` সহ) + QuerySet চেইনড কোয়েরি ও এক্সিকিউশন (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, অ্যাগ্রিগেট `sum` / `avg` / `min` / `max`) + অবিনাশী মাইগ্রেশন (`migrate::create_table` / `add_missing_columns` / `sync`) + রিলেশন পড়া (`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON কলাম (`serde_json::Value`) + তিন বেকএন্ডের কানেকশন পুল (ট্রানজ্যাকশন ও টাইমআউটসহ), SQLite, PostgreSQL, MySQL, TiDB সমর্থন করে। ORM এখন key-required ডেটাবেস/টেবিল শার্ডিং (`shard::{ShardedPools, HashRouter, ShardHandle}`) দেয়; কোয়েরিতে শার্ড কী থাকতে হবে, এবং ক্রস-শার্ড কোয়েরি/ট্রানজেকশন সমর্থিত নয়।
 
 ### কনফিগ ম্যানেজমেন্ট (bee_config)
 
@@ -211,7 +211,7 @@ let security = SecurityFilter::new();  // ২৭টি ডিটেক্টর 
 
 ### স্টোরেজ ইঞ্জিন
 
-KV / Cache (Redis / Memcached), সার্চ ইঞ্জিন (Elasticsearch / OpenSearch / ClickHouse), গ্রাফ ডেটাবেস (Neo4j / NebulaGraph / ArangoDB), টাইম-সিরিজ ডেটাবেস (InfluxDB / IoTDB / QuestDB) — সব একীভূত trait অ্যাবস্ট্রাকশন, ড্রাইভার feature gate অনুযায়ী কম্পাইল হয়।
+KV / Cache (Redis / Memcached), সার্চ ইঞ্জিন (Elasticsearch / OpenSearch / ClickHouse), গ্রাফ ডেটাবেস (Neo4j / NebulaGraph / ArangoDB), টাইম-সিরিজ ডেটাবেস (InfluxDB / IoTDB / QuestDB) — সব একীভূত trait অ্যাবস্ট্রাকশন, ড্রাইভার feature gate অনুযায়ী কম্পাইল হয়। Redis ব্যাকএন্ড (`bee_kv` / `bee_cache`) প্রকৃত `deadpool-redis` কানেকশন পুল ও 30 সেকেন্ডের কমান্ড সীমা ব্যবহার করে; `bee_kv::RedisLock` ডিস্ট্রিবিউটেড লক (`SET NX PX` + Lua compare-and-delete রিলিজ) দেয়।
 
 ### Session, লগ, টেমপ্লেট
 
@@ -264,7 +264,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.3.0", features = ["full"] }
+bee_rust = { version = "1.4.0", features = ["full"] }
 ```
 
 ## প্রযুক্তিগত নোট

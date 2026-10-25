@@ -159,7 +159,7 @@ bee_rust   → 위의 모든 crate (re-export)
 |------|--------|-----------|-------------|
 | **관계형** | SQLite | `bee_orm` | `sqlite`(bee_rust: `orm-sqlite`) |
 | | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls`(bee_rust: `orm-postgres` / `orm-postgres-tls`) |
-| | MySQL | `bee_orm` | `mysql`(bee_rust: `orm-mysql`) |
+| | MySQL 8.0 / 8.4 / 9.x | `bee_orm` | `mysql`(bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **필드 타입** | 날짜 / Decimal | `bee_orm` | `chrono` / `rust_decimal` (bee_rust: `orm-chrono` / `orm-rust_decimal`) |
 | **KV / 캐시** | Redis | `bee_kv` / `bee_cache` | `redis` |
@@ -203,7 +203,7 @@ let security = SecurityFilter::new();  // 27개 탐지기 모두 켜짐
 
 ### ORM (bee_orm)
 
-`#[derive(Model)]` 파생 매크로(`#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]` 지원) + QuerySet 체이닝 쿼리와 실행(`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, 집계 `sum` / `avg` / `min` / `max`) + 비파괴 마이그레이션(`migrate::create_table` / `add_missing_columns` / `sync`) + 관계 읽기(`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON 컬럼(`serde_json::Value`) + 3개 백엔드 커넥션 풀(트랜잭션·타임아웃 포함), SQLite, PostgreSQL, MySQL, TiDB 지원.
+`#[derive(Model)]` 파생 매크로(`#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]` 지원) + QuerySet 체이닝 쿼리와 실행(`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, 집계 `sum` / `avg` / `min` / `max`) + 비파괴 마이그레이션(`migrate::create_table` / `add_missing_columns` / `sync`) + 관계 읽기(`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON 컬럼(`serde_json::Value`) + 3개 백엔드 커넥션 풀(트랜잭션·타임아웃 포함), SQLite, PostgreSQL, MySQL, TiDB 지원. ORM은 필수 샤드 키를 사용하는 데이터베이스/테이블 샤딩(`shard::{ShardedPools, HashRouter, ShardHandle}`)도 제공합니다. 쿼리에는 샤드 키가 있어야 하며, 크로스 샤드 쿼리/트랜잭션은 지원하지 않습니다.
 
 ### 설정 관리 (bee_config)
 
@@ -211,7 +211,7 @@ let security = SecurityFilter::new();  // 27개 탐지기 모두 켜짐
 
 ### 스토리지 엔진
 
-KV / Cache (Redis / Memcached), 검색 엔진 (Elasticsearch / OpenSearch / ClickHouse), 그래프 데이터베이스 (Neo4j / NebulaGraph / ArangoDB), 시계열 데이터베이스 (InfluxDB / IoTDB / QuestDB)를 통일된 trait으로 추상화하며, 드라이버는 feature gate에 따라 컴파일됩니다.
+KV / Cache (Redis / Memcached), 검색 엔진 (Elasticsearch / OpenSearch / ClickHouse), 그래프 데이터베이스 (Neo4j / NebulaGraph / ArangoDB), 시계열 데이터베이스 (InfluxDB / IoTDB / QuestDB)를 통일된 trait으로 추상화하며, 드라이버는 feature gate에 따라 컴파일됩니다. Redis 백엔드(`bee_kv` / `bee_cache`)는 실제 `deadpool-redis` 커넥션 풀과 30초 명령 제한을 사용합니다. `bee_kv::RedisLock`은 분산 락(`SET NX PX` + Lua compare-and-delete 해제)을 제공합니다.
 
 ### Session, 로그, 템플릿
 
@@ -264,7 +264,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.3.0", features = ["full"] }
+bee_rust = { version = "1.4.0", features = ["full"] }
 ```
 
 ## 기술 설명

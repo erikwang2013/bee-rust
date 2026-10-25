@@ -239,6 +239,8 @@ struct Doc {
 
 ### Kunci asing tingkat tabel MySQL (opt-in)
 
+> MySQL 9 menegakkan `REFERENCES` tingkat kolom (8.0/8.4 mem-parse dan mengabaikannya); buat tabel yang direferensikan terlebih dahulu.
+
 ```rust
 use bee_orm::{MigrateOptions, migrate};
 
@@ -287,6 +289,20 @@ let back = Event::query().all(&pool).await?;   // "1.50" kembali dengan nilai ya
 > Batas presisi: di pg, `numeric` di atas 29 digit signifikan dibaca `NULL` (FromSql natif menolak); di mysql lewat teks, kelebihan presisi baru gagal saat decode di serde Anda; untuk uang pilih `#[bee(sql_type = Raw("decimal(12,2)"))]`.
 > Kontrak kompilasi: dengan feature mati, model berfield tanggal gagal dengan E0277 (`Value: From<NaiveDate>` tidak terpenuhi) — tidak pernah kolom yang diam-diam salah.
 
+### Sharding (bee_orm)
+
+Sharding basis data/tabel wajib kunci. `ShardedPools::for_key` adalah satu-satunya cara mendapatkan handle yang dapat dieksekusi; kueri harus membawa kunci shard. Routing memakai satu indeks komposit `hash % (db_shards * table_shards)`, sehingga setiap pasangan basis data/tabel dapat dijangkau; kueri, JOIN, dan transaksi lintas shard tidak didukung. Nama tabel fisik divalidasi terhadap `[A-Za-z_][A-Za-z0-9_]*` sebelum dimasukkan ke SQL.
+
+```rust
+use std::sync::Arc;
+use bee_orm::shard::{HashRouter, ShardedPools};
+
+let shards = ShardedPools::new(vec![pool0, pool1], Arc::new(HashRouter::new(2, 4)?))?;
+let db = shards.for_key(user_id)?;                  // the only way to get an executable handle
+let users = User::query().filter_eq("user_id", user_id)?.all(&db).await?;
+shards.sync_all::<User>(Default::default()).await?; // create every physical table
+```
+
 ## Manajemen Konfigurasi (bee_config)
 
 ```rust
@@ -314,7 +330,7 @@ let val = kv.get("key").await?;
 let kv = MemcacheStore::new("127.0.0.1:11211")?;
 ```
 
-> Di dalam `RedisStore` ada `ConnectionManager`: koneksi terputus tersambung ulang otomatis (sesuai permintaan — tanpa thread latar belakang — dengan backoff eksponensial dan jitter) — perintah yang kena putus akan error, perintah berikutnya menunggu koneksi baru. memcached: `incr` membuat counter dulu (0 jika belum ada) lalu menerapkan delta; counter tak bertanda, jadi pengurangan berhenti di 0 (Redis turun ke negatif); `expire(≤0)` sama dengan menghapus.
+> `RedisStore` memegang pool `deadpool-redis`: koneksi yang mati diganti pada checkout berikutnya (recycle PING); setiap perintah dibatasi 30 detik, dan pool yang habis menunggu hingga 30 detik sebelum gagal. `bee_kv::RedisLock` menyediakan akuisisi `SET NX PX` dan pelepasan Lua compare-and-delete. memcached: `incr` membuat counter dulu (0 jika belum ada) lalu menerapkan delta; counter tak bertanda, jadi pengurangan berhenti di 0 (Redis turun ke negatif); `expire(≤0)` sama dengan menghapus.
 
 **Backend cache (bee_cache):**
 ```rust

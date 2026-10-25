@@ -201,7 +201,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.3.0", features = ["full"] }
+bee_rust = { version = "1.4.0", features = ["full"] }
 ```
 
 ## Tech Stack

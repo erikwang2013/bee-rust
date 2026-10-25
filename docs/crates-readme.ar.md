@@ -17,7 +17,7 @@ cargo add bee_rust
 
 ```toml
 [dependencies]
-bee_rust = "1.3.0"
+bee_rust = "1.4.0"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -76,7 +76,7 @@ curl http://localhost:8080/api/v1/health    # OK
 النواة الدنيا (بدون ORM أو مشغّلات قواعد البيانات)：
 
 ```toml
-bee_rust = { version = "1.3.0", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.4.0", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## الحزم الفرعية
@@ -87,13 +87,13 @@ bee_rust = { version = "1.3.0", default-features = false, features = ["router", 
 |-------|--------------|-------------------|
 | `bee_rust` | حزمة وصفية، نقطة الدخول الوحيدة | — |
 | `bee_router` | التوجيه + المتحكّمات + `Context` + المرشّحات | `server/web`, `context` |
-| `bee_orm` | ORM + QuerySet + CRUD + تجمّع الاتصالات + ترحيلات غير مُدمِّرة + علاقات belongs_to/has_many | `client/orm` |
+| `bee_orm` | ORM + QuerySet + CRUD + تجمّع الاتصالات + ترحيلات غير مُدمِّرة + علاقات belongs_to/has_many + تقسيم إلزامي المفتاح | `client/orm` |
 | `bee_config` | الإعدادات + إعادة التحميل الفورية | `client/config` |
 | `bee_logs` | التسجيل | `logs` |
 | `bee_cache` | تجريد التخزين المؤقت | `client/cache` |
 | `bee_session` | إدارة الجلسات (Memory/Redis مطبَّق؛ Cookie/Database مخطط لها) | `server/web/session` |
 | `bee_template` | عرض القوالب | — (موسّع) |
-| `bee_kv` | تجريد KV/التخزين المؤقت | `client/cache` (موسّع) |
+| `bee_kv` | تجريد KV/التخزين المؤقت + تجمّع Redis حقيقي وقفل | `client/cache` (موسّع) |
 | `bee_search` | محرّكات البحث / التحليل | — (جديد) |
 | `bee_graph` | قواعد بيانات الرسوم البيانية | — (جديد) |
 | `bee_tsdb` | قواعد بيانات السلاسل الزمنية | — (جديد) |
@@ -102,14 +102,14 @@ bee_rust = { version = "1.3.0", default-features = false, features = ["router", 
 يمكن الاعتماد عليها منفردة أيضًا — مثلًا عميل Elasticsearch فقط：
 
 ```toml
-bee_search = { version = "1.3.0", features = ["elasticsearch"] }
+bee_search = { version = "1.4.0", features = ["elasticsearch"] }
 ```
 
 ## قواعد البيانات المدعومة
 
 | النوع | قواعد البيانات | Crate | Feature |
 |------|-----------|-------|---------|
-| علائقية | SQLite / PostgreSQL / MySQL / TiDB | `bee_orm` | `sqlite` / `postgres` / `postgres-tls` / `mysql` |
+| علائقية | SQLite / PostgreSQL / MySQL 8.0 / 8.4 / 9.x / TiDB | `bee_orm` | `sqlite` / `postgres` / `postgres-tls` / `mysql` |
 | KV / تخزين مؤقت | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcached` / `memcache` |
 | بحث / تحليل | Elasticsearch / OpenSearch / ClickHouse | `bee_search` | `elasticsearch` / `opensearch` / `clickhouse` |
 | رسوم بيانية | Neo4j / NebulaGraph / ArangoDB | `bee_graph` | `neo4j` / `nebulagraph` / `arangodb` |

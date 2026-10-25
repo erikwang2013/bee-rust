@@ -239,6 +239,8 @@ struct Doc {
 
 ### MySQL table-level foreign keys (opt-in)
 
+> MySQL 9 enforces column-level `REFERENCES` (8.0/8.4 parse and ignore it); create referenced tables before referencing ones.
+
 ```rust
 use bee_orm::{MigrateOptions, migrate};
 
@@ -287,6 +289,20 @@ let back = Event::query().all(&pool).await?;   // "1.50" round-trips to an equal
 > Precision ceiling: pg `numeric` above 29 significant digits reads back as `NULL` (the native FromSql rejects it); mysql goes through text, so excess precision errors only at decode time in your serde; for money prefer `#[bee(sql_type = Raw("decimal(12,2)"))]`.
 > Compile-time contract: with the feature off, a model carrying a date field fails with E0277 (`Value: From<NaiveDate>` not satisfied) — never a silently wrong column.
 
+### Sharding (bee_orm)
+
+Key-required database/table sharding. `ShardedPools::for_key` is the only way to obtain an executable handle; queries must carry the shard key. Routing uses one composite index `hash % (db_shards * table_shards)`, so every database/table pair is reachable; cross-shard queries, joins, and transactions are not supported. Physical table names are validated against `[A-Za-z_][A-Za-z0-9_]*` before they are spliced into SQL.
+
+```rust
+use std::sync::Arc;
+use bee_orm::shard::{HashRouter, ShardedPools};
+
+let shards = ShardedPools::new(vec![pool0, pool1], Arc::new(HashRouter::new(2, 4)?))?;
+let db = shards.for_key(user_id)?;                  // the only way to get an executable handle
+let users = User::query().filter_eq("user_id", user_id)?.all(&db).await?;
+shards.sync_all::<User>(Default::default()).await?; // create every physical table
+```
+
 ## Config (bee_config)
 
 ```rust
@@ -314,7 +330,7 @@ let val = kv.get("key").await?;
 let kv = MemcacheStore::new("127.0.0.1:11211")?;
 ```
 
-> `RedisStore` holds a `ConnectionManager`: a dropped connection reconnects automatically (on demand — no background thread — with exponential backoff and jitter) — the command that hits the break errors, the next one waits for the fresh connection. memcached: `incr` creates the counter first (0 when absent) and then applies the delta; counters are unsigned, so decrementing floors at 0 (Redis goes negative); `expire(≤0)` deletes the key.
+> `RedisStore` holds a `deadpool-redis` pool: a killed connection is replaced on the next checkout (recycle PING); every command is bounded at 30 seconds, and an exhausted pool waits up to 30 seconds before failing. `bee_kv::RedisLock` provides `SET NX PX` acquisition and Lua compare-and-delete release. memcached: `incr` creates the counter first (0 when absent) and then applies the delta; counters are unsigned, so decrementing floors at 0 (Redis goes negative); `expire(≤0)` deletes the key.
 
 **Cache backends (bee_cache):**
 ```rust

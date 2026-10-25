@@ -2,6 +2,13 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.4.0] — 2026-10-25
+
+### 追加
+- `bee_orm`: MySQL 8.0 / 8.4 / 9.x 対応。CI マトリクスで検証済み。MySQL 9 はカラムレベルの `REFERENCES` を強制します（8.0/8.4 は解析して無視）。参照先テーブルを先に作成してください。
+- `bee_orm`: `shard::{ShardedPools, HashRouter, ShardRouter}` — データベース/テーブルの key-required ハッシュシャーディング。クロスシャードのクエリやトランザクションはありません。
+- `bee_kv` / `bee_cache`: 実際の Redis コネクションプール（`deadpool-redis`）と `bee_kv::RedisLock`（`SET NX PX` + Lua 解放）。
+
 ## [1.3.0] — 2026-10-13
 
 ### 修正

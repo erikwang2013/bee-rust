@@ -239,6 +239,8 @@ struct Doc {
 
 ### MySQL টেবিল-স্তরের বিদেশি-কী (opt-in)
 
+> MySQL 9 কলাম-স্তরের `REFERENCES` প্রয়োগ করে (8.0/8.4 এটি পার্স করে উপেক্ষা করে); প্রথমে রেফারেন্সকৃত টেবিল তৈরি করুন।
+
 ```rust
 use bee_orm::{MigrateOptions, migrate};
 
@@ -287,6 +289,20 @@ let back = Event::query().all(&pool).await?;   // "1.50" সমান মান�
 > নির্ভুলতার সীমা: pg-তে `numeric` ২৯ তাৎপর্যপূর্ণ অঙ্কের বেশি হলে `NULL` পড়া যায় (নেটিভ FromSql প্রত্যাখ্যান করে); mysql টেক্সট পথে, বাড়তি নির্ভুলতা ডিকোডের সময় আপনার serde-তে ব্যর্থ; টাকার জন্য `#[bee(sql_type = Raw("decimal(12,2)"))]` শ্রেয়।
 > কম্পাইল-টাইম চুক্তি: feature বন্ধ থাকলে তারিখ ফিল্ডের মডেল E0277 (`Value: From<NaiveDate>` অসম্পূর্ণ) দিয়ে ব্যর্থ — কখনও নীরবে ভুল কলাম নয়।
 
+### শার্ডিং (bee_orm)
+
+key-required ডেটাবেস/টেবিল শার্ডিং। `ShardedPools::for_key` হলো executable হ্যান্ডল পাওয়ার একমাত্র উপায়; কোয়েরিতে শার্ড কী থাকতে হবে। রাউটিং composite ইনডেক্স `hash % (db_shards * table_shards)` ব্যবহার করে, তাই প্রতিটি ডেটাবেস/টেবিল জোড়া পৌঁছানো যায়; ক্রস-শার্ড কোয়েরি, JOIN বা ট্রানজেকশন সমর্থিত নয়। SQL-এ বসানোর আগে physical টেবিল নাম `[A-Za-z_][A-Za-z0-9_]*` দিয়ে যাচাই করা হয়।
+
+```rust
+use std::sync::Arc;
+use bee_orm::shard::{HashRouter, ShardedPools};
+
+let shards = ShardedPools::new(vec![pool0, pool1], Arc::new(HashRouter::new(2, 4)?))?;
+let db = shards.for_key(user_id)?;                  // the only way to get an executable handle
+let users = User::query().filter_eq("user_id", user_id)?.all(&db).await?;
+shards.sync_all::<User>(Default::default()).await?; // create every physical table
+```
+
 ## কনফিগ ম্যানেজমেন্ট (bee_config)
 
 ```rust
@@ -314,7 +330,7 @@ let val = kv.get("key").await?;
 let kv = MemcacheStore::new("127.0.0.1:11211")?;
 ```
 
-> `RedisStore`-এর ভিতরে `ConnectionManager`: কাটা সংযোগ নিজে থেকে পুনঃসংযুক্ত হয় (চাহিদামতো — পটভূমি থ্রেড ছাড়াই — সূচকীয় ব্যাকঅফ ও জিটারসহ) — কাটার সাথে ধাক্কা খাওয়া কমান্ডটি ব্যর্থ হয়, পরেরটি নতুন সংযোগের অপেক্ষা করে। memcached: `incr` আগে কাউন্টার তৈরি করে (না থাকলে 0) তারপর পার্থক্য প্রয়োগ করে; কাউন্টার unsigned, তাই কমানো 0-তে থামে (Redis ঋণাত্মক হয়); `expire(≤0)` মুছে ফেলার সমতুল্য।
+> `RedisStore` একটি `deadpool-redis` পুল ধরে: নিহত কানেকশন পরের checkout-এ প্রতিস্থাপিত হয় (recycle PING); প্রতিটি কমান্ড 30 সেকেন্ডে সীমিত, এবং exhausted পুল ব্যর্থ হওয়ার আগে সর্বোচ্চ 30 সেকেন্ড অপেক্ষা করে। `bee_kv::RedisLock` `SET NX PX` অধিগ্রহণ ও Lua compare-and-delete রিলিজ দেয়। memcached: `incr` আগে কাউন্টার তৈরি করে (না থাকলে 0) তারপর পার্থক্য প্রয়োগ করে; কাউন্টার unsigned, তাই কমানো 0-তে থামে (Redis ঋণাত্মক হয়); `expire(≤0)` মুছে ফেলার সমতুল্য।
 
 **ক্যাশ ব্যাকএন্ড (bee_cache):**
 ```rust

@@ -159,7 +159,7 @@ bee_rust   → semua crate di atas (re-export)
 |------|--------|-----------|-------------|
 | **Relasional** | SQLite | `bee_orm` | `sqlite` (bee_rust: `orm-sqlite`) |
 | | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls` (bee_rust: `orm-postgres` / `orm-postgres-tls`) |
-| | MySQL | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
+| | MySQL 8.0 / 8.4 / 9.x | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **Jenis field** | Tanggal / Decimal | `bee_orm` | `chrono` / `rust_decimal` (bee_rust: `orm-chrono` / `orm-rust_decimal`) |
 | **KV / Cache** | Redis | `bee_kv` / `bee_cache` | `redis` |
@@ -203,7 +203,7 @@ let security = SecurityFilter::new();  // 27 detektor semuanya aktif
 
 ### ORM (bee_orm)
 
-Macro turunan `#[derive(Model)]` (dengan `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + query berantai dan eksekusi QuerySet (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, agregat `sum` / `avg` / `min` / `max`) + migrasi non-destruktif (`migrate::create_table` / `add_missing_columns` / `sync`) + pembacaan relasi (`belongs_to` / has_many `children*` / many-to-many `m2m`) + kolom JSON (`serde_json::Value`) + connection pool untuk ketiga backend (dengan transaksi dan timeout), mendukung SQLite, PostgreSQL, MySQL, TiDB.
+Macro turunan `#[derive(Model)]` (dengan `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + query berantai dan eksekusi QuerySet (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, agregat `sum` / `avg` / `min` / `max`) + migrasi non-destruktif (`migrate::create_table` / `add_missing_columns` / `sync`) + pembacaan relasi (`belongs_to` / has_many `children*` / many-to-many `m2m`) + kolom JSON (`serde_json::Value`) + connection pool untuk ketiga backend (dengan transaksi dan timeout), mendukung SQLite, PostgreSQL, MySQL, TiDB. ORM juga menyediakan sharding basis data/tabel yang wajib memakai kunci (`shard::{ShardedPools, HashRouter, ShardHandle}`); kueri harus membawa kunci shard, dan kueri/transaksi lintas shard tidak didukung.
 
 ### Manajemen Konfigurasi (bee_config)
 
@@ -211,7 +211,7 @@ Macro turunan `#[derive(Config)]`, mendukung pemuatan INI / YAML / ENV dan hot-r
 
 ### Mesin Penyimpanan
 
-Abstraksi trait terpadu untuk KV / Cache (Redis / Memcached), mesin pencarian (Elasticsearch / OpenSearch / ClickHouse), basis data graf (Neo4j / NebulaGraph / ArangoDB), basis data deret waktu (InfluxDB / IoTDB / QuestDB); driver dikompilasi sesuai feature gate.
+Abstraksi trait terpadu untuk KV / Cache (Redis / Memcached), mesin pencarian (Elasticsearch / OpenSearch / ClickHouse), basis data graf (Neo4j / NebulaGraph / ArangoDB), basis data deret waktu (InfluxDB / IoTDB / QuestDB); driver dikompilasi sesuai feature gate. Backend Redis (`bee_kv` / `bee_cache`) memakai pool koneksi `deadpool-redis` sungguhan dengan batas 30 detik per perintah; `bee_kv::RedisLock` menyediakan distributed lock (`SET NX PX` + pelepasan Lua compare-and-delete).
 
 ### Session, Logging, Template
 
@@ -264,7 +264,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.3.0", features = ["full"] }
+bee_rust = { version = "1.4.0", features = ["full"] }
 ```
 
 ## Catatan Teknis

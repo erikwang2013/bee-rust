@@ -2,6 +2,13 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.4.0] — 2026-10-25
+
+### Ditambahkan
+- `bee_orm`: kompatibilitas MySQL 8.0 / 8.4 / 9.x, diverifikasi oleh matriks CI. MySQL 9 menegakkan `REFERENCES` tingkat kolom (8.0/8.4 mem-parse dan mengabaikannya); buat tabel yang direferensikan terlebih dahulu.
+- `bee_orm`: `shard::{ShardedPools, HashRouter, ShardRouter}` — sharding hash wajib kunci untuk basis data dan tabel; tidak ada kueri atau transaksi lintas shard.
+- `bee_kv` / `bee_cache`: pool koneksi Redis sungguhan (`deadpool-redis`) dan `bee_kv::RedisLock` (`SET NX PX` + pelepasan Lua).
+
 ## [1.3.0] — 2026-10-13
 
 ### Diperbaiki

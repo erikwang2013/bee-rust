@@ -159,7 +159,7 @@ bee_rust   → todos los crates anteriores (re-export)
 |------|--------|-----------|-------------|
 | **Relacional** | SQLite | `bee_orm` | `sqlite` (bee_rust: `orm-sqlite`) |
 | | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls` (bee_rust: `orm-postgres` / `orm-postgres-tls`) |
-| | MySQL | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
+| | MySQL 8.0 / 8.4 / 9.x | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **Tipos de campo** | Fecha / Decimal | `bee_orm` | `chrono` / `rust_decimal` (bee_rust: `orm-chrono` / `orm-rust_decimal`) |
 | **KV / caché** | Redis | `bee_kv` / `bee_cache` | `redis` |
@@ -203,7 +203,7 @@ let security = SecurityFilter::new();  // Los 27 detectores activados
 
 ### ORM (bee_orm)
 
-La macro derivada `#[derive(Model)]` (con `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + consultas encadenadas y ejecución de QuerySet (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, agregados `sum` / `avg` / `min` / `max`) + migraciones no destructivas (`migrate::create_table` / `add_missing_columns` / `sync`) + lecturas de relaciones (`belongs_to` / has_many `children*` / many-to-many `m2m`) + columnas JSON (`serde_json::Value`) + pools de conexiones para los tres backends (con transacciones y timeouts), con soporte para SQLite, PostgreSQL, MySQL y TiDB.
+La macro derivada `#[derive(Model)]` (con `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + consultas encadenadas y ejecución de QuerySet (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, agregados `sum` / `avg` / `min` / `max`) + migraciones no destructivas (`migrate::create_table` / `add_missing_columns` / `sync`) + lecturas de relaciones (`belongs_to` / has_many `children*` / many-to-many `m2m`) + columnas JSON (`serde_json::Value`) + pools de conexiones para los tres backends (con transacciones y timeouts), con soporte para SQLite, PostgreSQL, MySQL y TiDB. El ORM también ofrece sharding de base de datos/tabla con clave obligatoria (`shard::{ShardedPools, HashRouter, ShardHandle}`); las consultas deben llevar una clave de shard y no se admiten consultas ni transacciones entre shards.
 
 ### Gestión de configuración (bee_config)
 
@@ -211,7 +211,7 @@ La macro derivada `#[derive(Config)]`, con soporte para cargar INI / YAML / ENV 
 
 ### Motores de almacenamiento
 
-KV / caché (Redis / Memcached), motores de búsqueda (Elasticsearch / OpenSearch / ClickHouse), bases de datos de grafos (Neo4j / NebulaGraph / ArangoDB) y bases de datos de series temporales (InfluxDB / IoTDB / QuestDB) comparten una abstracción unificada por trait; los drivers se compilan según los feature flags.
+KV / caché (Redis / Memcached), motores de búsqueda (Elasticsearch / OpenSearch / ClickHouse), bases de datos de grafos (Neo4j / NebulaGraph / ArangoDB) y bases de datos de series temporales (InfluxDB / IoTDB / QuestDB) comparten una abstracción unificada por trait; los drivers se compilan según los feature flags. Los backends Redis (`bee_kv` / `bee_cache`) usan pools de conexiones reales de `deadpool-redis` con un límite de 30 segundos por comando; `bee_kv::RedisLock` ofrece un bloqueo distribuido (`SET NX PX` + liberación Lua con comparación).
 
 ### Sesión, registros y plantillas
 
@@ -264,7 +264,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.3.0", features = ["full"] }
+bee_rust = { version = "1.4.0", features = ["full"] }
 ```
 
 ## Notas técnicas

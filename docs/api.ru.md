@@ -239,6 +239,8 @@ struct Doc {
 
 ### Внешние ключи на уровне таблицы в MySQL (opt-in)
 
+> MySQL 9 применяет `REFERENCES` на уровне столбца (8.0/8.4 разбирают и игнорируют его); сначала создавайте ссылочные таблицы.
+
 ```rust
 use bee_orm::{MigrateOptions, migrate};
 
@@ -287,6 +289,20 @@ let back = Event::query().all(&pool).await?;   // "1.50" возвращаетс�
 > Потолок точности: в pg `numeric` свыше 29 значащих цифр читается как `NULL` (нативный FromSql отклоняет); в mysql всё идёт текстом — избыточная точность падает только на декодировании в вашем serde; для денег лучше `#[bee(sql_type = Raw("decimal(12,2)"))]`.
 > Контракт компиляции: с выключенным feature модель с полем даты падает с E0277 (`Value: From<NaiveDate>` не выполнен) — никакой тихо неверной колонки.
 
+### Шардирование (bee_orm)
+
+Шардирование баз/таблиц с обязательным ключом. `ShardedPools::for_key` — единственный способ получить исполняемый handle; запросы должны содержать ключ шарда. Маршрутизация использует один составной индекс `hash % (db_shards * table_shards)`, поэтому достижима каждая пара база/таблица; межшардовые запросы, JOIN и транзакции не поддерживаются. Физические имена таблиц проверяются по `[A-Za-z_][A-Za-z0-9_]*` перед подстановкой в SQL.
+
+```rust
+use std::sync::Arc;
+use bee_orm::shard::{HashRouter, ShardedPools};
+
+let shards = ShardedPools::new(vec![pool0, pool1], Arc::new(HashRouter::new(2, 4)?))?;
+let db = shards.for_key(user_id)?;                  // the only way to get an executable handle
+let users = User::query().filter_eq("user_id", user_id)?.all(&db).await?;
+shards.sync_all::<User>(Default::default()).await?; // create every physical table
+```
+
 ## Управление конфигурацией (bee_config)
 
 ```rust
@@ -314,7 +330,7 @@ let val = kv.get("key").await?;
 let kv = MemcacheStore::new("127.0.0.1:11211")?;
 ```
 
-> Внутри `RedisStore` — `ConnectionManager`: разорванное соединение восстанавливается само (по требованию — без фонового потока — с экспоненциальным backoff и джиттером) — команда, попавшая на разрыв, вернёт ошибку, следующая дождётся нового соединения. memcached: `incr` сначала создаёт счётчик (0, если его нет), затем применяет дельту; счётчики беззнаковые, поэтому декремент упирается в 0 (в Redis уходит в минус); `expire(≤0)` равносилен удалению.
+> `RedisStore` держит пул `deadpool-redis`: убитое соединение заменяется при следующем checkout (recycle PING); каждая команда ограничена 30 секундами, а исчерпанный пул ждёт до 30 секунд перед ошибкой. `bee_kv::RedisLock` обеспечивает захват `SET NX PX` и освобождение через Lua compare-and-delete. memcached: `incr` сначала создаёт счётчик (0, если его нет), затем применяет дельту; счётчики беззнаковые, поэтому декремент упирается в 0 (в Redis уходит в минус); `expire(≤0)` равносилен удалению.
 
 **Бэкенды кэша (bee_cache):**
 ```rust

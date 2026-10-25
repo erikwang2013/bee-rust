@@ -239,6 +239,8 @@ struct Doc {
 
 ### mysql 表级外键（opt-in）
 
+> MySQL 9 强制执行列级 `REFERENCES`（8.0/8.4 解析后忽略）；建表时先建被引用表。
+
 ```rust
 use bee_orm::{MigrateOptions, migrate};
 
@@ -287,6 +289,20 @@ let back = Event::query().all(&pool).await?;   // "1.50" 往返数值仍相等
 > 精度天花板：pg `numeric` 超 29 位有效精度读回 `NULL`（原生 FromSql 拒绝）；mysql 走文本，超精度到解码时才由用户 serde 报错；钱型建议 `#[bee(sql_type = Raw("decimal(12,2)"))]`。
 > 编译期契约：feature 关闭时带日期字段的模型报 E0277（`Value: From<NaiveDate>` 不满足），不会静默落错列。
 
+### 分库分表（bee_orm）
+
+必须带分片键的库/表两级分片。`ShardedPools::for_key` 是拿到可执行句柄的唯一入口；查询必须带分片键。路由使用复合序号 `hash % (db_shards * table_shards)`，所有库×表组合都可达；不支持跨分片查询、JOIN 与事务。物理表名在拼进 SQL 前按 `[A-Za-z_][A-Za-z0-9_]*` 校验。
+
+```rust
+use std::sync::Arc;
+use bee_orm::shard::{HashRouter, ShardedPools};
+
+let shards = ShardedPools::new(vec![pool0, pool1], Arc::new(HashRouter::new(2, 4)?))?;
+let db = shards.for_key(user_id)?;                  // the only way to get an executable handle
+let users = User::query().filter_eq("user_id", user_id)?.all(&db).await?;
+shards.sync_all::<User>(Default::default()).await?; // create every physical table
+```
+
 ## 配置管理（bee_config）
 
 ```rust
@@ -314,7 +330,7 @@ let val = kv.get("key").await?;
 let kv = MemcacheStore::new("127.0.0.1:11211")?;
 ```
 
-> `RedisStore` 内部是 `ConnectionManager`：断线自动重连（按命令触发、指数退避 + 抖动，无后台健康检查线程）——撞上断线的那条命令会报错，下一条自动等待新连接。memcached：`incr` 先建计数器（缺键为 0）再增减；计数器无符号，减到 0 封底（Redis 可为负）；`expire(≤0)` 等价删除。
+> `RedisStore` 持有 `deadpool-redis` 连接池：被杀的连接会在下次 checkout 时替换（recycle PING）；每条命令有 30 秒上限，池耗尽最多等待 30 秒后失败。`bee_kv::RedisLock` 提供 `SET NX PX` 获取与 Lua 比较删除释放。 memcached：`incr` 先建计数器（缺键为 0）再增减；计数器无符号，减到 0 封底（Redis 可为负）；`expire(≤0)` 等价删除。
 
 **缓存后端（bee_cache）：**
 ```rust

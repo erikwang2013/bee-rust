@@ -2,6 +2,13 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.4.0] — 2026-10-25
+
+### 추가됨
+- `bee_orm`: MySQL 8.0 / 8.4 / 9.x 호환, CI 매트릭스로 검증. MySQL 9는 컬럼 수준 `REFERENCES`를 강제합니다(8.0/8.4는 파싱 후 무시). 참조 대상 테이블을 먼저 생성하세요.
+- `bee_orm`: `shard::{ShardedPools, HashRouter, ShardRouter}` — 데이터베이스/테이블용 key-required 해시 샤딩; 크로스 샤드 쿼리/트랜잭션은 없습니다.
+- `bee_kv` / `bee_cache`: 실제 Redis 커넥션 풀(`deadpool-redis`)과 `bee_kv::RedisLock`(`SET NX PX` + Lua 해제).
+
 ## [1.3.0] — 2026-10-13
 
 ### 수정됨

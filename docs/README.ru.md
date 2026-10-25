@@ -159,7 +159,7 @@ bee_rust   → все перечисленные выше crate (re-export)
 |------|--------|-----------|-------------|
 | **Реляционные** | SQLite | `bee_orm` | `sqlite` (bee_rust: `orm-sqlite`) |
 | | PostgreSQL | `bee_orm` | `postgres` / `postgres-tls` (bee_rust: `orm-postgres` / `orm-postgres-tls`) |
-| | MySQL | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
+| | MySQL 8.0 / 8.4 / 9.x | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **Типы полей** | Дата / Decimal | `bee_orm` | `chrono` / `rust_decimal` (bee_rust: `orm-chrono` / `orm-rust_decimal`) |
 | **KV / кэш** | Redis | `bee_kv` / `bee_cache` | `redis` |
@@ -203,7 +203,7 @@ let security = SecurityFilter::new();  // все 27 детекторов вкл�
 
 ### ORM (bee_orm)
 
-Производный макрос `#[derive(Model)]` (с `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + цепочные запросы и выполнение QuerySet (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, агрегаты `sum` / `avg` / `min` / `max`) + неразрушающие миграции (`migrate::create_table` / `add_missing_columns` / `sync`) + чтение связей (`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON-колонки (`serde_json::Value`) + пулы соединений для всех трёх бэкендов (с транзакциями и таймаутами), поддержка SQLite, PostgreSQL, MySQL, TiDB.
+Производный макрос `#[derive(Model)]` (с `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + цепочные запросы и выполнение QuerySet (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, агрегаты `sum` / `avg` / `min` / `max`) + неразрушающие миграции (`migrate::create_table` / `add_missing_columns` / `sync`) + чтение связей (`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON-колонки (`serde_json::Value`) + пулы соединений для всех трёх бэкендов (с транзакциями и таймаутами), поддержка SQLite, PostgreSQL, MySQL, TiDB. ORM также предоставляет шардирование баз/таблиц с обязательным ключом (`shard::{ShardedPools, HashRouter, ShardHandle}`); запросы должны содержать ключ шарда, а межшардовые запросы и транзакции не поддерживаются.
 
 ### Управление конфигурацией (bee_config)
 
@@ -211,7 +211,7 @@ let security = SecurityFilter::new();  // все 27 детекторов вкл�
 
 ### Движки хранения
 
-Единая trait-абстракция для KV / Cache (Redis / Memcached), поисковых движков (Elasticsearch / OpenSearch / ClickHouse), графовых БД (Neo4j / NebulaGraph / ArangoDB) и БД временных рядов (InfluxDB / IoTDB / QuestDB); драйверы компилируются по feature-флагам.
+Единая trait-абстракция для KV / Cache (Redis / Memcached), поисковых движков (Elasticsearch / OpenSearch / ClickHouse), графовых БД (Neo4j / NebulaGraph / ArangoDB) и БД временных рядов (InfluxDB / IoTDB / QuestDB); драйверы компилируются по feature-флагам. Бэкенды Redis (`bee_kv` / `bee_cache`) используют настоящие пулы соединений `deadpool-redis` с лимитом 30 секунд на команду; `bee_kv::RedisLock` предоставляет распределённую блокировку (`SET NX PX` + освобождение через Lua compare-and-delete).
 
 ### Session, логирование, шаблоны
 
@@ -264,7 +264,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.3.0", features = ["full"] }
+bee_rust = { version = "1.4.0", features = ["full"] }
 ```
 
 ## Технические заметки

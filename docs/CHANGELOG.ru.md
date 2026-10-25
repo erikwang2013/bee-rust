@@ -2,6 +2,13 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+## [1.4.0] — 2026-10-25
+
+### Добавлено
+- `bee_orm`: совместимость с MySQL 8.0 / 8.4 / 9.x, проверенная матрицей CI. MySQL 9 применяет `REFERENCES` на уровне столбца (8.0/8.4 разбирают и игнорируют его); сначала создавайте ссылочные таблицы.
+- `bee_orm`: `shard::{ShardedPools, HashRouter, ShardRouter}` — шардирование баз и таблиц по хешу с обязательным ключом; межшардовые запросы и транзакции не поддерживаются.
+- `bee_kv` / `bee_cache`: настоящий пул соединений Redis (`deadpool-redis`) и `bee_kv::RedisLock` (`SET NX PX` + освобождение через Lua).
+
 ## [1.3.0] — 2026-10-13
 
 ### Исправлено
