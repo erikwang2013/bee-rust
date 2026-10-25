@@ -32,7 +32,8 @@ jobs:
 
           for v in $candidates; do
             tag="v$v"
-            if git rev-parse "$tag" >/dev/null 2>&1; then
+            if git rev-parse "$tag" >/dev/null 2>&1 \
+              || git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
               echo "Tag $tag already exists, skipping"
               continue
             fi
