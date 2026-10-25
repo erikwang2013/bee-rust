@@ -68,10 +68,10 @@
       "runtimePlatform": "Rust 1.85+",
       "applicationCategory": "WebApplication",
       "operatingSystem": "Cross-platform",
-      "softwareVersion": "1.6.0",
-      "version": "1.6.0",
+      "softwareVersion": "1.6.1",
+      "version": "1.6.1",
       "datePublished": "2026-07-29",
-      "dateModified": "2026-10-25",
+      "dateModified": "2026-10-26",
       "keywords": "Rust, web framework, Beego, MVC, ORM, axum, tokio",
       "isAccessibleForFree": true,
       "inLanguage": ["zh-CN", "en"],
@@ -124,7 +124,7 @@
     {
       "@type": "Question",
       "name": "可以用于生产吗？",
-      "acceptedAnswer": { "@type": "Answer", "text": "可以。工作区有 471 个测试、三后端连接池（事务与超时控制）、非破坏性迁移，以及 32 个检测器的安全过滤器。业务代码 0 unsafe；FFI 封装在独立的 *-sys crate。" }
+      "acceptedAnswer": { "@type": "Answer", "text": "可以。工作区有 475 个测试、三后端连接池（事务与超时控制）、非破坏性迁移，以及 32 个检测器的安全过滤器。业务代码 0 unsafe；FFI 封装在独立的 *-sys crate。" }
     },
     {
       "@type": "Question",
@@ -139,7 +139,7 @@
 
 <header class="site-header" id="site-header">
   <div class="wrap header-inner">
-    <a class="brand" href="./" aria-label="Bee Rust 首页"><span class="brand-mark"><img src="assets/img/rusty-face.svg" alt="" width="38" height="38"></span><span class="brand-name">Bee Rust</span><span class="brand-ver">1.6.0</span></a>
+    <a class="brand" href="./" aria-label="Bee Rust 首页"><span class="brand-mark"><img src="assets/img/rusty-face.svg" alt="" width="38" height="38"></span><span class="brand-name">Bee Rust</span><span class="brand-ver">1.6.1</span></a>
     <nav class="site-nav" id="site-nav" aria-label="主导航">
       <a href="#top" data-nav data-en="Home">首页</a><a href="#intro" data-nav data-en="Project">项目</a><a href="#features" data-nav data-en="Features">功能</a><a href="#architecture" data-nav data-en="Architecture">架构</a><a href="#rusty" data-nav data-en="Rusty">Rusty</a>
       <a href="#install" data-nav data-en="Install">安装</a><a href="#usage" data-nav data-en="Usage">使用</a><a href="#faq" data-nav data-en="FAQ">常见问题</a><a href="#download" data-nav data-en="Download">下载</a><a href="changelog.html" data-nav data-en="Changelog">版本日志</a>
@@ -159,7 +159,7 @@
     <div class="hero-glow" aria-hidden="true"></div>
     <div class="wrap hero-grid">
       <div class="hero-copy">
-        <p class="eyebrow eyebrow--dark"><span class="pulse"></span> RUST WEB FRAMEWORK · v1.6.0</p>
+        <p class="eyebrow eyebrow--dark"><span class="pulse"></span> RUST WEB FRAMEWORK · v1.6.1</p>
         <h1>Bee Rust<span class="h1-dot">.</span></h1>
         <p class="tagline" data-en="A production-grade Rust web framework">生产级 Rust Web 框架</p>
         <p class="lede" data-en="Beego's design philosophy, re-expressed through Rust traits, macros, and the type system.">Beego 的设计哲学，用 Rust 的 trait、macro 与类型系统重新表达。</p>
@@ -167,7 +167,7 @@
           <a class="btn btn-primary" href="#install"><span data-en="Quick start">快速开始</span><span class="btn-arrow">→</span></a><a class="btn btn-ghost" href="#download" data-en="Download">下载</a>
           <a class="btn btn-text" href="https://github.com/erikwang2013/bee-rust" target="_blank" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
         </div>
-        <ul class="hero-stats"><li><b>16</b><span data-en="crates">crates</span></li><li><b>471</b><span data-en="tests">测试</span></li><li><b>32</b><span data-en="security detectors">安全检测器</span></li><li><b>15</b><span data-en="data engines">数据引擎</span></li></ul>
+        <ul class="hero-stats"><li><b>16</b><span data-en="crates">crates</span></li><li><b>475</b><span data-en="tests">测试</span></li><li><b>32</b><span data-en="security detectors">安全检测器</span></li><li><b>15</b><span data-en="data engines">数据引擎</span></li></ul>
       </div>
       <div class="hero-pet">
         <svg class="hero-halo hero-halo--1" viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,3 91,26.5 91,73.5 50,97 9,73.5 9,26.5"/></svg><svg class="hero-halo hero-halo--2" viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,10 84,30 84,70 50,90 16,70 16,30"/></svg>
@@ -335,7 +335,7 @@ cargo add bee_rust</code></pre>
           <div class="code-block">
             <div class="code-head"><span class="code-dots"><i></i><i></i><i></i></span><span>Cargo.toml</span><button class="copy-btn" type="button" data-copy data-en="Copy">复制</button></div>
             <pre tabindex="0"><code>[dependencies]
-bee_rust = "1.6.0"
+bee_rust = "1.6.1"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"</code></pre>
           </div>
@@ -468,7 +468,7 @@ cd my-app &amp;&amp; cargo run</code></pre>
           </table>
           <div class="code-block code-block--rust">
             <div class="code-head"><span class="code-dots"><i></i><i></i><i></i></span><span data-en="Minimal core">最小核心</span><button class="copy-btn" type="button" data-copy data-en="Copy">复制</button></div>
-            <pre tabindex="0"><code>bee_rust = { version = "1.6.0", default-features = false,
+            <pre tabindex="0"><code>bee_rust = { version = "1.6.1", default-features = false,
              features = ["router", "logs", "config"] }</code></pre>
           </div>
         </div>
@@ -516,7 +516,7 @@ cd my-app &amp;&amp; cargo run</code></pre>
         </article>
         <article class="faq-card">
           <h3 data-en="Is it production-ready?">可以用于生产吗？</h3>
-          <p data-en="Yes. The workspace ships 471 tests, three connection pools with transactions and timeouts, non-destructive migrations, and a 32-detector security filter. Business code is 0 unsafe; FFI stays in dedicated *-sys crates.">可以。工作区有 471 个测试、三后端连接池（事务与超时控制）、非破坏性迁移，以及 32 个检测器的安全过滤器。业务代码 0 unsafe；FFI 封装在独立的 *-sys crate。</p>
+          <p data-en="Yes. The workspace ships 475 tests, three connection pools with transactions and timeouts, non-destructive migrations, and a 32-detector security filter. Business code is 0 unsafe; FFI stays in dedicated *-sys crates.">可以。工作区有 475 个测试、三后端连接池（事务与超时控制）、非破坏性迁移，以及 32 个检测器的安全过滤器。业务代码 0 unsafe；FFI 封装在独立的 *-sys crate。</p>
         </article>
         <article class="faq-card">
           <h3 data-en="Where are the docs?">文档在哪里？</h3>
@@ -535,7 +535,7 @@ cd my-app &amp;&amp; cargo run</code></pre>
             <h2 data-en="Download and start">下载，然后开始</h2>
             <p class="section-lede" data-en="Published on crates.io, tagged on GitHub, documented on docs.rs. Pick the path that fits.">已发布到 crates.io，GitHub 有版本标签，docs.rs 有完整 API 文档。选一条顺手的路。</p>
           </div>
-          <div class="version-badge"><span data-en="Latest">最新</span><b>1.6.0</b><small>2026-10-25</small></div>
+          <div class="version-badge"><span data-en="Latest">最新</span><b>1.6.1</b><small>2026-10-26</small></div>
         </div>
         <div class="download-grid">
           <a class="download-card" href="https://crates.io/crates/bee_rust" target="_blank" rel="noopener" data-reveal>
@@ -544,9 +544,9 @@ cd my-app &amp;&amp; cargo run</code></pre>
             <p data-en="The meta crate. cargo add bee_rust.">元 crate，一条 cargo add 即可加入。</p>
             <span class="download-link" data-en="Open crates.io">前往 crates.io</span>
           </a>
-          <a class="download-card" href="https://github.com/erikwang2013/bee-rust/releases/tag/v1.6.0" target="_blank" rel="noopener" data-reveal>
+          <a class="download-card" href="https://github.com/erikwang2013/bee-rust/releases/tag/v1.6.1" target="_blank" rel="noopener" data-reveal>
             <span class="download-kicker">GitHub Release</span>
-            <h3>v1.6.0</h3>
+            <h3>v1.6.1</h3>
             <p data-en="Source archive and release notes.">源码归档与版本说明。</p>
             <span class="download-link" data-en="Download source">下载源码</span>
           </a>

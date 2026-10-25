@@ -403,7 +403,7 @@ let kv = MemcacheStore::new("127.0.0.1:11211")?;
 
 > `RedisStore` 持有 `deadpool-redis` 连接池：被杀的连接会在下次 checkout 时替换（recycle PING）；每条命令有 30 秒上限，池耗尽最多等待 30 秒后失败。`bee_kv::RedisLock` 提供 `SET NX PX` 获取与 Lua 比较删除释放；`acquire(key, ttl, wait)` 在上限内每 50ms 重试，`try_lock_with_watchdog` 在后台按 TTL/3 自动续期。`RedisOptions` 配置池大小与响应超时，`status()` / `RedisPoolStatus` 读取池快照。`redis-tls` 支持 `rediss://`，ACL 凭据放在 URL（`redis://user:pass@host`）。
 >
-> Sentinel / Cluster：`redis-sentinel` 提供 `RedisSentinelStore` / `RedisSentinelCache`，`redis-cluster` 提供 `RedisClusterStore` / `RedisClusterCache`。Sentinel URL 的 ACL/TLS 只作用于 Sentinel 节点，master 连接不带凭据/TLS；池中连接仅 PING 回收、不校验角色，故障转移后旧 master 若仍可连可能继续被使用（`deadpool-redis` 0.18 限制）。Cluster 的 `mget` / `mset` 为顺序单键命令（避免 `CROSSSLOT`），且命令不受 `response_timeout` 限制。
+> Sentinel / Cluster：`redis-sentinel` 提供 `RedisSentinelStore` / `RedisSentinelCache`，`redis-cluster` 提供 `RedisClusterStore` / `RedisClusterCache`。首个 Sentinel URL 同时为 Sentinel 节点和 master 连接提供 ACL 凭据、数据库、协议与 TLS；池中连接仅 PING 回收、不校验角色，故障转移后旧 master 若仍可连可能继续被使用。Cluster 的 `mget` / `mset` 为顺序单键命令（避免 `CROSSSLOT`），且命令不受 `response_timeout` 限制。
 >
 > memcached：`incr` 先建计数器（缺键为 0）再增减；计数器无符号，减到 0 封底（Redis 可为负）；`expire(≤0)` 等价删除。
 

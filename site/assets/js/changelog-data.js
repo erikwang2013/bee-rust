@@ -1,7 +1,30 @@
 /* Bee Rust site — curated release history (source: docs/CHANGELOG.zh.md + CHANGELOG.md) */
 window.BeeChangelog = [
   {
-    version: '1.6.0', date: '2026-10-25', tag: 'latest',
+    version: '1.6.1', date: '2026-10-26', tag: 'latest',
+    zh: {
+      title: '依赖升级与安全审计清零',
+      summary: '升级 rustls、tokio、mysql_async、redis 等依赖，关闭 7 个 RUSTSEC 漏洞与 6 个 audit warning；Sentinel master 继承首个 Sentinel URL 的 ACL / DB / 协议 / TLS；cargo audit 0/0。',
+      items: [
+        '依赖刷新关闭 7 个 RUSTSEC 漏洞与 6 个 audit warning：rustls 0.23.46、rustls-webpki 0.103.16、webpki-roots 1.0.11、ctutils 0.4.4、tokio 1.54.1、lru 0.18.5、yoke / yoke-derive 0.8.4。',
+        'mysql_async 0.37.1 与 redis 1.6 / deadpool-redis 0.23.1 移除不再维护的 rustls-pemfile、proc-macro-error2 与旧 lru 依赖链；cargo audit 现在报告 0 漏洞、0 warning。',
+        'bee_kv / bee_cache：首个 Sentinel URL 现在也为 master 连接提供 ACL 凭据、数据库、协议与 TLS（SentinelNodeConnectionInfo）；ACL 或 TLS 限制的 master 只要 Sentinel URL 带相同设置即可使用。池中连接仍只 PING 回收、不校验角色。',
+        'MySQL 驱动升级到 mysql_async 0.37 行为不变，已在 MySQL 5.7.44 / 8.0.46 / 8.4.11 / 9.7.4 与 MariaDB 10.11.19 上验证。'
+      ]
+    },
+    en: {
+      title: 'Dependency refresh, zero audit findings',
+      summary: 'rustls, tokio, mysql_async, redis, and more are upgraded, closing 7 RUSTSEC vulnerabilities and 6 audit warnings; the Sentinel master inherits the first Sentinel URL ACL / DB / protocol / TLS; cargo audit is 0/0.',
+      items: [
+        'The dependency refresh closes 7 RUSTSEC vulnerabilities and 6 audit warnings: rustls 0.23.46, rustls-webpki 0.103.16, webpki-roots 1.0.11, ctutils 0.4.4, tokio 1.54.1, lru 0.18.5, and yoke / yoke-derive 0.8.4.',
+        'mysql_async 0.37.1 and redis 1.6 / deadpool-redis 0.23.1 remove the unmaintained rustls-pemfile, proc-macro-error2, and old lru chains; cargo audit now reports 0 vulnerabilities and 0 warnings.',
+        'bee_kv / bee_cache: the first Sentinel URL now also supplies the master connection ACL credentials, database, protocol, and TLS (SentinelNodeConnectionInfo); an ACL-protected or TLS-only master works when its Sentinel URL carries the same settings. Pooled connections are still only PING-recycled, not role-checked.',
+        'The mysql_async 0.37 driver upgrade leaves observable behavior unchanged and was verified against MySQL 5.7.44 / 8.0.46 / 8.4.11 / 9.7.4 and MariaDB 10.11.19.'
+      ]
+    }
+  },
+  {
+    version: '1.6.0', date: '2026-10-25', tag: 'latency',
     zh: {
       title: '分片易用性、Redis HA 与可观测性',
       summary: 'ORM 新增 #[bee(shard_key)] / for_model / 并发迁移，统一连接池状态与慢查询计时；Redis 增加有界等待锁、TLS/ACL、Sentinel 与 Cluster 后端；CI 覆盖示例与基准。',

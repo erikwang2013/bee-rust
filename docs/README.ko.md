@@ -212,7 +212,7 @@ let security = SecurityFilter::new();  // 27개 탐지기 모두 켜짐
 
 ### 스토리지 엔진
 
-KV / Cache (Redis / Memcached), 검색 엔진 (Elasticsearch / OpenSearch / ClickHouse), 그래프 데이터베이스 (Neo4j / NebulaGraph / ArangoDB), 시계열 데이터베이스 (InfluxDB / IoTDB / QuestDB)를 통일된 trait으로 추상화하며, 드라이버는 feature gate 뒤에서 컴파일됩니다. Redis 백엔드는 실제 커넥션 풀(`deadpool-redis`)을 사용하고, `bee_kv::RedisLock`은 분산 락(`SET NX PX` 획득 + Lua 해제, 제한된 `acquire` 대기, `try_lock_with_watchdog` 자동 갱신)을 제공합니다. Redis 풀은 `status()` / `RedisPoolStatus`와 응답 타임아웃을 구성할 수 있는 `RedisOptions`를 노출합니다. `redis-tls`는 `rediss://`와 URL 내 ACL 자격 증명을 활성화하고, `redis-sentinel` / `redis-cluster`는 Sentinel 및 Cluster KV/캐시 백엔드를 추가합니다. Sentinel은 풀링된 연결에서 master 역할을 다시 확인하지 않고 master ACL/TLS를 전달하지 않으며(`deadpool-redis` 0.18 제한), Cluster 명령은 응답 타임아웃으로 제한되지 않습니다.
+KV / Cache (Redis / Memcached), 검색 엔진 (Elasticsearch / OpenSearch / ClickHouse), 그래프 데이터베이스 (Neo4j / NebulaGraph / ArangoDB), 시계열 데이터베이스 (InfluxDB / IoTDB / QuestDB)를 통일된 trait으로 추상화하며, 드라이버는 feature gate 뒤에서 컴파일됩니다. Redis 백엔드는 실제 커넥션 풀(`deadpool-redis`)을 사용하고, `bee_kv::RedisLock`은 분산 락(`SET NX PX` 획득 + Lua 해제, 제한된 `acquire` 대기, `try_lock_with_watchdog` 자동 갱신)을 제공합니다. Redis 풀은 `status()` / `RedisPoolStatus`와 응답 타임아웃을 구성할 수 있는 `RedisOptions`를 노출합니다. `redis-tls`는 `rediss://`와 URL 내 ACL 자격 증명을 활성화하고, `redis-sentinel` / `redis-cluster`는 Sentinel 및 Cluster KV/캐시 백엔드를 추가합니다. 첫 번째 Sentinel URL은 master 연결의 ACL 자격 증명, 데이터베이스, 프로토콜, TLS도 제공합니다. 풀링된 연결은 여전히 역할 확인 없이 PING으로 재활용되므로, 강등된 이전 master가 계속 접근 가능하면 서비스를 계속할 수 있습니다. Cluster 명령은 응답 타임아웃으로 제한되지 않습니다.
 
 ### Session, 로그, 템플릿
 
@@ -265,7 +265,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.6.0", features = ["full"] }
+bee_rust = { version = "1.6.1", features = ["full"] }
 ```
 
 ## 기술 설명
@@ -314,15 +314,15 @@ bee_rust = { version = "1.6.0", features = ["full"] }
 
 ### 테스트 커버리지
 
-전체 저장소의 471개 테스트 통과:
+전체 저장소의 475개 테스트 통과:
 
 | Crate | 테스트 수 |
 |-------|--------|
 | bee_config | 8 |
-| bee_cache | 25 |
+| bee_cache | 27 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 44 |
+| bee_kv | 46 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |

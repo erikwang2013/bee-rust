@@ -212,7 +212,7 @@ Macro turunan `#[derive(Config)]`, mendukung pemuatan INI / YAML / ENV dan hot-r
 
 ### Mesin Penyimpanan
 
-Abstraksi trait terpadu untuk KV / Cache (Redis / Memcached), mesin pencarian (Elasticsearch / OpenSearch / ClickHouse), basis data graf (Neo4j / NebulaGraph / ArangoDB), dan basis data deret waktu (InfluxDB / IoTDB / QuestDB), dengan driver dikompilasi di balik feature gate. Backend Redis memakai pool koneksi sungguhan (`deadpool-redis`), dan `bee_kv::RedisLock` menyediakan distributed lock (akuisisi `SET NX PX` + pelepasan Lua, penantian `acquire` yang terbatas, dan pembaruan otomatis `try_lock_with_watchdog`). Pool Redis mengekspos `status()` / `RedisPoolStatus` dan `RedisOptions` dengan timeout respons yang dapat dikonfigurasi; `redis-tls` mengaktifkan `rediss://` dan kredensial ACL di URL; `redis-sentinel` / `redis-cluster` menambahkan backend KV/cache Sentinel dan Cluster. Sentinel tidak memeriksa ulang peran master pada koneksi pool dan tidak meneruskan ACL/TLS master (batas `deadpool-redis` 0.18); perintah Cluster tidak dibatasi oleh timeout respons.
+Abstraksi trait terpadu untuk KV / Cache (Redis / Memcached), mesin pencarian (Elasticsearch / OpenSearch / ClickHouse), basis data graf (Neo4j / NebulaGraph / ArangoDB), dan basis data deret waktu (InfluxDB / IoTDB / QuestDB), dengan driver dikompilasi di balik feature gate. Backend Redis memakai pool koneksi sungguhan (`deadpool-redis`), dan `bee_kv::RedisLock` menyediakan distributed lock (akuisisi `SET NX PX` + pelepasan Lua, penantian `acquire` yang terbatas, dan pembaruan otomatis `try_lock_with_watchdog`). Pool Redis mengekspos `status()` / `RedisPoolStatus` dan `RedisOptions` dengan timeout respons yang dapat dikonfigurasi; `redis-tls` mengaktifkan `rediss://` dan kredensial ACL di URL; `redis-sentinel` / `redis-cluster` menambahkan backend KV/cache Sentinel dan Cluster. URL Sentinel pertama juga memasok kredensial ACL, database, protokol, dan TLS untuk koneksi master; koneksi pool tetap didaur ulang melalui PING tanpa pemeriksaan peran, sehingga master lama yang diturunkan dan masih dapat dijangkau bisa terus melayani. Perintah Cluster tidak dibatasi oleh timeout respons.
 
 ### Session, Logging, Template
 
@@ -265,7 +265,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.6.0", features = ["full"] }
+bee_rust = { version = "1.6.1", features = ["full"] }
 ```
 
 ## Catatan Teknis
@@ -314,15 +314,15 @@ bee_rust = { version = "1.6.0", features = ["full"] }
 
 ### Cakupan Pengujian
 
-Seluruh 471 pengujian di repositori lolos:
+Seluruh 475 pengujian di repositori lolos:
 
 | Crate | Jumlah Pengujian |
 |-------|--------|
 | bee_config | 8 |
-| bee_cache | 25 |
+| bee_cache | 27 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 44 |
+| bee_kv | 46 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |

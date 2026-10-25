@@ -212,7 +212,7 @@ let security = SecurityFilter::new();  // ২৭টি ডিটেক্টর 
 
 ### স্টোরেজ ইঞ্জিন
 
-KV / Cache (Redis / Memcached), সার্চ ইঞ্জিন (Elasticsearch / OpenSearch / ClickHouse), গ্রাফ ডেটাবেস (Neo4j / NebulaGraph / ArangoDB), টাইম-সিরিজ ডেটাবেস (InfluxDB / IoTDB / QuestDB) — সব একীভূত trait অ্যাবস্ট্রাকশন, ড্রাইভার feature gate অনুযায়ী কম্পাইল হয়। Redis ব্যাকএন্ড প্রকৃত কানেকশন পুল (`deadpool-redis`) ব্যবহার করে, এবং `bee_kv::RedisLock` ডিস্ট্রিবিউটেড লক দেয় (`SET NX PX` অ্যাকোয়ার + Lua রিলিজ, সীমিত `acquire` অপেক্ষা, এবং `try_lock_with_watchdog` স্বয়ংক্রিয় নবীকরণ)। Redis পুল `status()` / `RedisPoolStatus` এবং কনফিগারযোগ্য রেসপন্স টাইমআউটসহ `RedisOptions` উন্মুক্ত করে; `redis-tls` `rediss://` এবং URL-এ ACL ক্রেডেনশিয়াল সক্রিয় করে; `redis-sentinel` / `redis-cluster` Sentinel ও Cluster KV/ক্যাশে ব্যাকএন্ড যোগ করে। Sentinel পুল করা কানেকশনে master ভূমিকা পুনরায় যাচাই করে না এবং master ACL/TLS পাস করে না (`deadpool-redis` 0.18 সীমাবদ্ধতা); Cluster কমান্ড রেসপন্স টাইমআউট দ্বারা সীমিত নয়।
+KV / Cache (Redis / Memcached), সার্চ ইঞ্জিন (Elasticsearch / OpenSearch / ClickHouse), গ্রাফ ডেটাবেস (Neo4j / NebulaGraph / ArangoDB), টাইম-সিরিজ ডেটাবেস (InfluxDB / IoTDB / QuestDB) — সব একীভূত trait অ্যাবস্ট্রাকশন, ড্রাইভার feature gate অনুযায়ী কম্পাইল হয়। Redis ব্যাকএন্ড প্রকৃত কানেকশন পুল (`deadpool-redis`) ব্যবহার করে, এবং `bee_kv::RedisLock` ডিস্ট্রিবিউটেড লক দেয় (`SET NX PX` অ্যাকোয়ার + Lua রিলিজ, সীমিত `acquire` অপেক্ষা, এবং `try_lock_with_watchdog` স্বয়ংক্রিয় নবীকরণ)। Redis পুল `status()` / `RedisPoolStatus` এবং কনফিগারযোগ্য রেসপন্স টাইমআউটসহ `RedisOptions` উন্মুক্ত করে; `redis-tls` `rediss://` এবং URL-এ ACL ক্রেডেনশিয়াল সক্রিয় করে; `redis-sentinel` / `redis-cluster` Sentinel ও Cluster KV/ক্যাশে ব্যাকএন্ড যোগ করে। প্রথম Sentinel URL master সংযোগের ACL ক্রেডেনশিয়াল, ডেটাবেস, প্রোটোকল ও TLS-ও সরবরাহ করে; পুল করা কানেকশন এখনও ভূমিকা যাচাই ছাড়াই PING-এ রিসাইকেল হয়, তাই পুরোনো পদাবনত master অ্যাক্সেসযোগ্য থাকলে সেবা দিতে পারে। Cluster কমান্ড রেসপন্স টাইমআউট দ্বারা সীমিত নয়।
 
 ### Session, লগ, টেমপ্লেট
 
@@ -265,7 +265,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.6.0", features = ["full"] }
+bee_rust = { version = "1.6.1", features = ["full"] }
 ```
 
 ## প্রযুক্তিগত নোট
@@ -314,15 +314,15 @@ bee_rust = { version = "1.6.0", features = ["full"] }
 
 ### টেস্ট কভারেজ
 
-পুরো রিপোজিটরির ৪৭১টি টেস্ট পাস:
+পুরো রিপোজিটরির ৪৭৫টি টেস্ট পাস:
 
 | Crate | টেস্ট সংখ্যা |
 |-------|--------|
 | bee_config | ৮ |
-| bee_cache | ২৫ |
+| bee_cache | ২৭ |
 | bee_template | ২ |
 | bee_logs | ৩ |
-| bee_kv | ৪৪ |
+| bee_kv | ৪৬ |
 | bee_search | ২১ |
 | bee_graph | ১৯ |
 | bee_tsdb | ১৯ |

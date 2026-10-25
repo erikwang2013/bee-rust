@@ -403,7 +403,7 @@ let kv = MemcacheStore::new("127.0.0.1:11211")?;
 
 > `RedisStore`는 `deadpool-redis` 풀을 보유합니다: 끊긴 연결은 다음 checkout에서 교체되고(recycle PING), 각 명령은 30초로 제한되며, 풀이 고갈되면 최대 30초 대기 후 실패합니다. `bee_kv::RedisLock`은 `SET NX PX` 획득과 Lua compare-and-delete 해제를 제공합니다; `acquire(key, ttl, wait)`는 제한된 대기가 만료될 때까지 최대 50ms 간격으로 재시도하고, `try_lock_with_watchdog`는 백그라운드에서 TTL/3마다 TTL을 갱신합니다. `RedisOptions`는 풀 크기와 응답 타임아웃을 설정하고, `status()` / `RedisPoolStatus`는 풀 스냅샷을 읽습니다. `redis-tls`는 URL에 ACL 자격 증명이 포함된 `rediss://`를 활성화합니다(`redis://user:pass@host`).
 >
-> Sentinel / Cluster: `redis-sentinel`은 `RedisSentinelStore` / `RedisSentinelCache`를 제공하고, `redis-cluster`는 `RedisClusterStore` / `RedisClusterCache`를 제공합니다. Sentinel URL 자격 증명/TLS는 Sentinel에만 적용되며, 마스터 연결에는 둘 다 없습니다. 또한 풀링된 연결은 역할 확인 없이 PING으로 재활용되므로, 페일오버 후에도 여전히 도달 가능한 이전 마스터가 계속 서비스할 수 있습니다(`deadpool-redis` 0.18의 제한). Cluster의 `mget` / `mset`은 순차적 단일 키 명령이며(`CROSSSLOT` 회피), 클러스터 명령은 `response_timeout`으로 제한되지 않습니다.
+> Sentinel / Cluster: `redis-sentinel`은 `RedisSentinelStore` / `RedisSentinelCache`를 제공하고, `redis-cluster`는 `RedisClusterStore` / `RedisClusterCache`를 제공합니다. 첫 번째 Sentinel URL은 마스터 연결의 ACL 자격 증명, 데이터베이스, 프로토콜, TLS도 제공합니다; 풀링된 연결은 역할 확인 없이 PING으로 재활용되므로, 페일오버 후에도 여전히 도달 가능한 이전 마스터가 계속 서비스할 수 있습니다. Cluster의 `mget` / `mset`은 순차적 단일 키 명령이며(`CROSSSLOT` 회피), 클러스터 명령은 `response_timeout`으로 제한되지 않습니다.
 >
 > memcached: `incr`은 먼저 카운터를 만들고(없으면 0) 그다음 증감합니다; 카운터는 부호 없음이라 감소는 0에서 멈춥니다(Redis는 음수로 내려갑니다); `expire(≤0)`은 삭제와 같습니다.
 

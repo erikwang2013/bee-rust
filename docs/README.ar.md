@@ -212,7 +212,7 @@ let security = SecurityFilter::new();  // تفعيل أدوات الكشف ال�
 
 ### محركات التخزين
 
-تجريدات موحدة عبر traits لـ KV / Cache (Redis / Memcached)، ومحركات البحث (Elasticsearch / OpenSearch / ClickHouse)، وقواعد البيانات الرسومية (Neo4j / NebulaGraph / ArangoDB)، وقواعد بيانات السلاسل الزمنية (InfluxDB / IoTDB / QuestDB)، تُترجم برامج التشغيل حسب feature gates. تستخدم خلفيات Redis تجمّع اتصالات حقيقيًا (`deadpool-redis`)، ويوفّر `bee_kv::RedisLock` قفلًا موزّعًا (حجز `SET NX PX` + تحرير بـ Lua، وانتظار محدود في `acquire`، وتجديد تلقائي عبر `try_lock_with_watchdog`). تكشف تجمّعات Redis عن `status()` / `RedisPoolStatus` و`RedisOptions` بمهلة استجابة قابلة للضبط؛ ويفعّل `redis-tls` بروتوكول `rediss://` وبيانات ACL في الرابط؛ ويضيف `redis-sentinel` / `redis-cluster` خلفيات KV/تخزين مؤقت لكل من Sentinel وCluster. لا يعيد Sentinel التحقق من دور master على الاتصالات المجمّعة ولا يمرّر ACL/TLS الخاص بـ master (قيد `deadpool-redis` 0.18)؛ وأوامر Cluster غير مقيّدة بمهلة الاستجابة.
+تجريدات موحدة عبر traits لـ KV / Cache (Redis / Memcached)، ومحركات البحث (Elasticsearch / OpenSearch / ClickHouse)، وقواعد البيانات الرسومية (Neo4j / NebulaGraph / ArangoDB)، وقواعد بيانات السلاسل الزمنية (InfluxDB / IoTDB / QuestDB)، تُترجم برامج التشغيل حسب feature gates. تستخدم خلفيات Redis تجمّع اتصالات حقيقيًا (`deadpool-redis`)، ويوفّر `bee_kv::RedisLock` قفلًا موزّعًا (حجز `SET NX PX` + تحرير بـ Lua، وانتظار محدود في `acquire`، وتجديد تلقائي عبر `try_lock_with_watchdog`). تكشف تجمّعات Redis عن `status()` / `RedisPoolStatus` و`RedisOptions` بمهلة استجابة قابلة للضبط؛ ويفعّل `redis-tls` بروتوكول `rediss://` وبيانات ACL في الرابط؛ ويضيف `redis-sentinel` / `redis-cluster` خلفيات KV/تخزين مؤقت لكل من Sentinel وCluster. كما يوفّر أول رابط Sentinel بيانات ACL وقاعدة البيانات والبروتوكول وTLS الخاصة باتصال master؛ ولا تزال الاتصالات المجمّعة تُعاد دورتها عبر PING دون فحص الدور، لذا قد يواصل master قديم مخفَّض ما دام قابلاً للوصول تقديم الخدمة. وأوامر Cluster غير مقيّدة بمهلة الاستجابة.
 
 ### الجلسات والسجلات والقوالب
 
@@ -265,7 +265,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.6.0", features = ["full"] }
+bee_rust = { version = "1.6.1", features = ["full"] }
 ```
 
 ## ملاحظات تقنية
@@ -314,15 +314,15 @@ bee_rust = { version = "1.6.0", features = ["full"] }
 
 ### تغطية الاختبارات
 
-471 اختبارًا ناجحًا في المستودع كله:
+475 اختبارًا ناجحًا في المستودع كله:
 
 | Crate | عدد الاختبارات |
 |-------|--------|
 | bee_config | 8 |
-| bee_cache | 25 |
+| bee_cache | 27 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 44 |
+| bee_kv | 46 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |

@@ -4,6 +4,15 @@
 
 > 版本策略：项目处于 1.x 期间，次版本可能包含破坏性 API 变更；如果对 `OrmError` 做穷举 match，请锁定精确版本。参见 1.3.0 与 1.6.0。
 
+## [1.6.1] — 2026-10-26
+
+### 安全
+- 依赖刷新关闭了 7 个 RUSTSEC 漏洞与 6 个 audit warning。`rustls` 0.23.46、`rustls-webpki` 0.103.16、`webpki-roots` 1.0.11、`ctutils` 0.4.4、`tokio` 1.54.1、`lru` 0.18.5、`yoke` / `yoke-derive` 0.8.4 替换受影响版本；`mysql_async` 0.37.1 与 `redis` 1.6 / `deadpool-redis` 0.23.1 移除了不再维护的 `rustls-pemfile`、`proc-macro-error2` 和旧 `lru` 依赖链。`cargo audit` 现在报告 0 漏洞、0 warning。
+
+### 变更
+- `bee_kv` / `bee_cache`：首个 Sentinel URL 现在同时为 master 连接提供 ACL 凭据、数据库、协议与 TLS（`SentinelNodeConnectionInfo`）；当 Sentinel URL 携带相同设置时，受 ACL 保护或仅允许 TLS 的 master 可直接使用。池中连接仍只 PING 回收、不校验角色。
+- MySQL 驱动升级到 `mysql_async` 0.37 后行为不变，已在 MySQL 5.7.44 / 8.0.46 / 8.4.11 / 9.7.4 与 MariaDB 10.11.19 上验证。
+
 ## [1.6.0] — 2026-10-25
 
 ### 新增

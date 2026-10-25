@@ -212,7 +212,7 @@ Macro dérivée `#[derive(Config)]`, prenant en charge le chargement INI / YAML 
 
 ### Moteurs de stockage
 
-Abstractions par traits unifiés pour KV / Cache (Redis / Memcached), moteurs de recherche (Elasticsearch / OpenSearch / ClickHouse), bases de données graphe (Neo4j / NebulaGraph / ArangoDB) et séries temporelles (InfluxDB / IoTDB / QuestDB) ; les drivers sont compilés selon les feature gates. Les backends Redis utilisent un vrai pool de connexions (`deadpool-redis`), et `bee_kv::RedisLock` fournit un verrou distribué (acquisition `SET NX PX` + libération Lua, attente bornée d'`acquire` et renouvellement automatique avec `try_lock_with_watchdog`). Les pools Redis exposent `status()` / `RedisPoolStatus` et `RedisOptions` avec un délai de réponse configurable ; `redis-tls` active `rediss://` et les identifiants ACL dans l'URL ; `redis-sentinel` / `redis-cluster` ajoutent des backends KV/cache Sentinel et Cluster. Sentinel ne revérifie pas le rôle de maître sur les connexions mutualisées et ne transmet pas l'ACL/TLS du maître (limite de `deadpool-redis` 0.18) ; les commandes Cluster ne sont pas bornées par le délai de réponse.
+Abstractions par traits unifiés pour KV / Cache (Redis / Memcached), moteurs de recherche (Elasticsearch / OpenSearch / ClickHouse), bases de données graphe (Neo4j / NebulaGraph / ArangoDB) et séries temporelles (InfluxDB / IoTDB / QuestDB) ; les drivers sont compilés selon les feature gates. Les backends Redis utilisent un vrai pool de connexions (`deadpool-redis`), et `bee_kv::RedisLock` fournit un verrou distribué (acquisition `SET NX PX` + libération Lua, attente bornée d'`acquire` et renouvellement automatique avec `try_lock_with_watchdog`). Les pools Redis exposent `status()` / `RedisPoolStatus` et `RedisOptions` avec un délai de réponse configurable ; `redis-tls` active `rediss://` et les identifiants ACL dans l'URL ; `redis-sentinel` / `redis-cluster` ajoutent des backends KV/cache Sentinel et Cluster. La première URL Sentinel fournit aussi les identifiants ACL, la base de données, le protocole et TLS de la connexion au maître ; les connexions mutualisées sont toujours recyclées par PING sans vérification du rôle, si bien qu'un ancien maître rétrogradé mais toujours joignable peut continuer à servir. Les commandes Cluster ne sont pas bornées par le délai de réponse.
 
 ### Session, journalisation, templates
 
@@ -265,7 +265,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.6.0", features = ["full"] }
+bee_rust = { version = "1.6.1", features = ["full"] }
 ```
 
 ## Notes techniques
@@ -314,15 +314,15 @@ bee_rust = { version = "1.6.0", features = ["full"] }
 
 ### Couverture de tests
 
-Les 471 tests de l'ensemble du dépôt passent :
+Les 475 tests de l'ensemble du dépôt passent :
 
 | Crate | Nombre de tests |
 |-------|--------|
 | bee_config | 8 |
-| bee_cache | 25 |
+| bee_cache | 27 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 44 |
+| bee_kv | 46 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |

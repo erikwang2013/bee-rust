@@ -4,6 +4,15 @@
 
 > Pemberian versi: selama proyek masih 1.x, rilis minor dapat memuat perubahan yang memutus API; pin versi persis jika Anda melakukan match `OrmError` secara menyeluruh. Lihat 1.3.0 dan 1.6.0.
 
+## [1.6.1] — 2026-10-26
+
+### Keamanan
+- Penyegaran dependensi menutup 7 kerentanan RUSTSEC dan 6 peringatan audit. `rustls` 0.23.46, `rustls-webpki` 0.103.16, `webpki-roots` 1.0.11, `ctutils` 0.4.4, `tokio` 1.54.1, `lru` 0.18.5, dan `yoke` / `yoke-derive` 0.8.4 menggantikan versi yang terdampak; `mysql_async` 0.37.1 dan `redis` 1.6 / `deadpool-redis` 0.23.1 menghapus rantai `rustls-pemfile`, `proc-macro-error2`, dan `lru` lama yang tidak terpelihara. `cargo audit` kini melaporkan 0 kerentanan dan 0 peringatan.
+
+### Diubah
+- `bee_kv` / `bee_cache`: URL Sentinel pertama kini juga memasok kredensial ACL, database, protokol, dan TLS koneksi master melalui `SentinelNodeConnectionInfo`; master yang dilindungi ACL atau hanya-TLS berfungsi bila URL Sentinel-nya membawa pengaturan yang sama. Koneksi yang dipool tetap hanya didaur ulang dengan PING, bukan diperiksa perannya.
+- Peningkatan driver MySQL ke `mysql_async` 0.37 tidak mengubah perilaku yang teramati dan telah diverifikasi terhadap MySQL 5.7.44 / 8.0.46 / 8.4.11 / 9.7.4 dan MariaDB 10.11.19.
+
 ## [1.6.0] — 2026-10-25
 
 ### Ditambahkan

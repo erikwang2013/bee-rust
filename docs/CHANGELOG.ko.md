@@ -4,6 +4,15 @@
 
 > 버전 관리: 프로젝트가 1.x인 동안 마이너 릴리스에 API 호환성을 깨는 변경이 포함될 수 있습니다. `OrmError`를 완전히 match한다면 정확한 버전을 고정하세요. 1.3.0 및 1.6.0을 참고하세요.
 
+## [1.6.1] — 2026-10-26
+
+### 보안
+- 의존성 갱신으로 RUSTSEC 취약점 7건과 감사 경고 6건이 해소되었습니다. `rustls` 0.23.46, `rustls-webpki` 0.103.16, `webpki-roots` 1.0.11, `ctutils` 0.4.4, `tokio` 1.54.1, `lru` 0.18.5, `yoke` / `yoke-derive` 0.8.4가 영향을 받은 버전을 대체합니다. `mysql_async` 0.37.1과 `redis` 1.6 / `deadpool-redis` 0.23.1은 유지보수되지 않는 `rustls-pemfile`, `proc-macro-error2`, 구버전 `lru` 체인을 제거합니다. `cargo audit`는 이제 취약점 0건, 경고 0건을 보고합니다.
+
+### 변경됨
+- `bee_kv` / `bee_cache`: 이제 첫 번째 Sentinel URL이 `SentinelNodeConnectionInfo`를 통해 마스터 연결의 ACL 자격 증명, 데이터베이스, 프로토콜, TLS도 제공합니다. ACL로 보호되거나 TLS 전용인 마스터는 해당 Sentinel URL이 같은 설정을 담고 있으면 동작합니다. 풀링된 연결은 여전히 PING으로만 재활용되며 역할 검사는 하지 않습니다.
+- MySQL 드라이버를 `mysql_async` 0.37로 업그레이드해도 관찰 가능한 동작은 변하지 않으며, MySQL 5.7.44 / 8.0.46 / 8.4.11 / 9.7.4와 MariaDB 10.11.19에서 검증했습니다.
+
 ## [1.6.0] — 2026-10-25
 
 ### 추가됨

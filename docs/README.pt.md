@@ -212,7 +212,7 @@ Macro derivada `#[derive(Config)]`, com suporte a carregamento de INI / YAML / E
 
 ### Mecanismos de armazenamento
 
-KV / Cache (Redis / Memcached), mecanismo de busca (Elasticsearch / OpenSearch / ClickHouse), banco de dados de grafos (Neo4j / NebulaGraph / ArangoDB) e banco de dados de séries temporais (InfluxDB / IoTDB / QuestDB) — todos com abstrações unificadas via trait, drivers compilados sob feature gate. Os backends Redis usam um pool de conexões real (`deadpool-redis`), e `bee_kv::RedisLock` fornece um lock distribuído (aquisição `SET NX PX` + liberação em Lua, espera limitada em `acquire` e renovação automática com `try_lock_with_watchdog`). Os pools Redis expõem `status()` / `RedisPoolStatus` e `RedisOptions` com tempo limite de resposta configurável; `redis-tls` habilita `rediss://` e credenciais ACL na URL; `redis-sentinel` / `redis-cluster` adicionam backends KV/cache Sentinel e Cluster. O Sentinel não revalida o papel de master nas conexões do pool nem repassa ACL/TLS do master (limite do `deadpool-redis` 0.18); os comandos de Cluster não são limitados pelo tempo limite de resposta.
+KV / Cache (Redis / Memcached), mecanismo de busca (Elasticsearch / OpenSearch / ClickHouse), banco de dados de grafos (Neo4j / NebulaGraph / ArangoDB) e banco de dados de séries temporais (InfluxDB / IoTDB / QuestDB) — todos com abstrações unificadas via trait, drivers compilados sob feature gate. Os backends Redis usam um pool de conexões real (`deadpool-redis`), e `bee_kv::RedisLock` fornece um lock distribuído (aquisição `SET NX PX` + liberação em Lua, espera limitada em `acquire` e renovação automática com `try_lock_with_watchdog`). Os pools Redis expõem `status()` / `RedisPoolStatus` e `RedisOptions` com tempo limite de resposta configurável; `redis-tls` habilita `rediss://` e credenciais ACL na URL; `redis-sentinel` / `redis-cluster` adicionam backends KV/cache Sentinel e Cluster. A primeira URL do Sentinel também fornece as credenciais ACL, o banco de dados, o protocolo e TLS da conexão com o master; as conexões do pool continuam sendo recicladas por PING sem verificação de papel, então um antigo master rebaixado que permaneça acessível pode continuar atendendo. Os comandos de Cluster não são limitados pelo tempo limite de resposta.
 
 ### Session, logs e templates
 
@@ -265,7 +265,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.6.0", features = ["full"] }
+bee_rust = { version = "1.6.1", features = ["full"] }
 ```
 
 ## Notas técnicas
@@ -314,15 +314,15 @@ bee_rust = { version = "1.6.0", features = ["full"] }
 
 ### Cobertura de testes
 
-Os 471 testes de todo o repositório passam:
+Os 475 testes de todo o repositório passam:
 
 | Crate | Número de testes |
 |-------|--------|
 | bee_config | 8 |
-| bee_cache | 25 |
+| bee_cache | 27 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 44 |
+| bee_kv | 46 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |

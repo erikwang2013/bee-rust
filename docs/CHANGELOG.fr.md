@@ -4,6 +4,15 @@
 
 > Versionnement : tant que le projet est en 1.x, les versions mineures peuvent inclure des changements cassants d'API ; épinglez une version exacte si vous faites un match exhaustif sur `OrmError`. Voir 1.3.0 et 1.6.0.
 
+## [1.6.1] — 2026-10-26
+
+### Sécurité
+- La mise à jour des dépendances ferme 7 vulnérabilités RUSTSEC et 6 avertissements d'audit. `rustls` 0.23.46, `rustls-webpki` 0.103.16, `webpki-roots` 1.0.11, `ctutils` 0.4.4, `tokio` 1.54.1, `lru` 0.18.5 et `yoke` / `yoke-derive` 0.8.4 remplacent les versions concernées ; `mysql_async` 0.37.1 et `redis` 1.6 / `deadpool-redis` 0.23.1 suppriment les chaînes non maintenues `rustls-pemfile`, `proc-macro-error2` et l'ancien `lru`. `cargo audit` signale désormais 0 vulnérabilité et 0 avertissement.
+
+### Modifications
+- `bee_kv` / `bee_cache` : la première URL Sentinel fournit désormais aussi les identifiants ACL, la base de données, le protocole et TLS de la connexion au maître via `SentinelNodeConnectionInfo` ; un maître protégé par ACL ou uniquement TLS fonctionne lorsque son URL Sentinel porte les mêmes réglages. Les connexions du pool sont toujours uniquement recyclées par PING, sans vérification de rôle.
+- La mise à niveau du pilote MySQL vers `mysql_async` 0.37 laisse le comportement observable inchangé et a été vérifiée avec MySQL 5.7.44 / 8.0.46 / 8.4.11 / 9.7.4 et MariaDB 10.11.19.
+
 ## [1.6.0] — 2026-10-25
 
 ### Ajouts

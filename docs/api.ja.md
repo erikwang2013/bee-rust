@@ -403,7 +403,7 @@ let kv = MemcacheStore::new("127.0.0.1:11211")?;
 
 > `RedisStore` は `deadpool-redis` プールを保持します：切断された接続は次回 checkout 時に交換され（recycle PING）、各コマンドは 30 秒で制限され、プール枯渇時は最大 30 秒待ってから失敗します。`bee_kv::RedisLock` は `SET NX PX` 取得と Lua compare-and-delete 解放を提供します；`acquire(key, ttl, wait)` は上限付き待機が尽きるまで最大 50ms 間隔で再試行し、`try_lock_with_watchdog` はバックグラウンドで TTL/3 ごとに TTL を更新します。`RedisOptions` はプールサイズと応答タイムアウトを設定し、`status()` / `RedisPoolStatus` はプールのスナップショットを読み取ります。`redis-tls` は URL に ACL 認証情報を含む `rediss://` を有効にします（`redis://user:pass@host`）。
 >
-> Sentinel / Cluster：`redis-sentinel` は `RedisSentinelStore` / `RedisSentinelCache` を提供し、`redis-cluster` は `RedisClusterStore` / `RedisClusterCache` を提供します。Sentinel の URL 認証情報/TLS は Sentinel にのみ適用され、マスター接続にはどちらも付きません。また、プールされた接続はロールチェックなしで PING リサイクルされるため、フェイルオーバー後に依然到達可能な旧マスターがサービスを続ける可能性があります（`deadpool-redis` 0.18 の制限）。Cluster の `mget` / `mset` は順次の単一キーコマンドです（`CROSSSLOT` を回避）。また、クラスタのコマンドは `response_timeout` で制限されません。
+> Sentinel / Cluster：`redis-sentinel` は `RedisSentinelStore` / `RedisSentinelCache` を提供し、`redis-cluster` は `RedisClusterStore` / `RedisClusterCache` を提供します。最初の Sentinel URL はマスター接続の ACL 認証情報、データベース、プロトコル、TLS も提供します；プールされた接続はロールチェックなしで PING リサイクルされるため、フェイルオーバー後に依然到達可能な旧マスターがサービスを続ける可能性があります。Cluster の `mget` / `mset` は順次の単一キーコマンドです（`CROSSSLOT` を回避）。また、クラスタのコマンドは `response_timeout` で制限されません。
 >
 > memcached：`incr` はまずカウンタを作成し（無ければ 0）、その後で増減します；カウンタは符号なしで、減算は 0 で止まります（Redis は負になります）；`expire(≤0)` は削除と同じです。
 

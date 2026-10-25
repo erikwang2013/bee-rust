@@ -212,7 +212,7 @@ let security = SecurityFilter::new();  // 27 個の検出器をすべて有効�
 
 ### ストレージエンジン
 
-KV / Cache（Redis / Memcached）、検索エンジン（Elasticsearch / OpenSearch / ClickHouse）、グラフデータベース（Neo4j / NebulaGraph / ArangoDB）、時系列データベース（InfluxDB / IoTDB / QuestDB）を統一 trait で抽象化し、ドライバは feature gate の背後でコンパイルされます。Redis バックエンドは実際のコネクションプール（`deadpool-redis`）を使用し、`bee_kv::RedisLock` は分散ロック（`SET NX PX` 取得 + Lua 解放、`acquire` の有界待機、`try_lock_with_watchdog` による自動更新）を提供します。Redis プールは `status()` / `RedisPoolStatus` と、応答タイムアウトを設定できる `RedisOptions` を公開します。`redis-tls` は `rediss://` と URL 内の ACL 認証情報を有効化し、`redis-sentinel` / `redis-cluster` は Sentinel と Cluster の KV/キャッシュバックエンドを追加します。Sentinel はプールされた接続で master ロールを再確認せず、master の ACL/TLS も渡しません（`deadpool-redis` 0.18 の制限）。Cluster のコマンドは応答タイムアウトで制限されません。
+KV / Cache（Redis / Memcached）、検索エンジン（Elasticsearch / OpenSearch / ClickHouse）、グラフデータベース（Neo4j / NebulaGraph / ArangoDB）、時系列データベース（InfluxDB / IoTDB / QuestDB）を統一 trait で抽象化し、ドライバは feature gate の背後でコンパイルされます。Redis バックエンドは実際のコネクションプール（`deadpool-redis`）を使用し、`bee_kv::RedisLock` は分散ロック（`SET NX PX` 取得 + Lua 解放、`acquire` の有界待機、`try_lock_with_watchdog` による自動更新）を提供します。Redis プールは `status()` / `RedisPoolStatus` と、応答タイムアウトを設定できる `RedisOptions` を公開します。`redis-tls` は `rediss://` と URL 内の ACL 認証情報を有効化し、`redis-sentinel` / `redis-cluster` は Sentinel と Cluster の KV/キャッシュバックエンドを追加します。最初の Sentinel URL は master 接続の ACL 認証情報、データベース、プロトコル、TLS も提供します。プールされた接続は引き続きロール確認なしで PING によりリサイクルされるため、降格された旧 master が到達可能なままならサービスを続ける可能性があります。Cluster のコマンドは応答タイムアウトで制限されません。
 
 ### Session、ログ、テンプレート
 
@@ -265,7 +265,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.6.0", features = ["full"] }
+bee_rust = { version = "1.6.1", features = ["full"] }
 ```
 
 ## 技術詳細
@@ -314,15 +314,15 @@ bee_rust = { version = "1.6.0", features = ["full"] }
 
 ### テストカバレッジ
 
-リポジトリ全体で 471 個のテストがパス：
+リポジトリ全体で 475 個のテストがパス：
 
 | Crate | テスト数 |
 |-------|--------|
 | bee_config | 8 |
-| bee_cache | 25 |
+| bee_cache | 27 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 44 |
+| bee_kv | 46 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |

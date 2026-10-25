@@ -157,7 +157,7 @@ let security = SecurityFilter::new();  // all 27 detectors enabled
 
 ### Storage Engines
 
-Unified trait abstractions for KV / Cache (Redis / Memcached), Search (Elasticsearch / OpenSearch / ClickHouse), Graph (Neo4j / NebulaGraph / ArangoDB), and Time Series (InfluxDB / IoTDB / QuestDB), with drivers compiled behind feature gates. The Redis backends use a real connection pool (`deadpool-redis`), and `bee_kv::RedisLock` provides a distributed lock (`SET NX PX` acquire + Lua release, bounded `acquire` waiting, and `try_lock_with_watchdog` auto-renewal). Redis pools expose `status()` / `RedisPoolStatus` and `RedisOptions` with a configurable response timeout; `redis-tls` enables `rediss://` and ACL credentials in the URL; `redis-sentinel` / `redis-cluster` add Sentinel and Cluster KV/cache backends. Sentinel does not re-check the master role on pooled connections and does not pass master ACL/TLS (`deadpool-redis` 0.18 limit); Cluster commands are not bounded by the response timeout.
+Unified trait abstractions for KV / Cache (Redis / Memcached), Search (Elasticsearch / OpenSearch / ClickHouse), Graph (Neo4j / NebulaGraph / ArangoDB), and Time Series (InfluxDB / IoTDB / QuestDB), with drivers compiled behind feature gates. The Redis backends use a real connection pool (`deadpool-redis`), and `bee_kv::RedisLock` provides a distributed lock (`SET NX PX` acquire + Lua release, bounded `acquire` waiting, and `try_lock_with_watchdog` auto-renewal). Redis pools expose `status()` / `RedisPoolStatus` and `RedisOptions` with a configurable response timeout; `redis-tls` enables `rediss://` and ACL credentials in the URL; `redis-sentinel` / `redis-cluster` add Sentinel and Cluster KV/cache backends. The first Sentinel URL also supplies the master connection's ACL credentials, database, protocol, and TLS; pooled connections are still PING-recycled without a role check, so a demoted old master that stays reachable may keep serving. Cluster commands are not bounded by the response timeout.
 
 ### Session, Logging, Templates
 
@@ -202,7 +202,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.6.0", features = ["full"] }
+bee_rust = { version = "1.6.1", features = ["full"] }
 ```
 
 ## Tech Stack
@@ -249,15 +249,15 @@ bee_rust = { version = "1.6.0", features = ["full"] }
 
 ## Test Coverage
 
-471 tests passing across all crates:
+475 tests passing across all crates:
 
 | Crate | Tests |
 |-------|-------|
 | bee_config | 8 |
-| bee_cache | 25 |
+| bee_cache | 27 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 44 |
+| bee_kv | 46 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |

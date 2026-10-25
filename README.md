@@ -236,7 +236,7 @@ let security = SecurityFilter::new();  // 27 个检测器全开
 
 ### 存储引擎
 
-KV / Cache（Redis / Memcached）、搜索引擎（Elasticsearch / OpenSearch / ClickHouse）、图数据库（Neo4j / NebulaGraph / ArangoDB）、时序数据库（InfluxDB / IoTDB / QuestDB）统一 trait 抽象，驱动按 feature gate 编译；Redis 后端使用真实连接池（`deadpool-redis`），并提供分布式锁 `bee_kv::RedisLock`（`SET NX PX` 获取 + Lua 释放、`acquire` 有界等待、`try_lock_with_watchdog` 自动续期）。Redis 池提供 `status()` / `RedisPoolStatus`、可配置响应超时的 `RedisOptions`，`redis-tls` 支持 `rediss://` 与 URL 内的 ACL 凭据；`redis-sentinel` / `redis-cluster` 分别提供 Sentinel 与 Cluster 的 KV/缓存后端。Sentinel 的 master 连接不做角色复检、也不携带 master ACL/TLS（`deadpool-redis` 0.18 限制）；Cluster 命令不受响应超时约束。
+KV / Cache（Redis / Memcached）、搜索引擎（Elasticsearch / OpenSearch / ClickHouse）、图数据库（Neo4j / NebulaGraph / ArangoDB）、时序数据库（InfluxDB / IoTDB / QuestDB）统一 trait 抽象，驱动按 feature gate 编译；Redis 后端使用真实连接池（`deadpool-redis`），并提供分布式锁 `bee_kv::RedisLock`（`SET NX PX` 获取 + Lua 释放、`acquire` 有界等待、`try_lock_with_watchdog` 自动续期）。Redis 池提供 `status()` / `RedisPoolStatus`、可配置响应超时的 `RedisOptions`，`redis-tls` 支持 `rediss://` 与 URL 内的 ACL 凭据；`redis-sentinel` / `redis-cluster` 分别提供 Sentinel 与 Cluster 的 KV/缓存后端。Sentinel 的首个 Sentinel URL 同时为 master 连接提供 ACL 凭据、数据库、协议与 TLS；池中连接仍只 PING 回收、不校验角色，故障转移后旧 master 若仍可连可能继续被使用。Cluster 命令不受响应超时约束。
 
 ### Session、日志、模板
 
@@ -289,7 +289,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.6.0", features = ["full"] }
+bee_rust = { version = "1.6.1", features = ["full"] }
 ```
 
 ## 技术说明
@@ -338,15 +338,15 @@ bee_rust = { version = "1.6.0", features = ["full"] }
 
 ### 测试覆盖
 
-全仓 471 个测试通过：
+全仓 475 个测试通过：
 
 | Crate | 测试数 |
 |-------|--------|
 | bee_config | 8 |
-| bee_cache | 25 |
+| bee_cache | 27 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 44 |
+| bee_kv | 46 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |

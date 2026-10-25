@@ -212,7 +212,7 @@ let security = SecurityFilter::new();  // все 27 детекторов вкл�
 
 ### Движки хранения
 
-Единые trait-абстракции для KV / Cache (Redis / Memcached), поисковых движков (Elasticsearch / OpenSearch / ClickHouse), графовых БД (Neo4j / NebulaGraph / ArangoDB) и БД временных рядов (InfluxDB / IoTDB / QuestDB); драйверы компилируются по feature-флагам. Бэкенды Redis используют настоящий пул соединений (`deadpool-redis`), а `bee_kv::RedisLock` предоставляет распределённую блокировку (захват `SET NX PX` + освобождение через Lua, ограниченное ожидание в `acquire` и автопродление `try_lock_with_watchdog`). Пулы Redis предоставляют `status()` / `RedisPoolStatus` и `RedisOptions` с настраиваемым таймаутом ответа; `redis-tls` включает `rediss://` и ACL-учётные данные в URL; `redis-sentinel` / `redis-cluster` добавляют бэкенды KV/кэша Sentinel и Cluster. Sentinel не перепроверяет роль мастера на соединениях из пула и не передаёт ACL/TLS мастера (ограничение `deadpool-redis` 0.18); команды Cluster не ограничены таймаутом ответа.
+Единые trait-абстракции для KV / Cache (Redis / Memcached), поисковых движков (Elasticsearch / OpenSearch / ClickHouse), графовых БД (Neo4j / NebulaGraph / ArangoDB) и БД временных рядов (InfluxDB / IoTDB / QuestDB); драйверы компилируются по feature-флагам. Бэкенды Redis используют настоящий пул соединений (`deadpool-redis`), а `bee_kv::RedisLock` предоставляет распределённую блокировку (захват `SET NX PX` + освобождение через Lua, ограниченное ожидание в `acquire` и автопродление `try_lock_with_watchdog`). Пулы Redis предоставляют `status()` / `RedisPoolStatus` и `RedisOptions` с настраиваемым таймаутом ответа; `redis-tls` включает `rediss://` и ACL-учётные данные в URL; `redis-sentinel` / `redis-cluster` добавляют бэкенды KV/кэша Sentinel и Cluster. Первый URL Sentinel также передаёт ACL-учётные данные, базу данных, протокол и TLS соединения с мастером; соединения из пула по-прежнему переиспользуются через PING без проверки роли, поэтому понижённый старый мастер, остающийся доступным, может продолжать обслуживать запросы. Команды Cluster не ограничены таймаутом ответа.
 
 ### Session, логирование, шаблоны
 
@@ -265,7 +265,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.6.0", features = ["full"] }
+bee_rust = { version = "1.6.1", features = ["full"] }
 ```
 
 ## Технические заметки
@@ -314,15 +314,15 @@ bee_rust = { version = "1.6.0", features = ["full"] }
 
 ### Покрытие тестами
 
-В репозитории проходят 471 тестов:
+В репозитории проходят 475 тестов:
 
 | Crate | Число тестов |
 |-------|--------|
 | bee_config | 8 |
-| bee_cache | 25 |
+| bee_cache | 27 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 44 |
+| bee_kv | 46 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |

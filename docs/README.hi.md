@@ -212,7 +212,7 @@ let security = SecurityFilter::new();  // सभी 27 डिटेक्टर 
 
 ### स्टोरेज इंजन
 
-KV / Cache (Redis / Memcached), खोज इंजन (Elasticsearch / OpenSearch / ClickHouse), ग्राफ़ डेटाबेस (Neo4j / NebulaGraph / ArangoDB), टाइम-सीरीज़ डेटाबेस (InfluxDB / IoTDB / QuestDB) के लिए एकीकृत trait अमूर्तता, ड्राइवर feature gate के पीछे संकलित होते हैं। Redis बैकएंड वास्तविक कनेक्शन पूल (`deadpool-redis`) का उपयोग करते हैं, और `bee_kv::RedisLock` वितरित लॉक प्रदान करता है (`SET NX PX` अधिग्रहण + Lua रिलीज़, सीमित `acquire` प्रतीक्षा, और `try_lock_with_watchdog` स्वतः नवीनीकरण)। Redis पूल `status()` / `RedisPoolStatus` और कॉन्फ़िगर करने योग्य प्रतिक्रिया टाइमआउट वाला `RedisOptions` उजागर करते हैं; `redis-tls` `rediss://` और URL में ACL क्रेडेंशियल सक्षम करता है; `redis-sentinel` / `redis-cluster` Sentinel और Cluster KV/कैश बैकएंड जोड़ते हैं। Sentinel पूल किए गए कनेक्शन पर master भूमिका की पुनर्जाँच नहीं करता और master ACL/TLS पास नहीं करता (`deadpool-redis` 0.18 सीमा); Cluster कमांड प्रतिक्रिया टाइमआउट से सीमित नहीं हैं।
+KV / Cache (Redis / Memcached), खोज इंजन (Elasticsearch / OpenSearch / ClickHouse), ग्राफ़ डेटाबेस (Neo4j / NebulaGraph / ArangoDB), टाइम-सीरीज़ डेटाबेस (InfluxDB / IoTDB / QuestDB) के लिए एकीकृत trait अमूर्तता, ड्राइवर feature gate के पीछे संकलित होते हैं। Redis बैकएंड वास्तविक कनेक्शन पूल (`deadpool-redis`) का उपयोग करते हैं, और `bee_kv::RedisLock` वितरित लॉक प्रदान करता है (`SET NX PX` अधिग्रहण + Lua रिलीज़, सीमित `acquire` प्रतीक्षा, और `try_lock_with_watchdog` स्वतः नवीनीकरण)। Redis पूल `status()` / `RedisPoolStatus` और कॉन्फ़िगर करने योग्य प्रतिक्रिया टाइमआउट वाला `RedisOptions` उजागर करते हैं; `redis-tls` `rediss://` और URL में ACL क्रेडेंशियल सक्षम करता है; `redis-sentinel` / `redis-cluster` Sentinel और Cluster KV/कैश बैकएंड जोड़ते हैं। पहला Sentinel URL master कनेक्शन के ACL क्रेडेंशियल, डेटाबेस, प्रोटोकॉल और TLS भी प्रदान करता है; पूल किए गए कनेक्शन अब भी भूमिका जाँच के बिना PING द्वारा पुनर्चक्रित होते हैं, इसलिए पदावनत पुराना master यदि पहुँच योग्य रहता है तो सेवा देता रह सकता है। Cluster कमांड प्रतिक्रिया टाइमआउट से सीमित नहीं हैं।
 
 ### Session, लॉग, टेम्पलेट
 
@@ -265,7 +265,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.6.0", features = ["full"] }
+bee_rust = { version = "1.6.1", features = ["full"] }
 ```
 
 ## तकनीकी विवरण
@@ -314,15 +314,15 @@ bee_rust = { version = "1.6.0", features = ["full"] }
 
 ### परीक्षण कवरेज
 
-पूरे रिपॉज़िटरी में 471 परीक्षण पास:
+पूरे रिपॉज़िटरी में 475 परीक्षण पास:
 
 | Crate | परीक्षण संख्या |
 |-------|--------|
 | bee_config | 8 |
-| bee_cache | 25 |
+| bee_cache | 27 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 44 |
+| bee_kv | 46 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |

@@ -212,7 +212,7 @@ let security = SecurityFilter::new();  // alle 27 Detektoren aktiv
 
 ### Speicher-Engines
 
-KV / Cache (Redis / Memcached), Suchmaschine (Elasticsearch / OpenSearch / ClickHouse), Graphdatenbank (Neo4j / NebulaGraph / ArangoDB) und Zeitreihendatenbank (InfluxDB / IoTDB / QuestDB) — einheitliche Trait-Abstraktionen, Treiber werden per Feature-Gate kompiliert. Die Redis-Backends nutzen einen echten Verbindungspool (`deadpool-redis`), und `bee_kv::RedisLock` bietet eine verteilte Sperre (`SET NX PX`-Erwerb + Lua-Freigabe, begrenztes Warten bei `acquire` und automatische Verlängerung mit `try_lock_with_watchdog`). Redis-Pools legen `status()` / `RedisPoolStatus` und `RedisOptions` mit konfigurierbarem Antwort-Timeout offen; `redis-tls` aktiviert `rediss://` und ACL-Anmeldedaten in der URL; `redis-sentinel` / `redis-cluster` fügen Sentinel- und Cluster-KV-/Cache-Backends hinzu. Sentinel prüft die Master-Rolle bei gepoolten Verbindungen nicht erneut und übergibt kein Master-ACL/TLS (`deadpool-redis`-0.18-Grenze); Cluster-Befehle sind nicht durch den Antwort-Timeout begrenzt.
+KV / Cache (Redis / Memcached), Suchmaschine (Elasticsearch / OpenSearch / ClickHouse), Graphdatenbank (Neo4j / NebulaGraph / ArangoDB) und Zeitreihendatenbank (InfluxDB / IoTDB / QuestDB) — einheitliche Trait-Abstraktionen, Treiber werden per Feature-Gate kompiliert. Die Redis-Backends nutzen einen echten Verbindungspool (`deadpool-redis`), und `bee_kv::RedisLock` bietet eine verteilte Sperre (`SET NX PX`-Erwerb + Lua-Freigabe, begrenztes Warten bei `acquire` und automatische Verlängerung mit `try_lock_with_watchdog`). Redis-Pools legen `status()` / `RedisPoolStatus` und `RedisOptions` mit konfigurierbarem Antwort-Timeout offen; `redis-tls` aktiviert `rediss://` und ACL-Anmeldedaten in der URL; `redis-sentinel` / `redis-cluster` fügen Sentinel- und Cluster-KV-/Cache-Backends hinzu. Die erste Sentinel-URL liefert außerdem ACL-Anmeldedaten, Datenbank, Protokoll und TLS der Master-Verbindung; gepoolte Verbindungen werden weiterhin per PING recycelt, ohne Rollenprüfung, sodass ein degradierter alter Master, der erreichbar bleibt, weiterhin Dienste leisten kann. Cluster-Befehle sind nicht durch den Antwort-Timeout begrenzt.
 
 ### Session, Logging, Templates
 
@@ -265,7 +265,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.6.0", features = ["full"] }
+bee_rust = { version = "1.6.1", features = ["full"] }
 ```
 
 ## Technische Hinweise
@@ -314,15 +314,15 @@ bee_rust = { version = "1.6.0", features = ["full"] }
 
 ### Testabdeckung
 
-Alle 471 Tests des Repositories bestehen:
+Alle 475 Tests des Repositories bestehen:
 
 | Crate | Anzahl der Tests |
 |-------|--------|
 | bee_config | 8 |
-| bee_cache | 25 |
+| bee_cache | 27 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 44 |
+| bee_kv | 46 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |

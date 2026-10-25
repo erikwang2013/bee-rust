@@ -212,7 +212,7 @@ La macro derivada `#[derive(Config)]`, con soporte para cargar INI / YAML / ENV 
 
 ### Motores de almacenamiento
 
-KV / caché (Redis / Memcached), motores de búsqueda (Elasticsearch / OpenSearch / ClickHouse), bases de datos de grafos (Neo4j / NebulaGraph / ArangoDB) y bases de datos de series temporales (InfluxDB / IoTDB / QuestDB) comparten abstracciones unificadas por trait; los drivers se compilan según los feature flags. Los backends Redis usan un pool de conexiones real (`deadpool-redis`), y `bee_kv::RedisLock` ofrece un bloqueo distribuido (adquisición `SET NX PX` + liberación en Lua, espera acotada en `acquire` y renovación automática con `try_lock_with_watchdog`). Los pools de Redis exponen `status()` / `RedisPoolStatus` y `RedisOptions` con un tiempo de espera de respuesta configurable; `redis-tls` habilita `rediss://` y credenciales ACL en la URL; `redis-sentinel` / `redis-cluster` añaden backends KV/caché Sentinel y Cluster. Sentinel no vuelve a comprobar el rol de maestro en las conexiones del pool ni pasa ACL/TLS del maestro (límite de `deadpool-redis` 0.18); los comandos de Cluster no están limitados por el tiempo de espera de respuesta.
+KV / caché (Redis / Memcached), motores de búsqueda (Elasticsearch / OpenSearch / ClickHouse), bases de datos de grafos (Neo4j / NebulaGraph / ArangoDB) y bases de datos de series temporales (InfluxDB / IoTDB / QuestDB) comparten abstracciones unificadas por trait; los drivers se compilan según los feature flags. Los backends Redis usan un pool de conexiones real (`deadpool-redis`), y `bee_kv::RedisLock` ofrece un bloqueo distribuido (adquisición `SET NX PX` + liberación en Lua, espera acotada en `acquire` y renovación automática con `try_lock_with_watchdog`). Los pools de Redis exponen `status()` / `RedisPoolStatus` y `RedisOptions` con un tiempo de espera de respuesta configurable; `redis-tls` habilita `rediss://` y credenciales ACL en la URL; `redis-sentinel` / `redis-cluster` añaden backends KV/caché Sentinel y Cluster. La primera URL de Sentinel también aporta las credenciales ACL, la base de datos, el protocolo y TLS de la conexión al maestro; las conexiones del pool se siguen reciclando con PING sin comprobar el rol, por lo que un antiguo maestro degradado que siga siendo accesible puede continuar sirviendo. Los comandos de Cluster no están limitados por el tiempo de espera de respuesta.
 
 ### Sesión, registros y plantillas
 
@@ -265,7 +265,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.6.0", features = ["full"] }
+bee_rust = { version = "1.6.1", features = ["full"] }
 ```
 
 ## Notas técnicas
@@ -314,15 +314,15 @@ bee_rust = { version = "1.6.0", features = ["full"] }
 
 ### Cobertura de tests
 
-Los 471 tests del repositorio pasan:
+Los 475 tests del repositorio pasan:
 
 | Crate | N.º de tests |
 |-------|--------|
 | bee_config | 8 |
-| bee_cache | 25 |
+| bee_cache | 27 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 44 |
+| bee_kv | 46 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |

@@ -46,8 +46,8 @@
     bindIndexObserver();
     var title = l === 'en' ? 'Changelog · Bee Rust' : '版本日志 · Bee Rust';
     var description = l === 'en'
-      ? 'Bee Rust release history, from the initial 1.0.3 workspace to the 1.6.0 release.'
-      : 'Bee Rust 版本日志：从 1.0.3 到 1.6.0 的每次迭代，按版本查看新增、修复与清理。';
+      ? 'Bee Rust release history, from the initial 1.0.3 workspace to the 1.6.1 release.'
+      : 'Bee Rust 版本日志：从 1.0.3 到 1.6.1 的每次迭代，按版本查看新增、修复与清理。';
     if (window.BeeSite && window.BeeSite.applyMeta) {
       window.BeeSite.applyMeta(title, description, l === 'en' ? 'en_US' : 'zh_CN');
     } else {
