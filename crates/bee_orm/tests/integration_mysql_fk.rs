@@ -3,7 +3,8 @@
 //! §44/§47 tester falsification of the mysql table-level FK opt-in:
 //! the constraint is real (checked semantically, not by name — the CREATE-path
 //! clause is unnamed DDL), re-runs are no-ops, the default path's inline
-//! `REFERENCES` differs by server version (ignored on 8.x, enforced on 9+) —
+//! `REFERENCES` differs by server version (ignored on MySQL 5.7/8.x,
+//! enforced on MySQL 9+ and MariaDB) —
 //! and the orphan failure leaves a state whose documented "clean the data"
 //! remedy is measured below.
 //!
@@ -55,16 +56,6 @@ async fn fk_reference(
         rows[0]["tbl"].as_str().unwrap_or_default().to_string(),
         rows[0]["col"].as_str().unwrap_or_default().to_string(),
     ))
-}
-
-/// The server's major version (`8` for 8.4.11, `9` for 9.7.4).
-async fn mysql_major(pool: &Pool) -> Result<u32, OrmError> {
-    let rows = pool.query("SELECT VERSION() AS v", &[]).await?;
-    let raw = rows[0]["v"].as_str().unwrap_or_default().to_string();
-    raw.split('.')
-        .next()
-        .and_then(|major| major.parse().ok())
-        .ok_or_else(|| OrmError::QueryError(format!("mysql_major: unparseable VERSION() `{raw}`")))
 }
 
 /// The column names of a table, sorted.
@@ -150,15 +141,21 @@ async fn opt_in_enforces_once_and_re_runs_are_no_ops() -> Result<(), OrmError> {
     );
 
     // Control: the default path emits the inline `REFERENCES` only. MySQL
-    // 8.0/8.4 parse-and-ignore it; MySQL 9 materializes and enforces it.
+    // 5.7/8.x parse-and-ignore it; MySQL 9 and MariaDB materialize and
+    // enforce it (measured: MariaDB 10.11 creates `{table}_ibfk_N`).
     migrate::create_table::<FkPlainMember, _>(&pool).await?;
     let control = fk_constraints(&pool, "it_fk_plain").await?;
     let dangling = FkPlainMember { id: 0, team_id: 999_999 };
-    if mysql_major(&pool).await? >= 9 {
-        assert_eq!(control.len(), 1, "MySQL 9 materializes the inline REFERENCES: {control:?}");
-        assert!(dangling.insert(&pool).await.is_err(), "MySQL 9 enforces it");
+    let (major, is_mariadb) = common::mysql_vendor(&pool).await?;
+    if is_mariadb || major >= 9 {
+        assert_eq!(
+            control.len(),
+            1,
+            "MySQL 9 and MariaDB materialize the inline REFERENCES: {control:?}"
+        );
+        assert!(dangling.insert(&pool).await.is_err(), "this server enforces it");
     } else {
-        assert!(control.is_empty(), "8.0/8.4 ignore the inline REFERENCES: {control:?}");
+        assert!(control.is_empty(), "MySQL 5.7/8.x ignore it: {control:?}");
         assert_eq!(dangling.insert(&pool).await?, 1);
     }
     Ok(())

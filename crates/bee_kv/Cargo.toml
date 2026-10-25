@@ -13,7 +13,7 @@ readme.workspace = true
 [dependencies]
 async-trait = { workspace = true }
 thiserror.workspace = true
-tokio = { workspace = true, features = ["sync", "rt"] }
+tokio = { workspace = true, features = ["sync", "time", "rt"] }
 
 [features]
 redis = ["dep:redis", "dep:deadpool-redis"]
@@ -36,7 +36,7 @@ optional = true
 default-features = false
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["rt", "macros"] }
+tokio = { workspace = true, features = ["rt", "macros", "time"] }
 
 # Build the docs with every feature: the optional backends gate public modules.
 [package.metadata.docs.rs]

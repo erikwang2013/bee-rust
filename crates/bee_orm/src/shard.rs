@@ -160,6 +160,30 @@ impl<P> ShardedPools<P> {
         Ok(Self { pools, router })
     }
 
+    /// Every configured pool, in router ordinal order — the escape hatch for
+    /// operations and transactions that span shards. Keyed statements must
+    /// still go through [`Self::for_key`]; a pool alone cannot pick a table.
+    pub fn pools(&self) -> &[P] {
+        &self.pools
+    }
+
+    /// The pool at database ordinal `index`, or `None` if out of range.
+    /// Same escape-hatch caveat as [`Self::pools`].
+    pub fn pool(&self, index: usize) -> Option<&P> {
+        self.pools.get(index)
+    }
+
+    /// The number of database shards.
+    pub fn len(&self) -> usize {
+        self.pools.len()
+    }
+
+    /// Whether no pools are configured. Always `false` for a value built by
+    /// [`Self::new`], which requires at least one pool.
+    pub fn is_empty(&self) -> bool {
+        self.pools.is_empty()
+    }
+
     /// The handle for `key`'s database shard.
     pub fn for_key(&self, key: impl Into<Value>) -> Result<ShardHandle<'_, P>> {
         let key = key.into();
@@ -233,6 +257,19 @@ impl<P: Db> Db for ShardHandle<'_, P> {
         params: &[Value],
     ) -> Result<Option<Row>> {
         self.pool.insert_returning(table, pk_column, sql, params).await
+    }
+
+    /// Forwarded explicitly: the default would drop the auto-increment hint
+    /// and send MySQL back to probing `information_schema` on every create.
+    async fn insert_returning_auto(
+        &self,
+        table: &str,
+        pk_column: &str,
+        auto_increment: Option<bool>,
+        sql: &str,
+        params: &[Value],
+    ) -> Result<Option<Row>> {
+        self.pool.insert_returning_auto(table, pk_column, auto_increment, sql, params).await
     }
 }
 

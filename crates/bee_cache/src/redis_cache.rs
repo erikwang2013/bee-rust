@@ -16,9 +16,24 @@ use redis::ErrorKind;
 
 use crate::{Cache, CacheError};
 
-/// Upper bound on one command's round trip, so a server that accepts TCP but
-/// never replies surfaces as an error instead of hanging the caller.
+/// Default upper bound on one command's round trip, so a server that accepts
+/// TCP but never replies surfaces as an error instead of hanging the caller.
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Construction options for [`RedisCache`].
+#[derive(Debug, Clone, Copy)]
+pub struct RedisOptions {
+    /// Maximum pooled connections. Values below 1 are clamped to 1.
+    pub max_size: usize,
+    /// Upper bound on one command's round trip.
+    pub response_timeout: Duration,
+}
+
+impl Default for RedisOptions {
+    fn default() -> Self {
+        Self { max_size: 16, response_timeout: RESPONSE_TIMEOUT }
+    }
+}
 
 /// A [`Cache`] backed by a pool of Redis connections.
 ///
@@ -29,36 +44,53 @@ const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
 /// restart or a dropped socket needs no action from the caller. The *command*
 /// that runs into the break fails with a [`CacheError::ConnectionError`], and
 /// the *next* one succeeds on a fresh connection. There is no background
-/// health-check thread. Every command's reply is bounded at 30 seconds, and so
-/// is a checkout that waits on an exhausted pool — both fail with
+/// health-check thread. Every command's reply is bounded at the configured
+/// response timeout (30 seconds by default); a checkout that waits on an
+/// exhausted pool has its own fixed 30-second wait. Both fail with
 /// [`CacheError::ConnectionError`].
 pub struct RedisCache {
     pool: deadpool_redis::Pool,
+    response_timeout: Duration,
 }
 
 impl RedisCache {
     /// Create a cache by connecting to `addr` (e.g.
-    /// `"redis://127.0.0.1:6379"`) with at most 16 pooled connections.
+    /// `"redis://127.0.0.1:6379"`) with [`RedisOptions::default`].
     ///
     /// Connects eagerly: a bad address fails here rather than on the first
     /// command.
     pub async fn new(addr: &str) -> Result<Self, CacheError> {
-        Self::with_pool_size(addr, 16).await
+        Self::with_options(addr, RedisOptions::default()).await
     }
 
-    /// Create a cache with a pool of at most `max_size` connections. Values
-    /// below 1 are clamped to 1.
+    /// Create a cache with a pool of at most `max_size` connections and the
+    /// default response timeout. Values below 1 are clamped to 1.
     ///
     /// Connects eagerly, like [`RedisCache::new`].
     pub async fn with_pool_size(addr: &str, max_size: usize) -> Result<Self, CacheError> {
-        Ok(Self { pool: connect_pool(addr, max_size).await? })
+        Self::with_options(addr, RedisOptions { max_size, ..RedisOptions::default() }).await
     }
 
-    /// Check out a pooled connection, bounding every reply at
-    /// [`RESPONSE_TIMEOUT`].
+    /// Create a cache with explicit [`RedisOptions`].
+    ///
+    /// Connects eagerly, like [`RedisCache::new`].
+    pub async fn with_options(addr: &str, options: RedisOptions) -> Result<Self, CacheError> {
+        let pool = connect_pool(addr, options.max_size, options.response_timeout).await?;
+        Ok(Self { pool, response_timeout: options.response_timeout })
+    }
+
+    /// Current pool metrics: `max_size`, open `size`, idle `available`
+    /// connections, and futures `waiting` for one. A snapshot, not a
+    /// consistent view under load.
+    pub fn status(&self) -> deadpool_redis::Status {
+        self.pool.status()
+    }
+
+    /// Check out a pooled connection, bounding every reply at the configured
+    /// response timeout.
     async fn checkout(&self) -> Result<deadpool_redis::Connection, CacheError> {
         let mut conn = self.pool.get().await.map_err(conn_err)?;
-        conn.set_response_timeout(RESPONSE_TIMEOUT);
+        conn.set_response_timeout(self.response_timeout);
         Ok(conn)
     }
 
@@ -73,7 +105,11 @@ impl RedisCache {
 
 /// Build a pool for `addr` and prove it serves a command, so a bad address
 /// fails here rather than on the first cache operation.
-async fn connect_pool(addr: &str, max_size: usize) -> Result<deadpool_redis::Pool, CacheError> {
+async fn connect_pool(
+    addr: &str,
+    max_size: usize,
+    response_timeout: Duration,
+) -> Result<deadpool_redis::Pool, CacheError> {
     let pool = deadpool_redis::Config::from_url(addr)
         .builder()
         .map_err(conn_err)?
@@ -87,7 +123,7 @@ async fn connect_pool(addr: &str, max_size: usize) -> Result<deadpool_redis::Poo
         .build()
         .map_err(conn_err)?;
     let mut conn = pool.get().await.map_err(conn_err)?;
-    conn.set_response_timeout(RESPONSE_TIMEOUT);
+    conn.set_response_timeout(response_timeout);
     redis::cmd("PING").query_async::<String>(&mut conn).await.map_err(conn_err)?;
     Ok(pool)
 }
@@ -185,5 +221,12 @@ mod tests {
         let value = [0xff, 0x00, 0x10];
         let bytes = packed(&set_cmd("k", &value, None));
         assert!(bytes.windows(value.len()).any(|w| w == value), "{bytes:?}");
+    }
+
+    #[test]
+    fn default_options_are_sixteen_connections_and_thirty_seconds() {
+        let options = RedisOptions::default();
+        assert_eq!(options.max_size, 16);
+        assert_eq!(options.response_timeout, RESPONSE_TIMEOUT);
     }
 }

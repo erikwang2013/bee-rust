@@ -13,7 +13,7 @@ pub use memcache_cache::MemcacheCache;
 #[cfg(feature = "redis")]
 mod redis_cache;
 #[cfg(feature = "redis")]
-pub use redis_cache::RedisCache;
+pub use redis_cache::{RedisCache, RedisOptions};
 
 #[derive(Debug, thiserror::Error)]
 pub enum CacheError {

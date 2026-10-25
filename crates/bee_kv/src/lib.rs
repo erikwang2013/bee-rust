@@ -20,7 +20,7 @@ pub use redis_lock::{LockGuard, RedisLock};
 #[cfg(feature = "redis")]
 mod redis_store;
 #[cfg(feature = "redis")]
-pub use redis_store::RedisStore;
+pub use redis_store::{RedisOptions, RedisStore};
 
 /// Errors that can occur when interacting with a key-value store.
 #[derive(Error, Debug)]

@@ -129,7 +129,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mysql: ["8.0", "8.4", "9"]
+        mysql: ["5.7", "8.0", "8.4", "9"]
     services:
       mysql:
         image: mysql:${{ matrix.mysql }}
@@ -152,6 +152,38 @@ jobs:
           toolchain: stable
 
       - name: MySQL integration tests (DSN-gated)
+        run: cargo test -p bee_orm --features mysql,chrono,rust_decimal
+
+  integration-mariadb:
+    name: Integration (mariadb ${{ matrix.mariadb }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        mariadb: ["10.11"]
+    services:
+      mariadb:
+        image: mariadb:${{ matrix.mariadb }}
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: bee_test
+        ports:
+          - "3306:3306"
+        options: >-
+          --health-cmd "mariadb-admin ping -h 127.0.0.1 -proot"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+          --health-start-period 30s
+    env:
+      BEE_ORM_MYSQL_DSN: mysql://root:root@127.0.0.1:3306/bee_test
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: stable
+
+      - name: MariaDB integration tests (DSN-gated)
         run: cargo test -p bee_orm --features mysql,chrono,rust_decimal
 
   audit:

@@ -3,6 +3,7 @@
 //! timestamps, soft delete, hooks, `insert_many`.
 
 use super::*;
+use async_trait::async_trait;
 
 #[tokio::test]
 async fn insert_without_timestamps_stays_plain() {
@@ -256,4 +257,120 @@ async fn create_reads_the_assigned_pk_and_column_defaults_back() {
     assert_eq!((saved.id, saved.name.as_str(), saved.tag.as_str()), (1, "a", "d"));
     let again = Tick { id: 0, name: "b".into(), tag: String::new() }.create(&pool).await.unwrap();
     assert_eq!(again.id, 2);
+}
+
+/// Records the `auto_increment` hint `create` hands the backend.
+#[derive(Clone, Default)]
+struct HintMock {
+    hints: std::sync::Arc<std::sync::Mutex<Vec<Option<bool>>>>,
+}
+
+#[async_trait]
+impl Db for HintMock {
+    async fn query(&self, _sql: &str, _params: &[Value]) -> Result<Vec<Row>> {
+        Ok(vec![row_of(&[("id", serde_json::json!(1)), ("name", serde_json::json!("a"))])])
+    }
+
+    async fn execute(&self, _sql: &str, _params: &[Value]) -> Result<u64> {
+        Ok(1)
+    }
+
+    async fn insert_returning_auto(
+        &self,
+        _table: &str,
+        _pk_column: &str,
+        auto_increment: Option<bool>,
+        _sql: &str,
+        _params: &[Value],
+    ) -> Result<Option<Row>> {
+        self.hints.lock().unwrap().push(auto_increment);
+        Ok(None)
+    }
+}
+
+/// The shape the derive emits for `#[bee(pk, auto)]`: the pk is the only
+/// column and it is database-assigned.
+struct AutoPk {
+    id: i64,
+}
+
+impl Model for AutoPk {
+    fn table_name() -> &'static str {
+        "auto_pks"
+    }
+    fn pk_column() -> &'static str {
+        "id"
+    }
+    fn from_row(row: &Row) -> Result<Self> {
+        Ok(Self { id: row.get("id").and_then(serde_json::Value::as_i64).unwrap_or_default() })
+    }
+    fn insert_values(&self) -> Vec<(&'static str, Value)> {
+        vec![("name", Value::Text("a".into()))]
+    }
+    fn pk_value(&self) -> Value {
+        Value::Int(self.id)
+    }
+    fn update_values(&self) -> Vec<(&'static str, Value)> {
+        vec![]
+    }
+    fn columns() -> &'static [ColumnDef] {
+        &[ColumnDef {
+            name: "id",
+            sql: SqlType::BigInt,
+            nullable: false,
+            primary_key: true,
+            auto_increment: true,
+            default: None,
+            references: None,
+        }]
+    }
+}
+
+/// A pk the client assigns, omitted from `insert_values` so `create` still
+/// takes the returning path — with `false` as the hint.
+struct ClientPk {
+    id: i64,
+}
+
+impl Model for ClientPk {
+    fn table_name() -> &'static str {
+        "client_pks"
+    }
+    fn pk_column() -> &'static str {
+        "id"
+    }
+    fn from_row(row: &Row) -> Result<Self> {
+        Ok(Self { id: row.get("id").and_then(serde_json::Value::as_i64).unwrap_or_default() })
+    }
+    fn insert_values(&self) -> Vec<(&'static str, Value)> {
+        vec![("name", Value::Text("a".into()))]
+    }
+    fn pk_value(&self) -> Value {
+        Value::Int(self.id)
+    }
+    fn update_values(&self) -> Vec<(&'static str, Value)> {
+        vec![]
+    }
+    fn columns() -> &'static [ColumnDef] {
+        &[ColumnDef {
+            name: "id",
+            sql: SqlType::BigInt,
+            nullable: false,
+            primary_key: true,
+            auto_increment: false,
+            default: None,
+            references: None,
+        }]
+    }
+}
+
+#[tokio::test]
+async fn create_passes_the_auto_increment_hint_from_columns_metadata() {
+    let db = HintMock::default();
+    AutoPk { id: 0 }.create(&db).await.unwrap();
+    ClientPk { id: 0 }.create(&db).await.unwrap();
+    // `Tick` has no `columns()` (the hand-written-impl shape): no hint, so the
+    // backend keeps its catalog probe.
+    Tick { id: 0, name: "a".into(), tag: String::new() }.create(&db).await.unwrap();
+    assert_eq!(*db.hints.lock().unwrap(), vec![Some(true), Some(false), None]);
 }

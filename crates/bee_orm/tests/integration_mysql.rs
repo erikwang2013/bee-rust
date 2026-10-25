@@ -2,7 +2,7 @@
 #![cfg(feature = "mysql")]
 //! MySQL integration tests against a real server. Each test is a no-op (with a
 //! skip notice) unless `BEE_ORM_MYSQL_DSN` is set; CI sets it against the
-//! MySQL 8.0 / 8.4 / 9 matrix service containers.
+//! MySQL 5.7 / 8.0 / 8.4 / 9 and MariaDB 10.11 service containers.
 mod common;
 
 use bee_orm::pool::mysql::Pool;
@@ -227,7 +227,10 @@ async fn json_columns_round_trip_object_scalar_and_null() -> Result<(), OrmError
             &[],
         )
         .await?;
-    assert_eq!(rows[0]["ty"], "json", "serde_json::Value renders JSON on mysql");
+    // MariaDB's JSON is a LONGTEXT alias with a json_valid CHECK.
+    let (_, is_mariadb) = common::mysql_vendor(&pool).await?;
+    let expected = if is_mariadb { "longtext" } else { "json" };
+    assert_eq!(rows[0]["ty"], expected, "serde_json::Value renders JSON on mysql");
 
     let object = json!({ "k": [1, true, "x"] });
     MyDoc { id: 0, payload: object.clone(), extra: Some(json!(null)) }.insert(&pool).await?;

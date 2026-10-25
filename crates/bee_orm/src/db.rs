@@ -57,4 +57,35 @@ pub trait Db: Send + Sync {
         self.execute(sql, params).await?;
         Ok(None)
     }
+
+    /// [`insert_returning`](Db::insert_returning) with the model's hint of
+    /// whether the primary key is assigned by the database.
+    ///
+    /// `auto_increment` is [`ColumnDef::auto_increment`](crate::ColumnDef) for
+    /// the pk column, read from [`Model::columns`](crate::Model::columns) — a
+    /// static metadata hint, not a schema query. `None` means the model carries
+    /// no metadata (a hand-written impl), and the backend should probe as
+    /// before. A backend whose read-back depends on it (MySQL's
+    /// `LAST_INSERT_ID()` is only meaningful for an `AUTO_INCREMENT` column)
+    /// uses it to skip probing the catalog; the default ignores it and forwards
+    /// to `insert_returning`.
+    ///
+    /// # Schema drift
+    ///
+    /// The hint is trusted: [`Model::columns`](crate::Model::columns) must
+    /// match the physical schema. A table whose pk is (or is not)
+    /// `AUTO_INCREMENT` while the metadata says otherwise is unsupported; a
+    /// backend that skips the catalog probe may then return a stale row or
+    /// fall back to the pk select.
+    async fn insert_returning_auto(
+        &self,
+        table: &str,
+        pk_column: &str,
+        auto_increment: Option<bool>,
+        sql: &str,
+        params: &[Value],
+    ) -> Result<Option<Row>> {
+        let _ = auto_increment;
+        self.insert_returning(table, pk_column, sql, params).await
+    }
 }

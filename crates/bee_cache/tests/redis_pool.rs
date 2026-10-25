@@ -9,8 +9,9 @@
 #![cfg(feature = "redis")]
 
 use std::sync::Arc;
+use std::time::Duration;
 
-use bee_cache::{Cache, RedisCache};
+use bee_cache::{Cache, RedisCache, RedisOptions};
 
 #[tokio::test]
 async fn concurrent_gets_with_a_small_pool_all_succeed() {
@@ -30,5 +31,20 @@ async fn concurrent_gets_with_a_small_pool_all_succeed() {
     while let Some(result) = set.join_next().await {
         assert_eq!(result.unwrap().unwrap().as_deref(), Some(b"ok".as_slice()));
     }
+    cache.delete(&key).await.unwrap();
+}
+
+#[tokio::test]
+async fn with_options_serves_commands_and_reports_status() {
+    let Some(dsn) = std::env::var("BEE_KV_REDIS_DSN").ok().filter(|s| !s.is_empty()) else {
+        return;
+    };
+    let options = RedisOptions { max_size: 1, response_timeout: Duration::from_secs(5) };
+    let cache = RedisCache::with_options(&dsn, options).await.unwrap();
+    let key = format!("bee_cache:pool:options:{}", std::process::id());
+
+    cache.set(&key, b"ok".to_vec(), None).await.unwrap();
+    assert_eq!(cache.get(&key).await.unwrap().as_deref(), Some(b"ok".as_slice()));
+    assert_eq!(cache.status().max_size, 1);
     cache.delete(&key).await.unwrap();
 }

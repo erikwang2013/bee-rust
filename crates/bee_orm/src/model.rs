@@ -312,7 +312,18 @@ pub trait Model: Send + Sync + 'static {
             db.execute(&sql, &params).await?;
             None
         } else {
-            db.insert_returning(&table, Self::pk_column(), &sql, &params).await?
+            // `None`: a hand-written impl without schema metadata — the backend
+            // probes as before instead of acting on a guessed `false`. A `Some`
+            // hint is trusted, not checked: `columns()` must match the physical
+            // schema, since drift is unsupported.
+            let columns = Self::columns();
+            let auto_increment = if columns.is_empty() {
+                None
+            } else {
+                Some(columns.iter().any(|column| column.primary_key && column.auto_increment))
+            };
+            db.insert_returning_auto(&table, Self::pk_column(), auto_increment, &sql, &params)
+                .await?
         };
         let row = match row {
             Some(row) => row,

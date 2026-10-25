@@ -3,7 +3,7 @@
 //! Key-required sharding against a real MySQL server: two table shards inside
 //! one database, and the same logical table split across two databases. Each
 //! test is a no-op (with a skip notice) unless `BEE_ORM_MYSQL_DSN` is set; CI
-//! sets it against the MySQL 8.0 / 8.4 / 9 matrix.
+//! sets it against the MySQL 5.7 / 8.0 / 8.4 / 9 matrix and MariaDB 10.11.
 mod common;
 
 use std::sync::Arc;

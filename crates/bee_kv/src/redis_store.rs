@@ -6,9 +6,26 @@ use deadpool_redis::{Runtime, Timeouts};
 
 use crate::{KvError, KvStore};
 
-/// Upper bound on one command's round trip, so a server that accepts TCP but
-/// never replies surfaces as an error instead of hanging the caller.
+/// Default upper bound on one command's round trip, so a server that accepts
+/// TCP but never replies surfaces as an error instead of hanging the caller.
 const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Construction options for [`RedisStore`].
+#[cfg(feature = "redis")]
+#[derive(Debug, Clone, Copy)]
+pub struct RedisOptions {
+    /// Maximum pooled connections. Values below 1 are clamped to 1.
+    pub max_size: usize,
+    /// Upper bound on one command's round trip.
+    pub response_timeout: Duration,
+}
+
+#[cfg(feature = "redis")]
+impl Default for RedisOptions {
+    fn default() -> Self {
+        Self { max_size: 16, response_timeout: RESPONSE_TIMEOUT }
+    }
+}
 
 /// A [`KvStore`] backed by a pool of Redis connections.
 ///
@@ -19,52 +36,71 @@ const RESPONSE_TIMEOUT: Duration = Duration::from_secs(30);
 /// restart or a dropped socket needs no action from the caller. The *command*
 /// that runs into the break fails with a [`KvError`], and the *next* one
 /// succeeds on a fresh connection. There is no background health-check
-/// thread. Every command's reply is bounded at 30 seconds, and a checkout that
-/// waits on an exhausted pool is bounded too: a checkout failure is
+/// thread. Every command's reply is bounded at the configured response
+/// timeout (30 seconds by default); a checkout that waits on an exhausted
+/// pool has its own fixed 30-second wait. A checkout failure is
 /// [`KvError::ConnectionError`], while a command that hits its bound is
 /// [`KvError::OperationFailed`].
 #[cfg(feature = "redis")]
 pub struct RedisStore {
     pool: deadpool_redis::Pool,
+    response_timeout: Duration,
 }
 
 #[cfg(feature = "redis")]
 impl RedisStore {
     /// Create a new `RedisStore` by connecting to the given `addr` (e.g.
-    /// `"redis://127.0.0.1:6379"`) with at most 16 pooled connections.
+    /// `"redis://127.0.0.1:6379"`) with [`RedisOptions::default`].
     ///
     /// Connects eagerly: a bad address fails here rather than on the first
     /// command.
     pub async fn new(addr: &str) -> Result<Self, KvError> {
-        Self::with_pool_size(addr, 16).await
+        Self::with_options(addr, RedisOptions::default()).await
     }
 
     /// Create a new `RedisStore` with a pool of at most `max_size`
-    /// connections. Values below 1 are clamped to 1.
+    /// connections and the default response timeout. Values below 1 are
+    /// clamped to 1.
     ///
     /// Connects eagerly, like [`RedisStore::new`].
     pub async fn with_pool_size(addr: &str, max_size: usize) -> Result<Self, KvError> {
-        Ok(Self { pool: connect_pool(addr, max_size).await? })
+        Self::with_options(addr, RedisOptions { max_size, ..RedisOptions::default() }).await
     }
 
-    /// A lock sharing this store's connection pool.
+    /// Create a new `RedisStore` with explicit [`RedisOptions`].
+    ///
+    /// Connects eagerly, like [`RedisStore::new`].
+    pub async fn with_options(addr: &str, options: RedisOptions) -> Result<Self, KvError> {
+        let pool = connect_pool(addr, options.max_size, options.response_timeout).await?;
+        Ok(Self { pool, response_timeout: options.response_timeout })
+    }
+
+    /// Current pool metrics: `max_size`, open `size`, idle `available`
+    /// connections, and futures `waiting` for one. A snapshot, not a
+    /// consistent view under load.
+    pub fn status(&self) -> deadpool_redis::Status {
+        self.pool.status()
+    }
+
+    /// A lock sharing this store's connection pool and response timeout.
     pub fn lock(&self) -> crate::RedisLock {
-        crate::RedisLock::from_pool(self.pool.clone())
+        crate::RedisLock::from_pool(self.pool.clone(), self.response_timeout)
     }
 
-    /// Check out a pooled connection, bounding every reply at
-    /// [`RESPONSE_TIMEOUT`].
+    /// Check out a pooled connection, bounding every reply at the configured
+    /// response timeout.
     async fn checkout(&self) -> Result<deadpool_redis::Connection, KvError> {
-        checkout_pool(&self.pool).await
+        checkout_pool(&self.pool, self.response_timeout).await
     }
 }
 
-/// Check out a pooled connection, bounding every reply at [`RESPONSE_TIMEOUT`].
+/// Check out a pooled connection, bounding every reply at `response_timeout`.
 pub(crate) async fn checkout_pool(
     pool: &deadpool_redis::Pool,
+    response_timeout: Duration,
 ) -> Result<deadpool_redis::Connection, KvError> {
     let mut conn = pool.get().await.map_err(conn_err)?;
-    conn.set_response_timeout(RESPONSE_TIMEOUT);
+    conn.set_response_timeout(response_timeout);
     Ok(conn)
 }
 
@@ -73,6 +109,7 @@ pub(crate) async fn checkout_pool(
 pub(crate) async fn connect_pool(
     addr: &str,
     max_size: usize,
+    response_timeout: Duration,
 ) -> Result<deadpool_redis::Pool, KvError> {
     let pool = deadpool_redis::Config::from_url(addr)
         .builder()
@@ -87,7 +124,7 @@ pub(crate) async fn connect_pool(
         .build()
         .map_err(conn_err)?;
     let mut conn = pool.get().await.map_err(conn_err)?;
-    conn.set_response_timeout(RESPONSE_TIMEOUT);
+    conn.set_response_timeout(response_timeout);
     redis::cmd("PING").query_async::<String>(&mut conn).await.map_err(conn_err)?;
     Ok(pool)
 }
@@ -190,5 +227,12 @@ mod tests {
     fn packed_command_contains_key() {
         let cmd = packed(&incr_cmd("page/1", 1));
         assert!(cmd.contains("$6\r\npage/1\r\n"), "{cmd}");
+    }
+
+    #[test]
+    fn default_options_are_sixteen_connections_and_thirty_seconds() {
+        let options = RedisOptions::default();
+        assert_eq!(options.max_size, 16);
+        assert_eq!(options.response_timeout, RESPONSE_TIMEOUT);
     }
 }

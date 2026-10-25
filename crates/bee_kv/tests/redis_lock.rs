@@ -85,3 +85,49 @@ async fn releasing_an_expired_guard_returns_false() {
     tokio::time::sleep(Duration::from_millis(300)).await;
     assert!(!guard.release().await.unwrap());
 }
+
+#[tokio::test]
+async fn watchdog_renews_past_the_original_ttl() {
+    let Some(dsn) = std::env::var("BEE_KV_REDIS_DSN").ok().filter(|s| !s.is_empty()) else {
+        return;
+    };
+    let lock = RedisLock::connect(&dsn).await.unwrap();
+    let k = key("watchdog-renew");
+
+    let guard = lock.try_lock_with_watchdog(&k, Duration::from_millis(300)).await.unwrap().unwrap();
+    tokio::time::sleep(Duration::from_millis(800)).await;
+    assert!(lock.try_lock(&k, Duration::from_secs(5)).await.unwrap().is_none());
+    assert!(guard.release().await.unwrap());
+}
+
+#[tokio::test]
+async fn release_stops_the_watchdog() {
+    let Some(dsn) = std::env::var("BEE_KV_REDIS_DSN").ok().filter(|s| !s.is_empty()) else {
+        return;
+    };
+    let lock = RedisLock::connect(&dsn).await.unwrap();
+    let k = key("watchdog-release");
+
+    let guard = lock.try_lock_with_watchdog(&k, Duration::from_millis(300)).await.unwrap().unwrap();
+    assert!(guard.release().await.unwrap());
+
+    let successor = lock.try_lock(&k, Duration::from_secs(5)).await.unwrap().unwrap();
+    tokio::time::sleep(Duration::from_millis(800)).await;
+    assert!(lock.try_lock(&k, Duration::from_secs(5)).await.unwrap().is_none());
+    assert!(successor.release().await.unwrap());
+}
+
+#[tokio::test]
+async fn dropping_the_guard_stops_the_watchdog() {
+    let Some(dsn) = std::env::var("BEE_KV_REDIS_DSN").ok().filter(|s| !s.is_empty()) else {
+        return;
+    };
+    let lock = RedisLock::connect(&dsn).await.unwrap();
+    let k = key("watchdog-drop");
+
+    let guard = lock.try_lock_with_watchdog(&k, Duration::from_millis(300)).await.unwrap().unwrap();
+    drop(guard);
+    tokio::time::sleep(Duration::from_millis(800)).await;
+    let guard = lock.try_lock(&k, Duration::from_secs(5)).await.unwrap().unwrap();
+    assert!(guard.release().await.unwrap());
+}

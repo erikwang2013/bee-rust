@@ -2,63 +2,102 @@
 //! A distributed mutual-exclusion lock on Redis.
 //!
 //! [`RedisLock::try_lock`] is one `SET NX PX`, so at most one caller holds a
-//! key. There is no watchdog or TTL renewal, no reentrancy, and no blocking
-//! wait: a lost race returns `None` immediately. The TTL is the safety net —
-//! a guard whose owner dies is reclaimed when it runs out, which is also why
-//! [`LockGuard::release`] is best-effort. Release explicitly to free the key
-//! early; dropping a guard does not release it.
+//! key; [`RedisLock::try_lock_with_watchdog`] additionally renews the TTL in
+//! the background until the guard is released or dropped. Neither is
+//! reentrant and neither blocks: a lost race returns `None` immediately. The
+//! TTL is the safety net — a guard whose process dies is reclaimed when it
+//! runs out, which is also why [`LockGuard::release`] is best-effort. Release
+//! explicitly to free the key early; dropping a guard does not release it.
 //!
-//! Every command is bounded at 30 seconds by the same pooled checkout that
-//! [`crate::RedisStore`] uses.
+//! Every command is bounded by the configured response timeout (30 seconds by
+//! default) on the same pooled checkout that [`crate::RedisStore`] uses.
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::KvError;
-use crate::redis_store::{checkout_pool, connect_pool, op_err};
+use crate::redis_store::{RedisOptions, checkout_pool, connect_pool, op_err};
 
 static COUNTER: AtomicU64 = AtomicU64::new(0);
 
 /// A Redis-backed lock, one key per [`RedisLock::try_lock`] call.
 pub struct RedisLock {
     pool: deadpool_redis::Pool,
+    response_timeout: Duration,
 }
 
 impl RedisLock {
-    /// Connect to `addr` (e.g. `"redis://127.0.0.1:6379"`) with at most 16
-    /// pooled connections.
+    /// Connect to `addr` (e.g. `"redis://127.0.0.1:6379"`) with
+    /// [`RedisOptions::default`].
     ///
     /// Connects eagerly, like [`crate::RedisStore::new`].
     pub async fn connect(addr: &str) -> Result<Self, KvError> {
-        Self::with_pool_size(addr, 16).await
+        Self::with_options(addr, RedisOptions::default()).await
     }
 
-    /// Connect to `addr` with a pool of at most `max_size` connections.
-    /// Values below 1 are clamped to 1.
+    /// Connect to `addr` with a pool of at most `max_size` connections and the
+    /// default response timeout. Values below 1 are clamped to 1.
     pub async fn with_pool_size(addr: &str, max_size: usize) -> Result<Self, KvError> {
-        Ok(Self { pool: connect_pool(addr, max_size).await? })
+        Self::with_options(addr, RedisOptions { max_size, ..RedisOptions::default() }).await
     }
 
-    pub(crate) fn from_pool(pool: deadpool_redis::Pool) -> Self {
-        Self { pool }
+    /// Connect to `addr` with explicit [`RedisOptions`].
+    ///
+    /// Connects eagerly, like [`RedisLock::connect`].
+    pub async fn with_options(addr: &str, options: RedisOptions) -> Result<Self, KvError> {
+        let pool = connect_pool(addr, options.max_size, options.response_timeout).await?;
+        Ok(Self { pool, response_timeout: options.response_timeout })
+    }
+
+    pub(crate) fn from_pool(pool: deadpool_redis::Pool, response_timeout: Duration) -> Self {
+        Self { pool, response_timeout }
     }
 
     /// Try to take the lock at `key` for `ttl`, returning `None` when another
-    /// caller holds it. Never waits.
+    /// caller holds it. Never waits, and the TTL is not renewed.
     ///
     /// An empty `key` or a `ttl` below 1 ms is rejected with
     /// [`KvError::OperationFailed`].
     pub async fn try_lock(&self, key: &str, ttl: Duration) -> Result<Option<LockGuard>, KvError> {
+        self.acquire(key, ttl, false).await
+    }
+
+    /// Like [`RedisLock::try_lock`], but a background task renews the TTL
+    /// every `ttl / 3` (at least 10 ms) until the guard is released or
+    /// dropped. Renewal stops as soon as the key is gone, holds a different
+    /// token, or a renewal command fails.
+    ///
+    /// A `ttl` below 30 ms is rejected with [`KvError::OperationFailed`]: the
+    /// 10 ms renewal floor could not renew it before it expired.
+    ///
+    /// If the process dies, renewal dies with it and the TTL reclaims the key.
+    pub async fn try_lock_with_watchdog(
+        &self,
+        key: &str,
+        ttl: Duration,
+    ) -> Result<Option<LockGuard>, KvError> {
+        self.acquire(key, ttl, true).await
+    }
+
+    async fn acquire(
+        &self,
+        key: &str,
+        ttl: Duration,
+        watchdog: bool,
+    ) -> Result<Option<LockGuard>, KvError> {
         let ttl_ms = ttl.as_millis();
         if key.is_empty() || ttl_ms == 0 {
             return Err(KvError::OperationFailed(
                 "lock: key must be non-empty and ttl at least 1ms".into(),
             ));
         }
+        if watchdog && ttl < Duration::from_millis(30) {
+            return Err(KvError::OperationFailed("lock: watchdog requires ttl >= 30ms".into()));
+        }
         let ttl_ms = i64::try_from(ttl_ms).unwrap_or(i64::MAX);
         let token = new_token();
 
-        let mut conn = checkout_pool(&self.pool).await?;
+        let mut conn = checkout_pool(&self.pool, self.response_timeout).await?;
         let acquired = redis::cmd("SET")
             .arg(key)
             .arg(&token)
@@ -68,27 +107,84 @@ impl RedisLock {
             .query_async::<Option<String>>(&mut conn)
             .await
             .map_err(op_err)?;
+        if acquired.is_none() {
+            return Ok(None);
+        }
 
-        Ok(acquired.map(|_| LockGuard { pool: self.pool.clone(), key: key.to_owned(), token }))
+        let mut guard = LockGuard {
+            pool: self.pool.clone(),
+            key: key.to_owned(),
+            token,
+            response_timeout: self.response_timeout,
+            renewal: None,
+        };
+        if watchdog {
+            guard.renewal = Some(tokio::spawn(renew_loop(
+                guard.pool.clone(),
+                guard.key.clone(),
+                guard.token.clone(),
+                ttl,
+                self.response_timeout,
+            )));
+        }
+        Ok(Some(guard))
+    }
+}
+
+/// Extend `key`'s TTL every `ttl / 3` while it still holds `token`; a lost key
+/// or a failed command ends the loop for good.
+async fn renew_loop(
+    pool: deadpool_redis::Pool,
+    key: String,
+    token: String,
+    ttl: Duration,
+    response_timeout: Duration,
+) {
+    const LUA: &str = r#"
+if redis.call("GET", KEYS[1]) == ARGV[1] then
+    return redis.call("PEXPIRE", KEYS[1], ARGV[2])
+else
+    return 0
+end
+"#;
+    let ttl_ms = i64::try_from(ttl.as_millis()).unwrap_or(i64::MAX);
+    let interval = (ttl / 3).max(Duration::from_millis(10));
+    loop {
+        tokio::time::sleep(interval).await;
+        let Ok(mut conn) = checkout_pool(&pool, response_timeout).await else {
+            return;
+        };
+        let renewed = redis::Script::new(LUA)
+            .key(&key)
+            .arg(&token)
+            .arg(ttl_ms)
+            .invoke_async::<i64>(&mut conn)
+            .await;
+        if !matches!(renewed, Ok(1)) {
+            return;
+        }
     }
 }
 
 /// A held lock.
 ///
 /// Call [`LockGuard::release`] to free the key early. Dropping the guard does
-/// not release it — the TTL reclaims the key instead.
+/// not release it — any watchdog renewal stops, but the key stays until its
+/// TTL runs out.
 pub struct LockGuard {
     pool: deadpool_redis::Pool,
     key: String,
     token: String,
+    response_timeout: Duration,
+    renewal: Option<tokio::task::JoinHandle<()>>,
 }
 
 impl LockGuard {
     /// Delete the key only if it still holds this guard's token.
     ///
     /// Returns `false` when the TTL already expired and the lock was lost,
-    /// `true` when this call freed it. Consumes the guard, so a lock cannot be
-    /// released twice.
+    /// `true` when this call freed it. Stops the watchdog first. Consumes the
+    /// guard, so a lock cannot be released twice.
     pub async fn release(self) -> Result<bool, KvError> {
         const LUA: &str = r#"
 if redis.call("GET", KEYS[1]) == ARGV[1] then
@@ -97,7 +193,10 @@ else
     return 0
 end
 "#;
-        let mut conn = checkout_pool(&self.pool).await?;
+        if let Some(renewal) = &self.renewal {
+            renewal.abort();
+        }
+        let mut conn = checkout_pool(&self.pool, self.response_timeout).await?;
         let deleted: i64 = redis::Script::new(LUA)
             .key(&self.key)
             .arg(&self.token)
@@ -105,6 +204,14 @@ end
             .await
             .map_err(op_err)?;
         Ok(deleted != 0)
+    }
+}
+
+impl Drop for LockGuard {
+    fn drop(&mut self) {
+        if let Some(renewal) = &self.renewal {
+            renewal.abort();
+        }
     }
 }
 
@@ -128,7 +235,7 @@ mod tests {
             .runtime(deadpool_redis::Runtime::Tokio1)
             .build()
             .unwrap();
-        RedisLock::from_pool(pool)
+        RedisLock::from_pool(pool, RedisOptions::default().response_timeout)
     }
 
     #[tokio::test]
@@ -140,5 +247,23 @@ mod tests {
             };
             assert!(matches!(err, KvError::OperationFailed(_)), "{err:?}");
         }
+    }
+
+    #[tokio::test]
+    async fn watchdog_rejects_a_ttl_below_thirty_milliseconds_before_checkout() {
+        let lock = offline_lock();
+        for ttl in [Duration::from_millis(10), Duration::from_millis(29)] {
+            let Err(err) = lock.try_lock_with_watchdog("k", ttl).await else {
+                panic!("expected an error for watchdog ttl {ttl:?}");
+            };
+            assert!(matches!(err, KvError::OperationFailed(_)), "{err:?}");
+        }
+
+        // 30 ms passes validation and reaches the (unreachable) checkout.
+        let err = match lock.try_lock_with_watchdog("k", Duration::from_millis(30)).await {
+            Err(err) => err,
+            Ok(_) => panic!("expected a checkout failure for a 30 ms watchdog ttl"),
+        };
+        assert!(matches!(err, KvError::ConnectionError(_)), "{err:?}");
     }
 }

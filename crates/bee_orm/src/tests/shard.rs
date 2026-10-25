@@ -110,6 +110,27 @@ async fn sync_all_creates_every_physical_table_in_every_pool() {
 }
 
 #[test]
+fn pool_accessors_expose_the_configured_pools() {
+    let shards = ShardedPools::new(
+        vec![Mock::with_dialect(Dialect::Mysql), Mock::with_dialect(Dialect::Sqlite)],
+        Arc::new(HashRouter::new(2, 1).unwrap()),
+    )
+    .unwrap();
+
+    let pools = shards.pools();
+    assert_eq!(pools.len(), 2);
+    assert_eq!(pools[0].dialect(), Some(Dialect::Mysql));
+    assert_eq!(pools[1].dialect(), Some(Dialect::Sqlite));
+
+    assert_eq!(shards.pool(0).unwrap().dialect(), Some(Dialect::Mysql));
+    assert_eq!(shards.pool(1).unwrap().dialect(), Some(Dialect::Sqlite));
+    assert!(shards.pool(2).is_none());
+
+    assert_eq!(shards.len(), 2);
+    assert!(!shards.is_empty());
+}
+
+#[test]
 fn sharded_pools_rejects_pool_count_mismatch() {
     let result = ShardedPools::new(vec![Mock::default()], Arc::new(HashRouter::new(2, 1).unwrap()));
     assert!(result.is_err());
@@ -218,6 +239,46 @@ async fn insert_returning_delegates_to_the_selected_pool() {
     let handle = shards.for_key(Value::Int(1)).unwrap();
     let row = Db::insert_returning(&handle, "users", "id", "INSERT ...", &[]).await.unwrap();
     assert!(row.is_some());
+}
+
+#[derive(Clone, Default)]
+struct AutoHintDb {
+    hint: std::sync::Arc<std::sync::Mutex<Option<Option<bool>>>>,
+}
+
+#[async_trait]
+impl Db for AutoHintDb {
+    async fn query(&self, _: &str, _: &[Value]) -> Result<Vec<Row>> {
+        Ok(Vec::new())
+    }
+    async fn execute(&self, _: &str, _: &[Value]) -> Result<u64> {
+        Ok(1)
+    }
+    async fn insert_returning_auto(
+        &self,
+        _: &str,
+        _: &str,
+        auto_increment: Option<bool>,
+        _: &str,
+        _: &[Value],
+    ) -> Result<Option<Row>> {
+        *self.hint.lock().unwrap() = Some(auto_increment);
+        Ok(Some(row_of(&[("id", serde_json::json!(1))])))
+    }
+}
+
+#[tokio::test]
+async fn insert_returning_auto_forwards_the_hint_to_the_selected_pool() {
+    let db = AutoHintDb::default();
+    let probe = db.clone();
+    let shards = ShardedPools::new(vec![db], Arc::new(HashRouter::new(1, 1).unwrap())).unwrap();
+    let handle = shards.for_key(Value::Int(1)).unwrap();
+
+    let row = Db::insert_returning_auto(&handle, "users", "id", Some(true), "INSERT ...", &[])
+        .await
+        .unwrap();
+    assert!(row.is_some());
+    assert_eq!(*probe.hint.lock().unwrap(), Some(Some(true)));
 }
 
 #[tokio::test]

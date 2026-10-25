@@ -125,13 +125,56 @@ impl Db for Pool {
         if found == 0 {
             return Ok(None);
         }
-        let rows = conn.query("SELECT LAST_INSERT_ID() AS id", &[]).await?;
-        let Some(pk) = rows.first().and_then(|row| row.get("id")).and_then(Json::as_i64) else {
-            return Ok(None);
-        };
-        let select = format!("SELECT * FROM {table} WHERE {pk_column} = ? LIMIT 1");
-        Ok(conn.query(&select, &[Value::Int(pk)]).await?.into_iter().next())
+        read_back_auto(&mut conn, table, pk_column).await
     }
+
+    /// The fast path: the model's [`ColumnDef::auto_increment`] hint replaces
+    /// the `information_schema` probe. `Some(false)` means the server did not
+    /// assign the pk, so `LAST_INSERT_ID()` is stale and `create` selects by
+    /// pk; `None` (no model metadata) keeps the probe.
+    ///
+    /// # Schema drift
+    ///
+    /// `Some(true)` trusts the metadata and reads `LAST_INSERT_ID()` without a
+    /// catalog probe. A physical pk that is not `AUTO_INCREMENT`, or metadata
+    /// that disagrees with the table, is unsupported.
+    ///
+    /// [`ColumnDef::auto_increment`]: crate::ColumnDef::auto_increment
+    async fn insert_returning_auto(
+        &self,
+        table: &str,
+        pk_column: &str,
+        auto_increment: Option<bool>,
+        sql: &str,
+        params: &[Value],
+    ) -> Result<Option<Row>> {
+        match auto_increment {
+            None => self.insert_returning(table, pk_column, sql, params).await,
+            Some(false) => {
+                self.execute(sql, params).await?;
+                Ok(None)
+            }
+            Some(true) => {
+                let mut conn = self.get().await?;
+                conn.execute(sql, params).await?;
+                read_back_auto(&mut conn, table, pk_column).await
+            }
+        }
+    }
+}
+
+/// Read the row just inserted on `conn` back by `LAST_INSERT_ID()`.
+async fn read_back_auto(
+    conn: &mut CheckedConn,
+    table: &str,
+    pk_column: &str,
+) -> Result<Option<Row>> {
+    let rows = conn.query("SELECT LAST_INSERT_ID() AS id", &[]).await?;
+    let Some(pk) = rows.first().and_then(|row| row.get("id")).and_then(Json::as_i64) else {
+        return Ok(None);
+    };
+    let select = format!("SELECT * FROM {table} WHERE {pk_column} = ? LIMIT 1");
+    Ok(conn.query(&select, &[Value::Int(pk)]).await?.into_iter().next())
 }
 
 /// A checked-out MySQL connection, returned to the pool on drop.
