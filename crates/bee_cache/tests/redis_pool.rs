@@ -46,5 +46,9 @@ async fn with_options_serves_commands_and_reports_status() {
     cache.set(&key, b"ok".to_vec(), None).await.unwrap();
     assert_eq!(cache.get(&key).await.unwrap().as_deref(), Some(b"ok".as_slice()));
     assert_eq!(cache.status().max_size, 1);
+    let pool = cache.pool_status();
+    assert_eq!(pool.max_size, 1);
+    assert_eq!(pool.size, 1);
+    assert_eq!(pool.available, 1);
     cache.delete(&key).await.unwrap();
 }

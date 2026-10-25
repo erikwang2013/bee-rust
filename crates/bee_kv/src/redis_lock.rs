@@ -4,10 +4,12 @@
 //! [`RedisLock::try_lock`] is one `SET NX PX`, so at most one caller holds a
 //! key; [`RedisLock::try_lock_with_watchdog`] additionally renews the TTL in
 //! the background until the guard is released or dropped. Neither is
-//! reentrant and neither blocks: a lost race returns `None` immediately. The
-//! TTL is the safety net — a guard whose process dies is reclaimed when it
-//! runs out, which is also why [`LockGuard::release`] is best-effort. Release
-//! explicitly to free the key early; dropping a guard does not release it.
+//! reentrant and neither blocks: a lost race returns `None` immediately.
+//! [`RedisLock::acquire`] retries `try_lock` until a caller-chosen wait
+//! elapses. The TTL is the safety net — a guard whose process dies is
+//! reclaimed when it runs out, which is also why [`LockGuard::release`] is
+//! best-effort. Release explicitly to free the key early; dropping a guard
+//! does not release it.
 //!
 //! Every command is bounded by the configured response timeout (30 seconds by
 //! default) on the same pooled checkout that [`crate::RedisStore`] uses.
@@ -59,7 +61,41 @@ impl RedisLock {
     /// An empty `key` or a `ttl` below 1 ms is rejected with
     /// [`KvError::OperationFailed`].
     pub async fn try_lock(&self, key: &str, ttl: Duration) -> Result<Option<LockGuard>, KvError> {
-        self.acquire(key, ttl, false).await
+        self.try_acquire(key, ttl, false).await
+    }
+
+    /// Retry [`RedisLock::try_lock`] until the lock is free or `wait` elapses.
+    ///
+    /// Tries immediately, then at most every 50 ms, and returns `Ok(None)` once
+    /// `wait` is exhausted. A `wait` of zero is a single attempt, exactly like
+    /// [`RedisLock::try_lock`]. The deadline is checked before each retry, so
+    /// an attempt already in flight can finish up to one command timeout
+    /// (30 s by default) after it. The inputs are validated as `try_lock`
+    /// does; the TTL is not renewed while waiting.
+    pub async fn acquire(
+        &self,
+        key: &str,
+        ttl: Duration,
+        wait: Duration,
+    ) -> Result<Option<LockGuard>, KvError> {
+        const RETRY: Duration = Duration::from_millis(50);
+        // `None` means the wait is too large to represent; retrying forever is
+        // the closest honest meaning of such a wait.
+        let deadline = tokio::time::Instant::now().checked_add(wait);
+        loop {
+            if let Some(guard) = self.try_lock(key, ttl).await? {
+                return Ok(Some(guard));
+            }
+            let Some(deadline) = deadline else {
+                tokio::time::sleep(RETRY).await;
+                continue;
+            };
+            let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+            if remaining.is_zero() {
+                return Ok(None);
+            }
+            tokio::time::sleep(remaining.min(RETRY)).await;
+        }
     }
 
     /// Like [`RedisLock::try_lock`], but a background task renews the TTL
@@ -76,10 +112,10 @@ impl RedisLock {
         key: &str,
         ttl: Duration,
     ) -> Result<Option<LockGuard>, KvError> {
-        self.acquire(key, ttl, true).await
+        self.try_acquire(key, ttl, true).await
     }
 
-    async fn acquire(
+    async fn try_acquire(
         &self,
         key: &str,
         ttl: Duration,
@@ -263,6 +299,23 @@ mod tests {
         let err = match lock.try_lock_with_watchdog("k", Duration::from_millis(30)).await {
             Err(err) => err,
             Ok(_) => panic!("expected a checkout failure for a 30 ms watchdog ttl"),
+        };
+        assert!(matches!(err, KvError::ConnectionError(_)), "{err:?}");
+    }
+
+    #[tokio::test]
+    async fn acquire_validates_before_checkout_and_a_zero_wait_still_tries_once() {
+        let lock = offline_lock();
+        let Err(err) = lock.acquire("", Duration::from_secs(1), Duration::from_secs(1)).await
+        else {
+            panic!("expected a validation error");
+        };
+        assert!(matches!(err, KvError::OperationFailed(_)), "{err:?}");
+
+        // `wait == 0` still makes the first attempt, which reaches the
+        // unreachable checkout instead of returning `None` without connecting.
+        let Err(err) = lock.acquire("k", Duration::from_secs(1), Duration::ZERO).await else {
+            panic!("expected a checkout failure");
         };
         assert!(matches!(err, KvError::ConnectionError(_)), "{err:?}");
     }

@@ -79,7 +79,7 @@ async fn keyed_crud_stays_on_the_routed_shard() {
 #[tokio::test]
 async fn unsupported_key_is_an_error() {
     let (shards, _p0, _p1, _router) = setup().await;
-    assert!(matches!(shards.for_key(Value::Null), Err(OrmError::QueryError(_))));
+    assert!(matches!(shards.for_key(Value::Null), Err(OrmError::ShardError(_))));
 }
 
 #[tokio::test]

@@ -202,6 +202,22 @@ pub trait Model: Send + Sync + 'static {
     /// The primary key value addressing this instance.
     fn pk_value(&self) -> Value;
 
+    /// The sharding key for this instance, or `None` when the model declares
+    /// none.
+    ///
+    /// The derive returns `Some` for the field marked `#[bee(shard_key)]`;
+    /// that field's type must implement `Into<Value>` (the scalar column
+    /// spellings do; `Option<T>::None` converts to `Value::Null` and is
+    /// returned as `None`). The derive rejects database-assigned keys
+    /// (`auto` / `auto_now_add` / `auto_now`): routing happens before insert.
+    /// Hand-written impls return `None` unless they override it.
+    /// [`ShardedPools::for_model`] routes on this.
+    ///
+    /// [`ShardedPools::for_model`]: crate::ShardedPools::for_model
+    fn shard_key(&self) -> Option<Value> {
+        None
+    }
+
     /// Column/value pairs for `UPDATE` (skips the primary key).
     ///
     /// Must not list columns named by

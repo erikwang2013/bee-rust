@@ -45,6 +45,52 @@ async fn ttl_expires_the_lock() {
 }
 
 #[tokio::test]
+async fn acquire_waits_for_a_held_lock_and_then_succeeds() {
+    let Some(dsn) = std::env::var("BEE_KV_REDIS_DSN").ok().filter(|s| !s.is_empty()) else {
+        return;
+    };
+    let lock = RedisLock::connect(&dsn).await.unwrap();
+    let k = key("acquire-wait");
+    let held = lock.try_lock(&k, Duration::from_secs(5)).await.unwrap().unwrap();
+
+    // A separate connection, so the wait is real contention rather than local
+    // bookkeeping.
+    let waiting = {
+        let dsn = dsn.clone();
+        let k = k.clone();
+        tokio::spawn(async move {
+            let lock = RedisLock::connect(&dsn).await.unwrap();
+            lock.acquire(&k, Duration::from_secs(5), Duration::from_secs(2)).await
+        })
+    };
+    tokio::time::sleep(Duration::from_millis(150)).await;
+    assert!(!waiting.is_finished(), "acquire returned while the lock was held");
+
+    assert!(held.release().await.unwrap());
+    let guard = waiting.await.unwrap().unwrap().expect("acquire should win after release");
+    assert!(guard.release().await.unwrap());
+}
+
+#[tokio::test]
+async fn acquire_returns_none_when_the_wait_elapses() {
+    let Some(dsn) = std::env::var("BEE_KV_REDIS_DSN").ok().filter(|s| !s.is_empty()) else {
+        return;
+    };
+    let lock = RedisLock::connect(&dsn).await.unwrap();
+    let k = key("acquire-timeout");
+    let held = lock.try_lock(&k, Duration::from_secs(5)).await.unwrap().unwrap();
+
+    let start = std::time::Instant::now();
+    let result = lock.acquire(&k, Duration::from_secs(5), Duration::from_millis(150)).await;
+    let elapsed = start.elapsed();
+    assert!(result.unwrap().is_none(), "acquire should give up while the lock is held");
+    assert!(elapsed >= Duration::from_millis(140), "returned early: {elapsed:?}");
+    assert!(elapsed < Duration::from_secs(1), "wait overshot: {elapsed:?}");
+
+    assert!(held.release().await.unwrap());
+}
+
+#[tokio::test]
 async fn store_lock_shares_the_store_pool() {
     let Some(dsn) = std::env::var("BEE_KV_REDIS_DSN").ok().filter(|s| !s.is_empty()) else {
         return;

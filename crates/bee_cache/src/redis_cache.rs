@@ -7,6 +7,10 @@
 //! would split `set(value, ttl)` into `SET` + `EXPIRE` although a single atomic
 //! command exists, and would break `incr`, whose counter must stay a plain
 //! numeric string. Two small wrappers beat one lossy adapter.
+//!
+//! With the `redis-tls` feature, a `rediss://` URL connects over TLS, and
+//! `redis://user:pass@host` carries ACL credentials in the URL. Neither needs
+//! a different constructor.
 
 use std::time::Duration;
 
@@ -33,6 +37,20 @@ impl Default for RedisOptions {
     fn default() -> Self {
         Self { max_size: 16, response_timeout: RESPONSE_TIMEOUT }
     }
+}
+
+/// A snapshot of a [`RedisCache`] connection pool.
+///
+/// Counts are copied from `deadpool_redis::Status`; they are not a consistent
+/// view under load.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RedisPoolStatus {
+    /// Maximum pooled connections.
+    pub max_size: usize,
+    /// Connections currently open.
+    pub size: usize,
+    /// Idle connections ready to be handed out.
+    pub available: usize,
 }
 
 /// A [`Cache`] backed by a pool of Redis connections.
@@ -84,6 +102,12 @@ impl RedisCache {
     /// consistent view under load.
     pub fn status(&self) -> deadpool_redis::Status {
         self.pool.status()
+    }
+
+    /// A crate-owned snapshot of the pool: `max_size`, open `size`, and idle
+    /// `available` connections.
+    pub fn pool_status(&self) -> RedisPoolStatus {
+        to_pool_status(self.pool.status())
     }
 
     /// Check out a pooled connection, bounding every reply at the configured
@@ -165,7 +189,7 @@ impl Cache for RedisCache {
 
 /// `SET key value [EX seconds]` — one atomic command, so the value and its TTL
 /// can never be split across two round trips.
-fn set_cmd(key: &str, value: &[u8], ttl: Option<u64>) -> redis::Cmd {
+pub(crate) fn set_cmd(key: &str, value: &[u8], ttl: Option<u64>) -> redis::Cmd {
     let mut cmd = redis::cmd("SET");
     cmd.arg(key).arg(value);
     if let Some(ttl) = ttl {
@@ -176,19 +200,24 @@ fn set_cmd(key: &str, value: &[u8], ttl: Option<u64>) -> redis::Cmd {
 
 /// A pool failure — a bad URL, a refused connection, an exhausted or timed-out
 /// checkout — is always the connection.
-fn conn_err(e: impl std::fmt::Display) -> CacheError {
+pub(crate) fn conn_err(e: impl std::fmt::Display) -> CacheError {
     CacheError::ConnectionError(e.to_string())
 }
 
 /// A server-side refusal — `INCR` on a non-numeric value, `WRONGTYPE` — is a
 /// complaint about the stored data, not about the connection; everything else
 /// is the connection.
-fn map_err(e: redis::RedisError) -> CacheError {
+pub(crate) fn map_err(e: redis::RedisError) -> CacheError {
     let message = e.to_string();
     match e.kind() {
         ErrorKind::ResponseError => CacheError::SerializeError(message),
         _ => CacheError::ConnectionError(message),
     }
+}
+
+/// Copy the `deadpool` counters into the crate's own snapshot type.
+pub(crate) fn to_pool_status(status: deadpool_redis::Status) -> RedisPoolStatus {
+    RedisPoolStatus { max_size: status.max_size, size: status.size, available: status.available }
 }
 
 #[cfg(test)]
@@ -228,5 +257,21 @@ mod tests {
         let options = RedisOptions::default();
         assert_eq!(options.max_size, 16);
         assert_eq!(options.response_timeout, RESPONSE_TIMEOUT);
+    }
+
+    #[test]
+    fn pool_status_reports_the_configured_size_before_any_connection() {
+        let pool = deadpool_redis::Config::from_url("redis://127.0.0.1:1")
+            .builder()
+            .unwrap()
+            .max_size(3)
+            .runtime(Runtime::Tokio1)
+            .build()
+            .unwrap();
+        let cache = RedisCache { pool, response_timeout: Duration::from_secs(1) };
+        let status = cache.pool_status();
+        assert_eq!(status.max_size, 3);
+        assert_eq!(status.size, 0);
+        assert_eq!(status.available, 0);
     }
 }

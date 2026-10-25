@@ -54,10 +54,10 @@ impl HashRouter {
     /// Both shard counts must be at least 1.
     pub fn new(db_shards: usize, table_shards: usize) -> Result<Self> {
         if db_shards == 0 || table_shards == 0 {
-            return Err(OrmError::QueryError("sharding: shard counts must be at least 1".into()));
+            return Err(OrmError::ShardError("sharding: shard counts must be at least 1".into()));
         }
         if db_shards.checked_mul(table_shards).is_none() {
-            return Err(OrmError::QueryError("sharding: shard counts overflow".into()));
+            return Err(OrmError::ShardError("sharding: shard counts overflow".into()));
         }
         Ok(Self { db_shards, table_shards })
     }
@@ -88,7 +88,7 @@ impl ShardRouter for HashRouter {
 
     fn table_name_at(&self, logical: &str, index: usize) -> Result<String> {
         if index >= self.table_shards {
-            return Err(OrmError::QueryError(format!(
+            return Err(OrmError::ShardError(format!(
                 "sharding: table index {index} out of range for `{logical}` \
                  with {} table shards",
                 self.table_shards
@@ -108,7 +108,7 @@ pub(crate) fn key_hash(key: &Value) -> Result<u64> {
         Value::Bytes(value) => value.clone(),
         Value::Bool(value) => vec![u8::from(*value)],
         _ => {
-            return Err(OrmError::QueryError(
+            return Err(OrmError::ShardError(
                 "sharding: shard key must be Int, Text, Bytes, or Bool".into(),
             ));
         }
@@ -129,7 +129,7 @@ fn validate_table_name(name: &str) -> Result<()> {
     if valid {
         Ok(())
     } else {
-        Err(OrmError::QueryError(format!("sharding: invalid physical table name `{name}`")))
+        Err(OrmError::ShardError(format!("sharding: invalid physical table name `{name}`")))
     }
 }
 
@@ -143,17 +143,17 @@ impl<P> ShardedPools<P> {
     /// `pools` must be non-empty and match [`ShardRouter::db_shards`].
     pub fn new(pools: Vec<P>, router: Arc<dyn ShardRouter>) -> Result<Self> {
         if pools.is_empty() {
-            return Err(OrmError::QueryError("sharding: at least one pool is required".into()));
+            return Err(OrmError::ShardError("sharding: at least one pool is required".into()));
         }
         if router.db_shards() != pools.len() {
-            return Err(OrmError::QueryError(format!(
+            return Err(OrmError::ShardError(format!(
                 "sharding: router has {} database shards but {} pools were given",
                 router.db_shards(),
                 pools.len()
             )));
         }
         if router.db_shards() == 0 || router.table_shards() == 0 {
-            return Err(OrmError::QueryError(
+            return Err(OrmError::ShardError(
                 "sharding: router must declare at least 1 database and table shard".into(),
             ));
         }
@@ -173,6 +173,14 @@ impl<P> ShardedPools<P> {
         self.pools.get(index)
     }
 
+    /// Every configured pool, in router ordinal order, as an iterator — for
+    /// operations that must run on every shard. Keyed statements still go
+    /// through [`Self::for_key`] / [`Self::for_model`]: a pool alone cannot
+    /// pick a table.
+    pub fn all_shards(&self) -> impl Iterator<Item = &P> {
+        self.pools.iter()
+    }
+
     /// The number of database shards.
     pub fn len(&self) -> usize {
         self.pools.len()
@@ -189,19 +197,35 @@ impl<P> ShardedPools<P> {
         let key = key.into();
         let index = self.router.db_index(&key)?;
         let Some(pool) = self.pools.get(index) else {
-            return Err(OrmError::QueryError(format!(
+            return Err(OrmError::ShardError(format!(
                 "sharding: router selected database shard {index}, out of range for {} pools",
                 self.pools.len()
             )));
         };
         Ok(ShardHandle { pool, router: &*self.router, key })
     }
+
+    /// The handle for `model`'s database shard, routed on
+    /// [`Model::shard_key`]. A model without a `#[bee(shard_key)]` field, or
+    /// one whose key is `None` / `NULL`, has no usable key, so this returns
+    /// [`OrmError::ShardError`] rather than guessing a shard.
+    pub fn for_model<M: Model>(&self, model: &M) -> Result<ShardHandle<'_, P>> {
+        let key = model.shard_key().ok_or_else(|| {
+            OrmError::ShardError(format!(
+                "sharding: model `{}` has no shard key (mark a field #[bee(shard_key)]; \
+                 a NULL key is not routable)",
+                M::table_name()
+            ))
+        })?;
+        self.for_key(key)
+    }
 }
 
 impl<P: Db> ShardedPools<P> {
     /// [`migrate::sync_with`] on every physical table of every pool: each
     /// pool × each table ordinal `0..table_shards`. Returns the total number
-    /// of columns added across all targets.
+    /// of columns added across all targets. This serial path is the default
+    /// (see `sync_all_parallel` for the caveat).
     pub async fn sync_all<M: Model>(&self, options: MigrateOptions) -> Result<u64> {
         let mut added = 0;
         for pool in &self.pools {
@@ -209,6 +233,41 @@ impl<P: Db> ShardedPools<P> {
                 let target = ShardTarget { pool, router: &*self.router, table_index };
                 added += migrate::sync_with::<M, _>(&target, options).await?;
             }
+        }
+        Ok(added)
+    }
+}
+
+#[cfg(any(feature = "sqlite", feature = "postgres", feature = "mysql"))]
+impl<P: Db + Clone + Send + Sync + 'static> ShardedPools<P> {
+    /// [`sync_all`](Self::sync_all) with one task per pool × table ordinal,
+    /// run concurrently; returns the total number of columns added.
+    ///
+    /// [`sync_all`](Self::sync_all) remains the default: on MySQL every
+    /// `ALTER TABLE` takes a metadata lock, so concurrent DDL against one
+    /// server serializes anyway and only adds lock-wait timeouts to the
+    /// failure modes. Parallelism pays off when the pools are distinct
+    /// servers. One task is spawned per target with no concurrency cap. The
+    /// first error is returned; dropping the task set aborts the remaining
+    /// targets. DDL already applied is not rolled back, so a failure leaves
+    /// the shards partially migrated — rerun once the cause is fixed.
+    pub async fn sync_all_parallel<M: Model>(&self, options: MigrateOptions) -> Result<u64> {
+        let mut tasks = tokio::task::JoinSet::new();
+        for pool in &self.pools {
+            for table_index in 0..self.router.table_shards() {
+                let target = OwnedShardTarget {
+                    pool: pool.clone(),
+                    router: Arc::clone(&self.router),
+                    table_index,
+                };
+                tasks.spawn(async move { migrate::sync_with::<M, _>(&target, options).await });
+            }
+        }
+        let mut added = 0;
+        while let Some(result) = tasks.join_next().await {
+            added += result.map_err(|error| {
+                OrmError::ShardError(format!("sharding: sync task failed: {error}"))
+            })??;
         }
         Ok(added)
     }
@@ -282,6 +341,37 @@ struct ShardTarget<'a, P> {
 
 #[async_trait]
 impl<P: Db> Db for ShardTarget<'_, P> {
+    async fn query(&self, sql: &str, params: &[Value]) -> Result<Vec<Row>> {
+        self.pool.query(sql, params).await
+    }
+
+    async fn execute(&self, sql: &str, params: &[Value]) -> Result<u64> {
+        self.pool.execute(sql, params).await
+    }
+
+    fn dialect(&self) -> Option<Dialect> {
+        self.pool.dialect()
+    }
+
+    fn resolve_table(&self, logical: &str) -> Result<String> {
+        let name = self.router.table_name_at(logical, self.table_index)?;
+        validate_table_name(&name)?;
+        Ok(name)
+    }
+}
+
+/// One pool at one table ordinal, owned for [`ShardedPools::sync_all_parallel`]
+/// (`'static` task bodies cannot borrow the pools).
+#[cfg(any(feature = "sqlite", feature = "postgres", feature = "mysql"))]
+struct OwnedShardTarget<P> {
+    pool: P,
+    router: Arc<dyn ShardRouter>,
+    table_index: usize,
+}
+
+#[cfg(any(feature = "sqlite", feature = "postgres", feature = "mysql"))]
+#[async_trait]
+impl<P: Db> Db for OwnedShardTarget<P> {
     async fn query(&self, sql: &str, params: &[Value]) -> Result<Vec<Row>> {
         self.pool.query(sql, params).await
     }

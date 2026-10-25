@@ -48,6 +48,14 @@ jobs:
         # unlocks their ~37 otherwise-skipped tests.
         run: cargo test --workspace --all-features
 
+      - name: Check standalone examples
+        run: |
+          cargo check --manifest-path examples/sharding/Cargo.toml
+          cargo check --manifest-path examples/redis-lock/Cargo.toml
+
+      - name: Compile benchmarks
+        run: cargo bench -p bee_orm --no-run
+
   integration:
     name: Integration (postgres + redis + memcached)
     runs-on: ubuntu-latest
@@ -129,7 +137,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mysql: ["5.7", "8.0", "8.4", "9"]
+        mysql: ["5.7", "8.0", "8.4", "9.7.4"]
     services:
       mysql:
         image: mysql:${{ matrix.mysql }}

@@ -46,5 +46,9 @@ async fn with_options_serves_commands_and_reports_status() {
     store.set(&key, "ok").await.unwrap();
     assert_eq!(store.get(&key).await.unwrap().as_deref(), Some("ok"));
     assert_eq!(store.status().max_size, 1);
+    let pool = store.pool_status();
+    assert_eq!(pool.max_size, 1);
+    assert_eq!(pool.size, 1);
+    assert_eq!(pool.available, 1);
     store.del(&key).await.unwrap();
 }

@@ -1,0 +1,13 @@
+# Standalone package inside the bee-rust repo: its own empty [workspace] table
+# keeps it out of the root workspace, like examples/shortlink.
+[workspace]
+
+[package]
+name = "redis-lock-example"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+bee_kv = { path = "../../crates/bee_kv", features = ["redis"] }
+tokio = { version = "1", features = ["full"] }

@@ -17,6 +17,14 @@ thiserror.workspace = true
 
 [features]
 redis = ["dep:redis", "dep:deadpool-redis"]
+# `tokio-rustls-comp` rather than bare `tls-rustls`: redis 0.27's tokio
+# adapter only compiles its TLS variant under the former.
+redis-tls = ["redis", "redis/tokio-rustls-comp"]
+# deadpool-redis 0.18.0's sentinel config uses `#[serde(...)]` attributes
+# outside `cfg_attr`, so its `sentinel` module only compiles when its `serde`
+# feature is on as well.
+redis-sentinel = ["redis", "deadpool-redis/sentinel", "deadpool-redis/serde"]
+redis-cluster = ["redis", "deadpool-redis/cluster"]
 memcache = ["dep:memcache"]
 
 [dependencies.redis]

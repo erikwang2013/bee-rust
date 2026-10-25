@@ -27,6 +27,20 @@ impl Default for RedisOptions {
     }
 }
 
+/// A snapshot of a [`RedisStore`] connection pool.
+///
+/// Counts are copied from `deadpool_redis::Status`; they are not a consistent
+/// view under load.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RedisPoolStatus {
+    /// Maximum pooled connections.
+    pub max_size: usize,
+    /// Connections currently open.
+    pub size: usize,
+    /// Idle connections ready to be handed out.
+    pub available: usize,
+}
+
 /// A [`KvStore`] backed by a pool of Redis connections.
 ///
 /// # Reconnect
@@ -82,6 +96,12 @@ impl RedisStore {
         self.pool.status()
     }
 
+    /// A crate-owned snapshot of the pool: `max_size`, open `size`, and idle
+    /// `available` connections.
+    pub fn pool_status(&self) -> RedisPoolStatus {
+        to_pool_status(self.pool.status())
+    }
+
     /// A lock sharing this store's connection pool and response timeout.
     pub fn lock(&self) -> crate::RedisLock {
         crate::RedisLock::from_pool(self.pool.clone(), self.response_timeout)
@@ -92,6 +112,11 @@ impl RedisStore {
     async fn checkout(&self) -> Result<deadpool_redis::Connection, KvError> {
         checkout_pool(&self.pool, self.response_timeout).await
     }
+}
+
+/// Copy the `deadpool` counters into the crate's own snapshot type.
+pub(crate) fn to_pool_status(status: deadpool_redis::Status) -> RedisPoolStatus {
+    RedisPoolStatus { max_size: status.max_size, size: status.size, available: status.available }
 }
 
 /// Check out a pooled connection, bounding every reply at `response_timeout`.
@@ -183,7 +208,7 @@ impl KvStore for RedisStore {
     }
 }
 
-fn conn_err(e: impl std::fmt::Display) -> KvError {
+pub(crate) fn conn_err(e: impl std::fmt::Display) -> KvError {
     KvError::ConnectionError(e.to_string())
 }
 
@@ -192,7 +217,7 @@ pub(crate) fn op_err(e: impl std::fmt::Display) -> KvError {
 }
 
 /// `INCR` for 1 (Redis's atomic increment), `INCRBY` otherwise.
-fn incr_cmd(key: &str, amount: i64) -> redis::Cmd {
+pub(crate) fn incr_cmd(key: &str, amount: i64) -> redis::Cmd {
     let mut cmd = redis::cmd(if amount == 1 { "INCR" } else { "INCRBY" });
     cmd.arg(key);
     if amount != 1 {
@@ -234,5 +259,21 @@ mod tests {
         let options = RedisOptions::default();
         assert_eq!(options.max_size, 16);
         assert_eq!(options.response_timeout, RESPONSE_TIMEOUT);
+    }
+
+    #[test]
+    fn pool_status_reports_the_configured_size_before_any_connection() {
+        let pool = deadpool_redis::Config::from_url("redis://127.0.0.1:1")
+            .builder()
+            .unwrap()
+            .max_size(3)
+            .runtime(Runtime::Tokio1)
+            .build()
+            .unwrap();
+        let store = RedisStore { pool, response_timeout: Duration::from_secs(1) };
+        let status = store.pool_status();
+        assert_eq!(status.max_size, 3);
+        assert_eq!(status.size, 0);
+        assert_eq!(status.available, 0);
     }
 }

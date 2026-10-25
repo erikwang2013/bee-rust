@@ -13,7 +13,8 @@
 //! default), which rolls back a leftover transaction. Always end a
 //! transaction with `commit()` or `rollback()` — until then it holds locks.
 //!
-//! `Pool` has no `status()`: mysql_async exposes no pool statistics.
+//! mysql_async exposes no pool statistics: [`Pool::pool_status`] reports
+//! `max_size` only, with `size` / `available` as `None`.
 //!
 //! ```no_run
 //! # async fn demo() -> Result<(), bee_orm::OrmError> {
@@ -35,7 +36,7 @@ use mysql_async::prelude::Queryable;
 use mysql_async::{Opts, OptsBuilder, Pool as MysqlPool, PoolConstraints, PoolOpts};
 use serde_json::Value as Json;
 
-use super::{Row, conn_err, query_err};
+use super::{PoolStatus, Row, conn_err, query_err};
 use crate::{Db, Dialect, OrmError, Result, Value};
 
 /// ponytail: fixed 30s — mysql_async 0.34.2 has no acquire timeout; make it
@@ -46,17 +47,25 @@ const GET_CONN_TIMEOUT: Duration = Duration::from_secs(30);
 #[derive(Clone)]
 pub struct Pool {
     inner: MysqlPool,
+    max_size: u32,
 }
 
 impl Pool {
     /// `dsn` is a URL, e.g. `"mysql://user:pass@host:3306/db"`.
     pub fn connect(dsn: &str, max_size: u32) -> Result<Self> {
         let opts = Opts::from_url(dsn).map_err(conn_err)?;
-        let constraints = PoolConstraints::new(1, max_size.max(1) as usize)
+        let max_size = max_size.max(1);
+        let constraints = PoolConstraints::new(1, max_size as usize)
             .ok_or_else(|| OrmError::ConnectionError("invalid pool size".into()))?;
         let opts = OptsBuilder::from_opts(opts)
             .pool_opts(PoolOpts::default().with_constraints(constraints));
-        Ok(Self { inner: MysqlPool::new(opts) })
+        Ok(Self { inner: MysqlPool::new(opts), max_size })
+    }
+
+    /// Pool occupancy: `max_size` only — mysql_async exposes no statistics,
+    /// so `size` / `available` are `None`.
+    pub fn pool_status(&self) -> PoolStatus {
+        PoolStatus { max_size: self.max_size as usize, size: None, available: None }
     }
 
     /// Check out one connection. Hold it for the length of a transaction

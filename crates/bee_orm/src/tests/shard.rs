@@ -290,3 +290,118 @@ async fn dialect_is_forwarded() {
     .unwrap();
     assert_eq!(shards.for_key(Value::Int(1)).unwrap().dialect(), Some(Dialect::Mysql));
 }
+
+/// A derive-generated model with a shard key. `crate = "crate"` because the
+/// default expansion names `bee_orm`, which is not in this crate's own extern
+/// prelude; ORM users outside the crate keep the default path.
+#[derive(bee_orm_macro::Model)]
+#[bee(crate = "crate", table = "tenant_rows")]
+struct TenantRow {
+    #[bee(pk)]
+    id: i64,
+    #[bee(shard_key)]
+    tenant: String,
+}
+
+#[derive(bee_orm_macro::Model)]
+#[bee(crate = "crate", table = "nullable_tenant_rows")]
+struct NullableTenantRow {
+    #[bee(pk)]
+    id: i64,
+    #[bee(shard_key)]
+    tenant: Option<String>,
+}
+
+#[test]
+fn derived_models_expose_their_shard_key() {
+    let row = TenantRow { id: 1, tenant: "acme".into() };
+    assert_eq!(row.shard_key(), Some(Value::Text("acme".into())));
+    // `Option<T>::None` collapses to Value::Null at codegen; a NULL key is
+    // not routable, so `shard_key()` reports no key rather than Null.
+    let null = NullableTenantRow { id: 1, tenant: None };
+    assert_eq!(null.shard_key(), None);
+    // Models without the attribute keep the trait default.
+    assert_eq!(Tiny { id: 1, v: 2 }.shard_key(), None);
+}
+
+#[tokio::test]
+async fn for_model_routes_on_the_derived_shard_key() {
+    let router = HashRouter::new(2, 1).unwrap();
+    let expected = router.db_index(&Value::Text("acme".into())).unwrap();
+    let a = Mock::default();
+    let b = Mock::default();
+    let (a_probe, b_probe) = (a.clone(), b.clone());
+    let shards = ShardedPools::new(vec![a, b], Arc::new(router)).unwrap();
+
+    let model = TenantRow { id: 0, tenant: "acme".into() };
+    shards.for_model(&model).unwrap().execute("SELECT 1", &[]).await.unwrap();
+
+    assert_eq!(a_probe.calls().len(), usize::from(expected == 0));
+    assert_eq!(b_probe.calls().len(), usize::from(expected == 1));
+}
+
+#[test]
+fn for_model_without_a_shard_key_is_a_shard_error() {
+    let shards =
+        ShardedPools::new(vec![Mock::default()], Arc::new(HashRouter::new(1, 1).unwrap())).unwrap();
+    assert!(matches!(
+        shards.for_model(&Tiny { id: 1, v: 2 }),
+        Err(OrmError::ShardError(ref message)) if message.contains("no shard key")
+    ));
+    assert!(matches!(
+        shards.for_model(&NullableTenantRow { id: 1, tenant: None }),
+        Err(OrmError::ShardError(ref message)) if message.contains("no shard key")
+    ));
+}
+
+#[test]
+fn all_shards_iterates_every_pool() {
+    let shards = ShardedPools::new(
+        vec![Mock::with_dialect(Dialect::Mysql), Mock::with_dialect(Dialect::Sqlite)],
+        Arc::new(HashRouter::new(2, 1).unwrap()),
+    )
+    .unwrap();
+
+    let dialects: Vec<Option<Dialect>> = shards.all_shards().map(|pool| pool.dialect()).collect();
+    assert_eq!(dialects, vec![Some(Dialect::Mysql), Some(Dialect::Sqlite)]);
+}
+
+#[test]
+fn shard_origin_errors_use_the_shard_variant() {
+    assert!(matches!(HashRouter::new(0, 1), Err(OrmError::ShardError(_))));
+    assert!(matches!(key_hash(&Value::Null), Err(OrmError::ShardError(_))));
+
+    let shards = ShardedPools::new(vec![Mock::default()], Arc::new(BadRouter)).unwrap();
+    assert!(matches!(
+        shards.for_key(Value::Int(1)).unwrap().resolve_table("users"),
+        Err(OrmError::ShardError(_))
+    ));
+
+    let shards = ShardedPools::new(vec![Mock::default()], Arc::new(OutOfRangeRouter)).unwrap();
+    assert!(matches!(shards.for_key(Value::Int(1)), Err(OrmError::ShardError(_))));
+}
+
+#[cfg(any(feature = "sqlite", feature = "postgres", feature = "mysql"))]
+#[tokio::test]
+async fn sync_all_parallel_visits_every_pool_and_table() {
+    let a = Mock::with_dialect(Dialect::Sqlite);
+    let b = Mock::with_dialect(Dialect::Sqlite);
+    let (a_probe, b_probe) = (a.clone(), b.clone());
+    let shards = ShardedPools::new(vec![a, b], Arc::new(HashRouter::new(2, 2).unwrap())).unwrap();
+
+    // Same total as the serial path: 2 pools × 2 tables × 2 missing columns.
+    assert_eq!(shards.sync_all_parallel::<Author>(MigrateOptions::default()).await.unwrap(), 8);
+
+    // Per-pool call order is nondeterministic; the targets visited are not.
+    for probe in [&a_probe, &b_probe] {
+        let calls = probe.calls();
+        let created: Vec<&str> = calls
+            .iter()
+            .map(|(sql, _)| sql.as_str())
+            .filter(|sql| sql.starts_with("CREATE TABLE"))
+            .collect();
+        assert_eq!(created.len(), 2, "{created:?}");
+        assert!(created.iter().any(|sql| sql.contains("authors_0")), "{created:?}");
+        assert!(created.iter().any(|sql| sql.contains("authors_1")), "{created:?}");
+    }
+}

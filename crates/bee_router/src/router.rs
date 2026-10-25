@@ -2,8 +2,11 @@
 use std::time::Duration;
 
 use axum::Router as AxumRouter;
+use axum::middleware::from_fn_with_state;
 use axum::response::IntoResponse;
 use axum::routing::MethodRouter;
+
+use crate::latency::{LatencyConfig, middleware as latency_middleware};
 
 /// A declarative router that collects named routes and builds an
 /// [`axum::Router`]. Routes are organised into [`RouteGroup`]s via
@@ -14,11 +17,12 @@ use axum::routing::MethodRouter;
 /// usage keeps the default `S = ()`.
 pub struct Router<S = ()> {
     routes: Vec<(String, MethodRouter<S>)>,
+    latency: Option<LatencyConfig>,
 }
 
 impl<S> Router<S> {
     pub fn new() -> Self {
-        Self { routes: Vec::new() }
+        Self { routes: Vec::new(), latency: None }
     }
 
     pub fn ns<F>(mut self, prefix: &str, f: F) -> Self
@@ -31,10 +35,28 @@ impl<S> Router<S> {
         self
     }
 
+    /// Enable an opt-in latency budget for `GET`/`HEAD` requests.
+    ///
+    /// The handler gets [`LatencyConfig::deadline`] minus the configured
+    /// fallback reserve; on expiry a public cached response is replayed, or
+    /// the request returns `504`. Other methods (including all writes) keep
+    /// the router's existing 30-second timeout.
+    ///
+    /// The deadline bounds the response, not background work: SQLite blocking
+    /// queries cannot be cancelled, and Postgres/MySQL/Redis commands continue
+    /// server-side. Timed-out GET handlers can continue in a bounded
+    /// background task to warm the cache.
+    pub fn latency(mut self, config: LatencyConfig) -> Self {
+        self.latency = Some(config);
+        self
+    }
+
     /// Build the router without supplying state. Handlers using
     /// [`axum::extract::State`] require [`Router::with_state`] instead.
     ///
     /// Every route gets a 2 MiB body limit and a 30 s request timeout.
+    /// With [`Router::latency`], `GET`/`HEAD` additionally get the configured
+    /// deadline and stale-cache fallback.
     pub fn build(self) -> AxumRouter<S>
     where
         S: Clone + Send + Sync + 'static,
@@ -43,7 +65,7 @@ impl<S> Router<S> {
         for (path, method_router) in self.routes {
             router = router.route(&path, method_router);
         }
-        router.layer(
+        let router = router.layer(
             // One stack per `Router::layer` call: the error handling must be
             // inside it so the composed service's error is `Infallible`.
             tower::ServiceBuilder::new()
@@ -59,7 +81,14 @@ impl<S> Router<S> {
                 ))
                 .layer(tower::timeout::TimeoutLayer::new(Duration::from_secs(30)))
                 .layer(axum::extract::DefaultBodyLimit::max(2 * 1024 * 1024)),
-        )
+        );
+        // Added last, so it is the outermost layer: the latency deadline wins
+        // over the 30s timeout for GET/HEAD. A timed-out handler moved to the
+        // background still runs inside the inner 30s timeout.
+        match self.latency {
+            Some(config) => router.layer(from_fn_with_state(config, latency_middleware)),
+            None => router,
+        }
     }
 
     /// Build the router and attach `state`, yielding a fully constructed
