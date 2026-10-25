@@ -2,6 +2,27 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+> 版本策略：项目处于 1.x 期间，次版本可能包含破坏性 API 变更；如果对 `OrmError` 做穷举 match，请锁定精确版本。参见 1.3.0 与 1.6.0。
+
+## [1.6.0] — 2026-10-25
+
+### 新增
+- `bee_orm`：分片易用性——`#[bee(shard_key)]` 标记路由字段（最多一个；不允许放在 `ignore` 字段或 `auto` / `auto_now_add` / `auto_now` 这类数据库赋值字段上，因为路由发生在 insert 之前），`Model::shard_key()` 读取它（`None` / `NULL` 不可路由），`ShardedPools::for_model` 直接按实例路由而无需重复传键。`ShardedPools::all_shards()` 遍历已配置的连接池，`sync_all_parallel` 并发迁移全部「池 × 表分片」目标（已执行的 DDL 不会回滚）。
+- `bee_orm`：用 `OrmError::ShardError` 区分分片误用与查询失败；`OrmError` 现在标注 `#[non_exhaustive]`——外部 match 需要通配分支。
+- `bee_orm`：跨后端统一的 `PoolStatus`，sqlite / postgres / mysql 连接池均提供 `pool_status()`（mysql 不暴露统计，`size` / `available` 为 `None`）；新增 `TimedDb` 包装器上报慢查询。criterion 基准覆盖路由哈希与 QuerySet SQL 渲染。
+- `bee_kv` / `bee_cache`：`RedisLock::acquire(key, ttl, wait)` 在上限内每 50ms 重试一次；`RedisPoolStatus` / `pool_status()` 提供 crate 自有的池快照；`redis-tls` feature 支持 `rediss://` 连接，ACL 凭据随 URL 传入。
+- `bee_kv` / `bee_cache`：`redis-sentinel` / `redis-cluster` feature 新增 Sentinel 存储/缓存（`RedisSentinelStore`、`RedisSentinelCache`）与 Cluster 存储/缓存（`RedisClusterStore`、`RedisClusterCache`）；Cluster 的 `mget` / `mset` 拆成单键命令，避免 `CROSSSLOT`。
+- 新增 `examples/sharding` 与 `examples/redis-lock`；CI 会编译两个示例与基准，MySQL 矩阵固定 9.7.4，并保留 MariaDB job。
+- `bee_router`：opt-in 的 GET/HEAD 延迟预算与缓存降级——`Router::latency(LatencyConfig::new(cache))` 默认总预算 6ms（4ms handler + 2ms 预留），缓存 ≤64KiB 的 public GET 200 响应，超时后重放（`X-Bee-Cache: stale`、`Age`）或返回 504；超时 GET 会在有界后台任务中继续执行以预热缓存；`LatencyStats` 提供计数与近似 P50/P99。写请求保持 30s/408。
+
+### 变更
+- `OrmError` 标注 `#[non_exhaustive]`，分片失败改报 `ShardError`（原为 `QueryError`）；下游 match 需要补通配分支。
+
+### 限制
+- Sentinel：池中到 master 的连接只用 `PING` 回收，不校验角色，因此故障转移后若旧 master 仍以副本身份可连，连接池可能继续使用旧连接。受 `deadpool-redis` 0.18 的 `Config::from_urls` 限制，master 连接也不会带上 Sentinel URL 中的 ACL 凭据或 TLS（那些只作用于 Sentinel 节点）；受 ACL 保护或仅允许 TLS 的 master 需直连。
+- Cluster：命令不受 `RedisOptions::response_timeout` 限制——`deadpool-redis` 0.18 没有暴露该设置；checkout / create / recycle 仍分别有 30s / 5s / 5s 上限。
+- 延迟预算：仅 GET/HEAD。deadline 只约束响应，不取消服务端工作——SQLite 阻塞查询无法中止，Postgres/MySQL/Redis 命令会继续执行。缓存只接受 public 响应，TTL 内可能 stale，写请求不会失效缓存；仅缓存 exact-size ≤64KiB 的 body；`MemoryCache` 无容量上限。长轮询/流式 GET 应使用未启用 `latency` 的 Router。
+
 ## [1.5.0] — 2026-10-25
 
 ### 新增

@@ -2,6 +2,27 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+> Pemberian versi: selama proyek masih 1.x, rilis minor dapat memuat perubahan yang memutus API; pin versi persis jika Anda melakukan match `OrmError` secara menyeluruh. Lihat 1.3.0 dan 1.6.0.
+
+## [1.6.0] — 2026-10-25
+
+### Ditambahkan
+- `bee_orm`: ergonomi sharding — `#[bee(shard_key)]` menandai field routing (paling banyak satu; ditolak pada field `ignore` dan field `auto` / `auto_now_add` / `auto_now` yang ditetapkan database, karena routing terjadi sebelum insert), `Model::shard_key()` mengeksposnya (`None` / `NULL` tidak dapat dirutekan), dan `ShardedPools::for_model` merutekan instance tanpa mengulang key. `ShardedPools::all_shards()` mengiterasi pool yang dikonfigurasi, dan `sync_all_parallel` memigrasikan setiap pool × shard tabel secara bersamaan (DDL yang sudah diterapkan tidak di-rollback).
+- `bee_orm`: `OrmError::ShardError` memisahkan penyalahgunaan sharding dari kegagalan kueri; `OrmError` kini `#[non_exhaustive]` — match eksternal memerlukan arm wildcard.
+- `bee_orm`: `PoolStatus` lintas backend dengan `pool_status()` pada pool sqlite, postgres, dan mysql (`size` / `available` bernilai `None` di mysql yang tidak mengekspos statistik), plus `TimedDb` untuk callback kueri lambat. Benchmark Criterion mencakup hashing router dan rendering SQL QuerySet.
+- `bee_kv` / `bee_cache`: `RedisLock::acquire(key, ttl, wait)` mengulang percobaan lock paling sering setiap 50ms hingga batas tunggu habis; `RedisPoolStatus` / `pool_status()` memberikan snapshot pool milik crate; feature `redis-tls` mengaktifkan koneksi `rediss://` dan kredensial ACL ikut dalam URL.
+- `bee_kv` / `bee_cache`: store/cache Sentinel (`RedisSentinelStore`, `RedisSentinelCache`) dan store/cache Cluster (`RedisClusterStore`, `RedisClusterCache`) di balik feature `redis-sentinel` / `redis-cluster`; `mget` / `mset` cluster berjalan sebagai perintah single-key untuk menghindari `CROSSSLOT`.
+- `examples/sharding` dan `examples/redis-lock`; CI mengompilasi kedua contoh dan benchmark, mem-pin MySQL 9.7.4, dan mempertahankan job MariaDB.
+- `bee_router`: budget latensi opt-in untuk GET/HEAD dengan fallback cache basi — `Router::latency(LatencyConfig::new(cache))` memakai default total 6 ms (4 ms handler + 2 ms cadangan), meng-cache respons GET 200 publik hingga 64 KiB, dan memutarnya kembali saat timeout (`X-Bee-Cache: stale`, `Age`) atau mengembalikan 504. GET yang timeout berlanjut di tugas latar belakang terbatas untuk menghangatkan cache, dan `LatencyStats` mengekspos penghitung plus P50/P99 perkiraan. Metode tulis mempertahankan perilaku 30 s/408.
+
+### Diubah
+- `OrmError` adalah `#[non_exhaustive]` dan kegagalan sharding kini melaporkan `ShardError` alih-alih `QueryError`; match di hilir memerlukan arm wildcard.
+
+### Batasan
+- Sentinel: koneksi master yang dipool didaur ulang dengan `PING`, bukan diperiksa perannya, sehingga setelah failover master yang diturunkan namun tetap terjangkau dapat melayani koneksi usang. Melalui `Config::from_urls` dari `deadpool-redis` 0.18 koneksi master juga tidak mendapat kredensial ACL atau TLS (kredensial/TLS dari URL Sentinel hanya berlaku untuk Sentinel); master yang dilindungi ACL atau hanya-TLS harus terhubung langsung.
+- Cluster: perintah tidak dibatasi oleh `RedisOptions::response_timeout` — `deadpool-redis` 0.18 tidak mengekspos setter; checkout, create, dan recycle mempertahankan batas 30s / 5s / 5s masing-masing.
+- Batas latensi: hanya GET/HEAD. Tenggat membatasi respons, bukan pekerjaan sisi server — kueri blocking SQLite tidak dapat dibatalkan dan perintah Postgres/MySQL/Redis terus berjalan. Respons yang di-cache hanya publik dan dapat basi hingga TTL; penulisan tidak pernah membatalkan cache; hanya body berukuran tepat ≤64 KiB yang di-cache; `MemoryCache` tidak terbatas. Rute GET long-poll/streaming sebaiknya memakai Router tanpa `latency`.
+
 ## [1.5.0] — 2026-10-25
 
 ### Ditambahkan

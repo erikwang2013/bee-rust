@@ -88,6 +88,37 @@ let app = Router::new()
 - `ctx.session` — 会话访问
 - `ctx.params` — 路径参数
 
+### 延迟预算与缓存降级
+
+`Router::latency` 是 opt-in 的 GET/HEAD 延迟预算。默认总预算 **6ms**：handler 4ms + 2ms 缓存降级余量，为 10ms P99 目标留调度空间；可 `.deadline(10ms)` 覆盖。超时先读缓存，命中则重放公开响应并加 `X-Bee-Cache: stale` / `Age`，未命中返回 504 `"request timed out"` + `X-Bee-Deadline: exceeded`。写请求不套该预算，保持既有 30s/408。
+
+```rust
+use std::sync::Arc;
+use axum::http::header;
+use axum::response::IntoResponse;
+use bee_cache::{Cache, MemoryCache};
+use bee_router::{LatencyConfig, Router};
+
+let cache: Arc<dyn Cache> = Arc::new(MemoryCache::new());
+let config = LatencyConfig::new(cache);   // .deadline(10ms) / .fallback_reserve(2ms) 可选
+let stats = config.stats();
+let app = Router::new()
+    .latency(config)
+    .ns("/api", |ns| ns.get("/feed", feed));
+
+async fn feed() -> impl IntoResponse {
+    ([(header::CACHE_CONTROL, "public, max-age=30")], "payload")
+}
+```
+
+缓存契约：
+- 只写 **GET** 的 **200** 响应；要求 `Cache-Control: public`、无 `private`/`no-store`/`no-cache`、无 `Set-Cookie`、无 `Vary`，且 body 的 `size_hint().exact()` ≤ 64KiB；HEAD 复用 GET 键但不写缓存。
+- 带 `Authorization` / `Range` / `Cache-Control: no-store` / `no-cache` 的请求不读不写缓存，超时直接 504。
+- TTL 取配置值与响应 `max-age` 的较小值；写请求不会失效缓存，最多 stale 一个 TTL。
+- 超时的 GET 会继续在**有界后台任务**（默认 128，可 `background_limit(0)` 关闭）里执行，用于给下一次请求预热缓存。
+- deadline 只约束响应，不取消 SQLite/Postgres/MySQL/Redis 的服务端工作；长轮询、SSE、下载接口应使用**未启用** `latency` 的 Router。
+- `LatencyStats::snapshot()` 返回 requests / timeouts / fallback 命中与 P50/P99（桶上界）；`max_us` 精确。
+
 ## 安全检测（`security` feature）
 
 基于 [security-rust](https://crates.io/crates/security-rust) 的攻击检测过滤器，覆盖 XSS、SQL 注入、命令注入、SSRF 等 27 种攻击类型：
@@ -291,16 +322,41 @@ let back = Event::query().all(&pool).await?;   // "1.50" 往返数值仍相等
 
 ### 分库分表（bee_orm）
 
-必须带分片键的库/表两级分片。`ShardedPools::for_key` 是拿到可执行句柄的唯一入口；查询必须带分片键。路由使用复合序号 `hash % (db_shards * table_shards)`，所有库×表组合都可达；不支持跨分片查询、JOIN 与事务。物理表名在拼进 SQL 前按 `[A-Za-z_][A-Za-z0-9_]*` 校验。 `ShardedPools::pools()` / `pool(index)` 暴露底层连接池，供运维与同分片事务使用；路由仍必须走 `for_key`。
+必须带分片键的库/表两级分片。`#[bee(shard_key)]` 标记路由字段，派生宏生成 `Model::shard_key()`；`ShardedPools::for_model` 直接按实例路由，`for_key` 仍可按值路由。分片键必须由调用方在路由前提供：`auto` / `auto_now_add` / `auto_now` 字段会被宏拒绝，`None` / `NULL` 视为无键（`for_model` 返回 `ShardError`）。查询必须带分片键。路由使用复合序号 `hash % (db_shards * table_shards)`，所有库×表组合都可达；不支持跨分片查询、JOIN 与事务。物理表名在拼进 SQL 前按 `[A-Za-z_][A-Za-z0-9_]*` 校验。`ShardedPools::all_shards()` / `pools()` / `pool(index)` 暴露底层连接池，供运维与同分片事务使用；路由仍必须走 `for_key` / `for_model`。`sync_all` 串行迁移全部「池 × 表分片」，`sync_all_parallel` 并发执行（已应用的 DDL 不回滚）；分片误用统一返回 `OrmError::ShardError`，`OrmError` 为 `#[non_exhaustive]`。
 
 ```rust
 use std::sync::Arc;
 use bee_orm::shard::{HashRouter, ShardedPools};
 
+#[derive(Model)]
+#[bee(table = "users")]
+struct User {
+    #[bee(pk, auto)]
+    id: i64,
+    #[bee(shard_key)]
+    tenant_id: i64,
+    name: String,
+}
+
 let shards = ShardedPools::new(vec![pool0, pool1], Arc::new(HashRouter::new(2, 4)?))?;
-let db = shards.for_key(user_id)?;                  // the only way to get an executable handle
-let users = User::query().filter_eq("user_id", user_id)?.all(&db).await?;
+let user = User { id: 0, tenant_id: 42, name: "alice".into() };
+let db = shards.for_model(&user)?;                  // routed by #[bee(shard_key)]
+let users = User::query().filter_eq("tenant_id", 42)?.all(&db).await?;
 shards.sync_all::<User>(Default::default()).await?; // create every physical table
+```
+
+### 连接池观测与慢查询
+
+三个后端统一返回 `PoolStatus { max_size, size, available }`；mysql 不暴露统计，后两项为 `None`。`TimedDb` 包装任意 `Db`，对 `query` / `execute` 及 `insert_returning` / `insert_returning_auto` 回读中超过阈值的调用触发回调（读回值原样转发，只计时）。
+
+```rust
+use std::time::Duration;
+use bee_orm::{Db, TimedDb};
+
+let db = TimedDb::new(pool, Duration::from_millis(200), |sql, elapsed| {
+    eprintln!("slow ({elapsed:?}): {sql}");
+});
+let rows = db.query("SELECT ...", &[]).await?;
 ```
 
 ## 配置管理（bee_config）
@@ -326,11 +382,30 @@ kv.set("key", "value").await?;
 kv.expire("key", 60).await?;
 let val = kv.get("key").await?;
 
+// 有界等待的分布式锁；watchdog 版本自动续期
+let lock = kv.lock();
+if let Some(guard) = lock.acquire("job", Duration::from_secs(10), Duration::from_secs(2)).await? {
+    // ... work ...
+    guard.release().await?;
+}
+
+// TLS / ACL：凭据与 scheme 都在 URL 里（feature `redis-tls`）
+let kv = RedisStore::new("rediss://user:pass@redis.example:6380").await?;
+
+// Sentinel / Cluster（feature `redis-sentinel` / `redis-cluster`）
+use bee_kv::{RedisSentinelStore, RedisClusterStore};
+let kv = RedisSentinelStore::new("mymaster", &["redis://127.0.0.1:26379"], 16).await?;
+let kv = RedisClusterStore::new(&["redis://127.0.0.1:7000"], 16).await?;
+
 // memcached 后端（feature `memcached`）
 let kv = MemcacheStore::new("127.0.0.1:11211")?;
 ```
 
-> `RedisStore` 持有 `deadpool-redis` 连接池：被杀的连接会在下次 checkout 时替换（recycle PING）；每条命令有 30 秒上限，池耗尽最多等待 30 秒后失败。`bee_kv::RedisLock` 提供 `SET NX PX` 获取与 Lua 比较删除释放。 memcached：`incr` 先建计数器（缺键为 0）再增减；计数器无符号，减到 0 封底（Redis 可为负）；`expire(≤0)` 等价删除。Redis 池还提供 `status()`、可配置响应超时的 `RedisOptions`，以及 TTL 自动续期的 `try_lock_with_watchdog`。
+> `RedisStore` 持有 `deadpool-redis` 连接池：被杀的连接会在下次 checkout 时替换（recycle PING）；每条命令有 30 秒上限，池耗尽最多等待 30 秒后失败。`bee_kv::RedisLock` 提供 `SET NX PX` 获取与 Lua 比较删除释放；`acquire(key, ttl, wait)` 在上限内每 50ms 重试，`try_lock_with_watchdog` 在后台按 TTL/3 自动续期。`RedisOptions` 配置池大小与响应超时，`status()` / `RedisPoolStatus` 读取池快照。`redis-tls` 支持 `rediss://`，ACL 凭据放在 URL（`redis://user:pass@host`）。
+>
+> Sentinel / Cluster：`redis-sentinel` 提供 `RedisSentinelStore` / `RedisSentinelCache`，`redis-cluster` 提供 `RedisClusterStore` / `RedisClusterCache`。Sentinel URL 的 ACL/TLS 只作用于 Sentinel 节点，master 连接不带凭据/TLS；池中连接仅 PING 回收、不校验角色，故障转移后旧 master 若仍可连可能继续被使用（`deadpool-redis` 0.18 限制）。Cluster 的 `mget` / `mset` 为顺序单键命令（避免 `CROSSSLOT`），且命令不受 `response_timeout` 限制。
+>
+> memcached：`incr` 先建计数器（缺键为 0）再增减；计数器无符号，减到 0 封底（Redis 可为负）；`expire(≤0)` 等价删除。
 
 **缓存后端（bee_cache）：**
 ```rust

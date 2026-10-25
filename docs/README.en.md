@@ -107,7 +107,7 @@ bee_rust   → all above (re-export)
 | | MySQL 5.7 / 8.0 / 8.4 / 9.x · MariaDB 10.11+ | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **Field types** | Date / Decimal | `bee_orm` | `chrono` / `rust_decimal` (bee_rust: `orm-chrono` / `orm-rust_decimal`) |
-| **KV / Cache** | Redis | `bee_kv` / `bee_cache` | `redis` |
+| **KV / Cache** | Redis | `bee_kv` / `bee_cache` | `redis` / `redis-tls` / `redis-sentinel` / `redis-cluster` |
 | | Memcached | `bee_kv` / `bee_cache` | `memcached` / `memcache` |
 | **Search / Analytics** | Elasticsearch | `bee_search` | `elasticsearch` |
 | | OpenSearch | `bee_search` | `opensearch` |
@@ -137,6 +137,7 @@ MVC controllers: `Controller` trait + `Context`, with route namespaces, RESTful 
 - Response output: `ctx.json()` / `ctx.text()` / `ctx.html()`
 - Redirect / abort: `ctx.redirect()` / `ctx.abort()`
 - Session & params: `ctx.session` / `ctx.params`
+- Latency budget (opt-in): `Router::latency(LatencyConfig::new(cache))` gives GET/HEAD a default 6 ms total budget (4 ms handler + 2 ms cache-fallback reserve); public responses are cached and replayed on timeout with `X-Bee-Cache: stale`, or the request returns 504. Writes keep the 30 s timeout; `LatencyStats` exposes P50/P99.
 
 ### Security Detection (`security` feature)
 
@@ -148,7 +149,7 @@ let security = SecurityFilter::new();  // all 27 detectors enabled
 
 ### ORM (bee_orm)
 
-`#[derive(Model)]` derive macro (with `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + QuerySet chained queries and execution (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, aggregates `sum` / `avg` / `min` / `max`) + non-destructive migrations (`migrate::create_table` / `add_missing_columns` / `sync`) + relation reads (`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON columns (`serde_json::Value`) + connection pools for all three backends (transactions and timeouts included), supporting SQLite, PostgreSQL, MySQL, and TiDB; key-required sharding (`ShardedPools` + `HashRouter` — every query must carry a shard key; no cross-shard queries or transactions). MySQL 5.7–9.x and MariaDB 10.11+ are supported; the shard layer exposes its pools for operations.
+`#[derive(Model)]` derive macro (with `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete / shard_key)]`) + QuerySet chained queries and execution (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, aggregates `sum` / `avg` / `min` / `max`) + non-destructive migrations (`migrate::create_table` / `add_missing_columns` / `sync`) + relation reads (`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON columns (`serde_json::Value`) + connection pools for all three backends (transactions and timeouts included), supporting SQLite, PostgreSQL, MySQL, and TiDB; key-required sharding (`ShardedPools` + `HashRouter` — `#[bee(shard_key)]` / `for_model` route straight from an instance; the shard key must be caller-supplied — never an auto/timestamp field — and NULL is not routable; every query must carry a shard key, no cross-shard queries or transactions). MySQL 5.7–9.x and MariaDB 10.11+ are supported; `sync_all_parallel` migrates every shard concurrently, and `all_shards()` / `pools()` expose the configured pools for operations. A shared `PoolStatus` / `pool_status()` and the `TimedDb` slow-query wrapper cover all backends; sharding failures have their own `OrmError::ShardError`, and `OrmError` is `#[non_exhaustive]`.
 
 ### Config (bee_config)
 
@@ -156,7 +157,7 @@ let security = SecurityFilter::new();  // all 27 detectors enabled
 
 ### Storage Engines
 
-Unified trait abstractions for KV / Cache (Redis / Memcached), Search (Elasticsearch / OpenSearch / ClickHouse), Graph (Neo4j / NebulaGraph / ArangoDB), and Time Series (InfluxDB / IoTDB / QuestDB), with drivers compiled behind feature gates. The Redis backends use a real connection pool (`deadpool-redis`), and `bee_kv::RedisLock` provides a distributed lock (`SET NX PX` acquire + Lua release). Redis pools also expose `status()`, `RedisOptions` with a configurable response timeout, and `try_lock_with_watchdog` for TTL auto-renewal.
+Unified trait abstractions for KV / Cache (Redis / Memcached), Search (Elasticsearch / OpenSearch / ClickHouse), Graph (Neo4j / NebulaGraph / ArangoDB), and Time Series (InfluxDB / IoTDB / QuestDB), with drivers compiled behind feature gates. The Redis backends use a real connection pool (`deadpool-redis`), and `bee_kv::RedisLock` provides a distributed lock (`SET NX PX` acquire + Lua release, bounded `acquire` waiting, and `try_lock_with_watchdog` auto-renewal). Redis pools expose `status()` / `RedisPoolStatus` and `RedisOptions` with a configurable response timeout; `redis-tls` enables `rediss://` and ACL credentials in the URL; `redis-sentinel` / `redis-cluster` add Sentinel and Cluster KV/cache backends. Sentinel does not re-check the master role on pooled connections and does not pass master ACL/TLS (`deadpool-redis` 0.18 limit); Cluster commands are not bounded by the response timeout.
 
 ### Session, Logging, Templates
 
@@ -201,7 +202,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.5.0", features = ["full"] }
+bee_rust = { version = "1.6.0", features = ["full"] }
 ```
 
 ## Tech Stack
@@ -234,8 +235,8 @@ bee_rust = { version = "1.5.0", features = ["full"] }
 |-------|---------|-----------------|
 | `bee_rust` | Meta crate, unified entry | — |
 | `bee_router` | Routing + Controller + Context + Filter | `server/web`, `context` |
-| `bee_orm` | ORM + QuerySet | `client/orm` |
-| `bee_kv` | Unified KV/Cache | `client/cache` (extended) |
+| `bee_orm` | ORM + QuerySet + sharding ergonomics + pool observability | `client/orm` |
+| `bee_kv` | Unified KV/Cache + Redis pool/lock/TLS/HA | `client/cache` (extended) |
 | `bee_search` | Search/Analytics engine | — (new) |
 | `bee_graph` | Graph database | — (new) |
 | `bee_tsdb` | Time series database | — (new) |
@@ -248,22 +249,22 @@ bee_rust = { version = "1.5.0", features = ["full"] }
 
 ## Test Coverage
 
-414 tests passing across all crates:
+471 tests passing across all crates:
 
 | Crate | Tests |
 |-------|-------|
 | bee_config | 8 |
-| bee_cache | 18 |
+| bee_cache | 25 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 28 |
+| bee_kv | 44 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |
-| bee_orm | 200 |
-| bee_orm_macro | 24 |
+| bee_orm | 211 |
+| bee_orm_macro | 26 |
 | bee_session | 2 |
-| bee_router | 40 |
+| bee_router | 61 |
 | bee_cli | 30 |
 
 ## Support

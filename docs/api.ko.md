@@ -88,6 +88,37 @@ let app = Router::new()
 - `ctx.session` — 세션 접근
 - `ctx.params` — 경로 파라미터
 
+### 지연 예산 및 캐시 폴백
+
+`Router::latency`는 opt-in GET/HEAD 지연 예산입니다. 기본 총합은 **6 ms**입니다: 핸들러용 4 ms에 캐시 폴백 예비 2 ms를 더한 것으로, 10 ms P99 목표 아래에서 스케줄링 여유를 남깁니다; `.deadline(10ms)`로 재정의합니다. 만료되면 캐시를 읽어 `X-Bee-Cache: stale` / `Age`가 포함된 공개 응답을 재생하거나 504 `"request timed out"` + `X-Bee-Deadline: exceeded`를 반환합니다. 쓰기 메서드는 이 예산에 포함되지 않으며 기존 30초/408 동작을 유지합니다.
+
+```rust
+use std::sync::Arc;
+use axum::http::header;
+use axum::response::IntoResponse;
+use bee_cache::{Cache, MemoryCache};
+use bee_router::{LatencyConfig, Router};
+
+let cache: Arc<dyn Cache> = Arc::new(MemoryCache::new());
+let config = LatencyConfig::new(cache);   // optional .deadline(10ms) / .fallback_reserve(2ms)
+let stats = config.stats();
+let app = Router::new()
+    .latency(config)
+    .ns("/api", |ns| ns.get("/feed", feed));
+
+async fn feed() -> impl IntoResponse {
+    ([(header::CACHE_CONTROL, "public, max-age=30")], "payload")
+}
+```
+
+캐시 계약:
+- **GET 200** 응답만 저장됩니다; `Cache-Control`에 `public`이 있어야 하고 `private` / `no-store` / `no-cache`가 없어야 하며, `Set-Cookie`나 `Vary`가 없어야 하고, 본문의 `size_hint().exact()`가 64 KiB 이하여야 합니다. HEAD는 GET 키를 재사용하지만 절대 저장하지 않습니다.
+- `Authorization` / `Range` / `Cache-Control: no-store` / `no-cache`가 있는 요청은 캐시를 우회하며 타임아웃 시 504를 반환합니다.
+- TTL은 구성된 값과 응답 `max-age` 중 작은 쪽입니다; 쓰기는 캐시를 무효화하지 않으므로 응답은 최대 1 TTL까지 오래된 상태일 수 있습니다.
+- 타임아웃된 GET은 **제한된 백그라운드 작업**(기본 128, `background_limit(0)`으로 비활성화)에서 계속되어 다음 요청을 위해 캐시를 예열합니다.
+- 데드라인은 응답을 제한할 뿐 서버 측 작업을 제한하지 않습니다: SQLite/Postgres/MySQL/Redis 작업은 취소되지 않습니다. 롱폴링, SSE, 다운로드 라우트는 `latency`가 **없는** Router를 사용해야 합니다.
+- `LatencyStats::snapshot()`은 요청 / 타임아웃 / 폴백 히트와 P50/P99 버킷 상한 및 정확한 `max_us`를 보고합니다.
+
 ## 보안 감지 (`security` feature)
 
 [security-rust](https://crates.io/crates/security-rust) 기반의 공격 감지 필터로, XSS, SQL 인젝션, 명령어 인젝션, SSRF 등 27가지 공격 유형을 다룹니다:
@@ -291,16 +322,41 @@ let back = Event::query().all(&pool).await?;   // "1.50"은 같은 값으로 왕
 
 ### 샤딩 (bee_orm)
 
-key-required 데이터베이스/테이블 샤딩. 실행 가능한 핸들을 얻는 유일한 방법은 `ShardedPools::for_key`입니다. 쿼리에는 샤드 키가 있어야 합니다. 라우팅은 단일 복합 인덱스 `hash % (db_shards * table_shards)`를 사용하므로 모든 데이터베이스/테이블 쌍에 도달할 수 있습니다. 크로스 샤드 쿼리, JOIN, 트랜잭션은 지원하지 않습니다. 물리 테이블 이름은 SQL에 삽입되기 전에 `[A-Za-z_][A-Za-z0-9_]*`로 검증됩니다. `ShardedPools::pools()` / `pool(index)`는 기본 풀을 운영과 동일 샤드 트랜잭션용으로 노출합니다. 라우팅은 여전히 `for_key`를 거쳐야 합니다.
+key-required 데이터베이스/테이블 샤딩. `#[bee(shard_key)]`는 라우팅 필드를 표시하고 derive가 `Model::shard_key()`를 생성합니다; `ShardedPools::for_model`은 인스턴스를 직접 라우팅하고, `for_key`는 여전히 값을 받습니다. 쿼리에는 샤드 키가 있어야 합니다. 샤드 키는 라우팅 전에 호출자가 제공해야 합니다: `auto` / `auto_now_add` / `auto_now` 필드는 매크로에서 거부되며, `None` / `NULL`은 키 없음으로 간주됩니다(`for_model`은 `ShardError`를 반환합니다). 라우팅은 단일 복합 인덱스 `hash % (db_shards * table_shards)`를 사용하므로 모든 데이터베이스/테이블 쌍에 도달할 수 있습니다; 크로스 샤드 쿼리, JOIN, 트랜잭션은 지원하지 않습니다. 물리 테이블 이름은 SQL에 삽입되기 전에 `[A-Za-z_][A-Za-z0-9_]*`로 검증됩니다. `ShardedPools::all_shards()` / `pools()` / `pool(index)`는 기본 풀을 운영과 동일 샤드 트랜잭션용으로 노출합니다; 라우팅은 여전히 `for_key` / `for_model`을 거쳐야 합니다. `sync_all`은 모든 풀 × 테이블 샤드를 직렬로 마이그레이션합니다; `sync_all_parallel`은 해당 대상들을 동시에 실행합니다(이미 적용된 DDL은 롤백되지 않습니다). 샤딩 오용은 `OrmError::ShardError`를 반환하며, `OrmError`는 `#[non_exhaustive]`입니다.
 
 ```rust
 use std::sync::Arc;
 use bee_orm::shard::{HashRouter, ShardedPools};
 
+#[derive(Model)]
+#[bee(table = "users")]
+struct User {
+    #[bee(pk, auto)]
+    id: i64,
+    #[bee(shard_key)]
+    tenant_id: i64,
+    name: String,
+}
+
 let shards = ShardedPools::new(vec![pool0, pool1], Arc::new(HashRouter::new(2, 4)?))?;
-let db = shards.for_key(user_id)?;                  // the only way to get an executable handle
-let users = User::query().filter_eq("user_id", user_id)?.all(&db).await?;
+let user = User { id: 0, tenant_id: 42, name: "alice".into() };
+let db = shards.for_model(&user)?;                  // routed by #[bee(shard_key)]
+let users = User::query().filter_eq("tenant_id", 42)?.all(&db).await?;
 shards.sync_all::<User>(Default::default()).await?; // create every physical table
+```
+
+### 풀 상태와 슬로우 쿼리
+
+세 백엔드 모두 `PoolStatus { max_size, size, available }`를 반환합니다; mysql은 통계를 노출하지 않으므로 뒤의 두 값은 `None`입니다. `TimedDb`는 모든 `Db`를 감싸고 `query` / `execute` 또는 `insert_returning` / `insert_returning_auto` 읽기 반환이 임계값 이상 걸릴 때 콜백합니다; 읽기 반환 값은 그대로 전달되며 측정만 됩니다.
+
+```rust
+use std::time::Duration;
+use bee_orm::{Db, TimedDb};
+
+let db = TimedDb::new(pool, Duration::from_millis(200), |sql, elapsed| {
+    eprintln!("slow ({elapsed:?}): {sql}");
+});
+let rows = db.query("SELECT ...", &[]).await?;
 ```
 
 ## 설정 관리 (bee_config)
@@ -326,11 +382,30 @@ kv.set("key", "value").await?;
 kv.expire("key", 60).await?;
 let val = kv.get("key").await?;
 
+// 대기 시간이 제한된 분산 락; watchdog 변형은 TTL을 갱신합니다
+let lock = kv.lock();
+if let Some(guard) = lock.acquire("job", Duration::from_secs(10), Duration::from_secs(2)).await? {
+    // ... work ...
+    guard.release().await?;
+}
+
+// TLS / ACL: 자격 증명과 스킴은 URL에 있습니다(feature `redis-tls`)
+let kv = RedisStore::new("rediss://user:pass@redis.example:6380").await?;
+
+// Sentinel / Cluster(feature `redis-sentinel` / `redis-cluster`)
+use bee_kv::{RedisSentinelStore, RedisClusterStore};
+let kv = RedisSentinelStore::new("mymaster", &["redis://127.0.0.1:26379"], 16).await?;
+let kv = RedisClusterStore::new(&["redis://127.0.0.1:7000"], 16).await?;
+
 // memcached 백엔드(feature `memcached`)
 let kv = MemcacheStore::new("127.0.0.1:11211")?;
 ```
 
-> `RedisStore`는 `deadpool-redis` 풀을 보유합니다. 끊긴 연결은 다음 checkout에서 교체되고(recycle PING), 각 명령은 30초로 제한되며, 풀이 고갈되면 최대 30초 대기 후 실패합니다. `bee_kv::RedisLock`은 `SET NX PX` 획득과 Lua compare-and-delete 해제를 제공합니다. memcached: `incr`은 먼저 카운터를 만들고(없으면 0) 그다음 증감합니다; 카운터는 부호 없음이라 감소는 0에서 멈춥니다(Redis는 음수로 내려갑니다); `expire(≤0)`은 삭제와 같습니다. Redis 풀은 또한 `status()`, 응답 타임아웃을 구성할 수 있는 `RedisOptions`, TTL 자동 갱신을 위한 `try_lock_with_watchdog`를 제공합니다.
+> `RedisStore`는 `deadpool-redis` 풀을 보유합니다: 끊긴 연결은 다음 checkout에서 교체되고(recycle PING), 각 명령은 30초로 제한되며, 풀이 고갈되면 최대 30초 대기 후 실패합니다. `bee_kv::RedisLock`은 `SET NX PX` 획득과 Lua compare-and-delete 해제를 제공합니다; `acquire(key, ttl, wait)`는 제한된 대기가 만료될 때까지 최대 50ms 간격으로 재시도하고, `try_lock_with_watchdog`는 백그라운드에서 TTL/3마다 TTL을 갱신합니다. `RedisOptions`는 풀 크기와 응답 타임아웃을 설정하고, `status()` / `RedisPoolStatus`는 풀 스냅샷을 읽습니다. `redis-tls`는 URL에 ACL 자격 증명이 포함된 `rediss://`를 활성화합니다(`redis://user:pass@host`).
+>
+> Sentinel / Cluster: `redis-sentinel`은 `RedisSentinelStore` / `RedisSentinelCache`를 제공하고, `redis-cluster`는 `RedisClusterStore` / `RedisClusterCache`를 제공합니다. Sentinel URL 자격 증명/TLS는 Sentinel에만 적용되며, 마스터 연결에는 둘 다 없습니다. 또한 풀링된 연결은 역할 확인 없이 PING으로 재활용되므로, 페일오버 후에도 여전히 도달 가능한 이전 마스터가 계속 서비스할 수 있습니다(`deadpool-redis` 0.18의 제한). Cluster의 `mget` / `mset`은 순차적 단일 키 명령이며(`CROSSSLOT` 회피), 클러스터 명령은 `response_timeout`으로 제한되지 않습니다.
+>
+> memcached: `incr`은 먼저 카운터를 만들고(없으면 0) 그다음 증감합니다; 카운터는 부호 없음이라 감소는 0에서 멈춥니다(Redis는 음수로 내려갑니다); `expire(≤0)`은 삭제와 같습니다.
 
 **캐시 백엔드(bee_cache):**
 ```rust

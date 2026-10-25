@@ -162,7 +162,7 @@ bee_rust   → 上記すべての crate (re-export)
 | | MySQL 5.7 / 8.0 / 8.4 / 9.x · MariaDB 10.11+ | `bee_orm` | `mysql`（bee_rust：`orm-mysql`） |
 | | TiDB | `bee_orm` | `mysql` |
 | **フィールド型** | 日付 / Decimal | `bee_orm` | `chrono` / `rust_decimal`（bee_rust：`orm-chrono` / `orm-rust_decimal`） |
-| **KV / キャッシュ** | Redis | `bee_kv` / `bee_cache` | `redis` |
+| **KV / キャッシュ** | Redis | `bee_kv` / `bee_cache` | `redis` / `redis-tls` / `redis-sentinel` / `redis-cluster` |
 | | Memcached | `bee_kv` / `bee_cache` | `memcached` / `memcache` |
 | **検索 / 分析** | Elasticsearch | `bee_search` | `elasticsearch` |
 | | OpenSearch | `bee_search` | `opensearch` |
@@ -192,6 +192,7 @@ MVC コントローラ：`Controller` trait + `Context`。ルートネームス�
 - レスポンス出力：`ctx.json()` / `ctx.text()` / `ctx.html()`
 - リダイレクト / 中断：`ctx.redirect()` / `ctx.abort()`
 - セッションとパラメータ：`ctx.session` / `ctx.params`
+- レイテンシ予算（オプトイン）：`Router::latency(LatencyConfig::new(cache))` は GET/HEAD にデフォルト 6 ms の合計予算（ハンドラ 4 ms + キャッシュフォールバック予備 2 ms）を与えます。公開レスポンスはキャッシュされ、タイムアウト時には `X-Bee-Cache: stale` を付けて再送信されるか、リクエストは 504 を返します。書き込みは 30 s のタイムアウトを維持し、`LatencyStats` は P50/P99 を公開します。
 
 ### セキュリティ検知（`security` feature）
 
@@ -203,7 +204,7 @@ let security = SecurityFilter::new();  // 27 個の検出器をすべて有効�
 
 ### ORM（bee_orm）
 
-`#[derive(Model)]` 派生マクロ（`#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]` 対応）+ QuerySet のチェーン式クエリと実行（`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`、集計 `sum` / `avg` / `min` / `max`）+ 非破壊マイグレーション（`migrate::create_table` / `add_missing_columns` / `sync`）+ リレーション読み取り（`belongs_to` / has_many `children*` / many-to-many `m2m`）+ JSON カラム（`serde_json::Value`）+ 3 バックエンドのコネクションプール（トランザクション・タイムアウト対応）。SQLite、PostgreSQL、MySQL、TiDB をサポート。 ORM は必須のシャードキーを使うデータベース/テーブルシャーディング（`shard::{ShardedPools, HashRouter, ShardHandle}`）も提供します。クエリにはシャードキーが必要で、クロスシャードのクエリやトランザクションはサポートしません。MySQL 5.7–9.x と MariaDB 10.11+ をサポートし、シャード層は運用向けにプールを公開します。
+`#[derive(Model)]` 派生マクロ（`#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete / shard_key)]` 対応）+ QuerySet のチェーン式クエリと実行（`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`、集計 `sum` / `avg` / `min` / `max`）+ 非破壊マイグレーション（`migrate::create_table` / `add_missing_columns` / `sync`）+ リレーション読み取り（`belongs_to` / has_many `children*` / many-to-many `m2m`）+ JSON カラム（`serde_json::Value`）+ 3 バックエンドのコネクションプール（トランザクション・タイムアウト対応）。SQLite、PostgreSQL、MySQL、TiDB をサポート。必須のシャードキーを使うデータベース/テーブルシャーディング（`ShardedPools` + `HashRouter` — `#[bee(shard_key)]` / `for_model` はインスタンスから直接ルーティングし、シャードキーは呼び出し元が指定する必要があります — auto/タイムスタンプフィールドは不可 — NULL はルーティングできません。すべてのクエリにシャードキーが必要で、クロスシャードのクエリやトランザクションはサポートしません）。MySQL 5.7–9.x と MariaDB 10.11+ をサポートし、`sync_all_parallel` はすべてのシャードを並行してマイグレーション、`all_shards()` / `pools()` は設定済みプールを運用向けに公開します。共通の `PoolStatus` / `pool_status()` とスロークエリ用 `TimedDb` ラッパーが全バックエンドをカバーし、シャーディングの失敗は専用の `OrmError::ShardError` に分類され、`OrmError` は `#[non_exhaustive]` です。
 
 ### 設定管理（bee_config）
 
@@ -211,7 +212,7 @@ let security = SecurityFilter::new();  // 27 個の検出器をすべて有効�
 
 ### ストレージエンジン
 
-KV / Cache（Redis / Memcached）、検索エンジン（Elasticsearch / OpenSearch / ClickHouse）、グラフデータベース（Neo4j / NebulaGraph / ArangoDB）、時系列データベース（InfluxDB / IoTDB / QuestDB）を統一 trait で抽象化し、ドライバは feature gate に応じてコンパイルされます。 Redis バックエンド（`bee_kv` / `bee_cache`）は実際の `deadpool-redis` コネクションプールと 30 秒のコマンド上限を使います。`bee_kv::RedisLock` は分散ロック（`SET NX PX` + Lua の compare-and-delete 解放）を提供します。Redis プールは `status()`、応答タイムアウトを設定できる `RedisOptions`、TTL 自動更新のための `try_lock_with_watchdog` も提供します。
+KV / Cache（Redis / Memcached）、検索エンジン（Elasticsearch / OpenSearch / ClickHouse）、グラフデータベース（Neo4j / NebulaGraph / ArangoDB）、時系列データベース（InfluxDB / IoTDB / QuestDB）を統一 trait で抽象化し、ドライバは feature gate の背後でコンパイルされます。Redis バックエンドは実際のコネクションプール（`deadpool-redis`）を使用し、`bee_kv::RedisLock` は分散ロック（`SET NX PX` 取得 + Lua 解放、`acquire` の有界待機、`try_lock_with_watchdog` による自動更新）を提供します。Redis プールは `status()` / `RedisPoolStatus` と、応答タイムアウトを設定できる `RedisOptions` を公開します。`redis-tls` は `rediss://` と URL 内の ACL 認証情報を有効化し、`redis-sentinel` / `redis-cluster` は Sentinel と Cluster の KV/キャッシュバックエンドを追加します。Sentinel はプールされた接続で master ロールを再確認せず、master の ACL/TLS も渡しません（`deadpool-redis` 0.18 の制限）。Cluster のコマンドは応答タイムアウトで制限されません。
 
 ### Session、ログ、テンプレート
 
@@ -264,7 +265,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.5.0", features = ["full"] }
+bee_rust = { version = "1.6.0", features = ["full"] }
 ```
 
 ## 技術詳細
@@ -313,22 +314,22 @@ bee_rust = { version = "1.5.0", features = ["full"] }
 
 ### テストカバレッジ
 
-リポジトリ全体で 414 個のテストがパス：
+リポジトリ全体で 471 個のテストがパス：
 
 | Crate | テスト数 |
 |-------|--------|
 | bee_config | 8 |
-| bee_cache | 18 |
+| bee_cache | 25 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 28 |
+| bee_kv | 44 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |
-| bee_orm | 200 |
-| bee_orm_macro | 24 |
+| bee_orm | 211 |
+| bee_orm_macro | 26 |
 | bee_session | 2 |
-| bee_router | 40 |
+| bee_router | 61 |
 | bee_cli | 30 |
 
 ## サポート歓迎

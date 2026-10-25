@@ -162,7 +162,7 @@ bee_rust   → उपरोक्त सभी crates (re-export)
 | | MySQL 5.7 / 8.0 / 8.4 / 9.x · MariaDB 10.11+ | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **फ़ील्ड प्रकार** | दिनांक / Decimal | `bee_orm` | `chrono` / `rust_decimal` (bee_rust: `orm-chrono` / `orm-rust_decimal`) |
-| **KV / कैश** | Redis | `bee_kv` / `bee_cache` | `redis` |
+| **KV / कैश** | Redis | `bee_kv` / `bee_cache` | `redis` / `redis-tls` / `redis-sentinel` / `redis-cluster` |
 | | Memcached | `bee_kv` / `bee_cache` | `memcached` / `memcache` |
 | **खोज / विश्लेषण** | Elasticsearch | `bee_search` | `elasticsearch` |
 | | OpenSearch | `bee_search` | `opensearch` |
@@ -192,6 +192,7 @@ MVC कंट्रोलर: `Controller` trait + `Context`, रूट ने�
 - प्रतिक्रिया आउटपुट: `ctx.json()` / `ctx.text()` / `ctx.html()`
 - रीडायरेक्ट / रोकना: `ctx.redirect()` / `ctx.abort()`
 - सत्र और पैरामीटर: `ctx.session` / `ctx.params`
+- लेटेंसी बजट (वैकल्पिक): `Router::latency(LatencyConfig::new(cache))` GET/HEAD को डिफ़ॉल्ट 6 ms का कुल बजट देता है (4 ms हैंडलर + 2 ms कैश-फ़ॉलबैक आरक्षित); सार्वजनिक प्रतिक्रियाएँ कैश की जाती हैं और टाइमआउट पर `X-Bee-Cache: stale` के साथ दोबारा भेजी जाती हैं, अन्यथा अनुरोध 504 लौटाता है। लिखने के संचालन 30 s टाइमआउट बनाए रखते हैं; `LatencyStats` P50/P99 उजागर करता है।
 
 ### सुरक्षा जाँच (`security` feature)
 
@@ -203,7 +204,7 @@ let security = SecurityFilter::new();  // सभी 27 डिटेक्टर 
 
 ### ORM (bee_orm)
 
-`#[derive(Model)]` डिराइव मैक्रो (`#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]` सहित) + QuerySet चेन क्वेरी और निष्पादन (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, एग्रीगेट `sum` / `avg` / `min` / `max`) + गैर-विनाशकारी माइग्रेशन (`migrate::create_table` / `add_missing_columns` / `sync`) + संबंध पढ़ना (`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON कॉलम (`serde_json::Value`) + तीनों बैकएंड के लिए कनेक्शन पूल (ट्रांज़ैक्शन और टाइमआउट सहित), SQLite, PostgreSQL, MySQL, TiDB का समर्थन करता है। ORM अब key-required डेटाबेस/टेबल शार्डिंग (`shard::{ShardedPools, HashRouter, ShardHandle}`) भी देता है; क्वेरी में शार्ड कुंजी होनी चाहिए, और क्रॉस-शार्ड क्वेरी/ट्रांजैक्शन समर्थित नहीं हैं। MySQL 5.7–9.x और MariaDB 10.11+ समर्थित हैं; शार्ड परत अपने पूल संचालन के लिए उजागर करती है।
+`#[derive(Model)]` डिराइव मैक्रो (`#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete / shard_key)]` सहित) + QuerySet चेन क्वेरी और निष्पादन (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, एग्रीगेट `sum` / `avg` / `min` / `max`) + गैर-विनाशकारी माइग्रेशन (`migrate::create_table` / `add_missing_columns` / `sync`) + संबंध पढ़ना (`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON कॉलम (`serde_json::Value`) + तीनों बैकएंड के लिए कनेक्शन पूल (ट्रांज़ैक्शन और टाइमआउट सहित), SQLite, PostgreSQL, MySQL, TiDB का समर्थन करता है; key-required डेटाबेस/टेबल शार्डिंग (`ShardedPools` + `HashRouter` — `#[bee(shard_key)]` / `for_model` सीधे इंस्टेंस से रूट करते हैं; शार्ड कुंजी कॉलर द्वारा दी जानी चाहिए — कभी भी auto/टाइमस्टैम्प फ़ील्ड नहीं — और NULL रूट करने योग्य नहीं है; हर क्वेरी में शार्ड कुंजी होनी चाहिए, क्रॉस-शार्ड क्वेरी या ट्रांजैक्शन समर्थित नहीं हैं)। MySQL 5.7–9.x और MariaDB 10.11+ समर्थित हैं; `sync_all_parallel` सभी शार्ड को समवर्ती रूप से माइग्रेट करता है, और `all_shards()` / `pools()` संचालन के लिए कॉन्फ़िगर किए गए पूल उजागर करते हैं। साझा `PoolStatus` / `pool_status()` और धीमी क्वेरी के लिए `TimedDb` रैपर सभी बैकएंड पर लागू होते हैं; शार्डिंग विफलताओं का अपना `OrmError::ShardError` है, और `OrmError` `#[non_exhaustive]` है।
 
 ### कॉन्फ़िगरेशन प्रबंधन (bee_config)
 
@@ -211,7 +212,7 @@ let security = SecurityFilter::new();  // सभी 27 डिटेक्टर 
 
 ### स्टोरेज इंजन
 
-KV / Cache (Redis / Memcached), खोज इंजन (Elasticsearch / OpenSearch / ClickHouse), ग्राफ़ डेटाबेस (Neo4j / NebulaGraph / ArangoDB), टाइम-सीरीज़ डेटाबेस (InfluxDB / IoTDB / QuestDB) — सभी एकीकृत trait अमूर्तता, ड्राइवर feature gate के अनुसार संकलित होते हैं। Redis बैकएंड (`bee_kv` / `bee_cache`) वास्तविक `deadpool-redis` कनेक्शन पूल और 30 सेकंड की कमांड सीमा का उपयोग करते हैं; `bee_kv::RedisLock` वितरित लॉक (`SET NX PX` + Lua compare-and-delete रिलीज़) देता है। Redis पूल `status()`, कॉन्फ़िगर करने योग्य प्रतिक्रिया टाइमआउट वाला `RedisOptions`, और TTL स्वतः नवीनीकरण के लिए `try_lock_with_watchdog` भी प्रदान करते हैं।
+KV / Cache (Redis / Memcached), खोज इंजन (Elasticsearch / OpenSearch / ClickHouse), ग्राफ़ डेटाबेस (Neo4j / NebulaGraph / ArangoDB), टाइम-सीरीज़ डेटाबेस (InfluxDB / IoTDB / QuestDB) के लिए एकीकृत trait अमूर्तता, ड्राइवर feature gate के पीछे संकलित होते हैं। Redis बैकएंड वास्तविक कनेक्शन पूल (`deadpool-redis`) का उपयोग करते हैं, और `bee_kv::RedisLock` वितरित लॉक प्रदान करता है (`SET NX PX` अधिग्रहण + Lua रिलीज़, सीमित `acquire` प्रतीक्षा, और `try_lock_with_watchdog` स्वतः नवीनीकरण)। Redis पूल `status()` / `RedisPoolStatus` और कॉन्फ़िगर करने योग्य प्रतिक्रिया टाइमआउट वाला `RedisOptions` उजागर करते हैं; `redis-tls` `rediss://` और URL में ACL क्रेडेंशियल सक्षम करता है; `redis-sentinel` / `redis-cluster` Sentinel और Cluster KV/कैश बैकएंड जोड़ते हैं। Sentinel पूल किए गए कनेक्शन पर master भूमिका की पुनर्जाँच नहीं करता और master ACL/TLS पास नहीं करता (`deadpool-redis` 0.18 सीमा); Cluster कमांड प्रतिक्रिया टाइमआउट से सीमित नहीं हैं।
 
 ### Session, लॉग, टेम्पलेट
 
@@ -264,7 +265,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.5.0", features = ["full"] }
+bee_rust = { version = "1.6.0", features = ["full"] }
 ```
 
 ## तकनीकी विवरण
@@ -313,22 +314,22 @@ bee_rust = { version = "1.5.0", features = ["full"] }
 
 ### परीक्षण कवरेज
 
-पूरे रिपॉज़िटरी में 414 परीक्षण पास:
+पूरे रिपॉज़िटरी में 471 परीक्षण पास:
 
 | Crate | परीक्षण संख्या |
 |-------|--------|
 | bee_config | 8 |
-| bee_cache | 18 |
+| bee_cache | 25 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 28 |
+| bee_kv | 44 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |
-| bee_orm | 200 |
-| bee_orm_macro | 24 |
+| bee_orm | 211 |
+| bee_orm_macro | 26 |
 | bee_session | 2 |
-| bee_router | 40 |
+| bee_router | 61 |
 | bee_cli | 30 |
 
 ## समर्थन का स्वागत है

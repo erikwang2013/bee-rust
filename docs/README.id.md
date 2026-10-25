@@ -162,7 +162,7 @@ bee_rust   → semua crate di atas (re-export)
 | | MySQL 5.7 / 8.0 / 8.4 / 9.x · MariaDB 10.11+ | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **Jenis field** | Tanggal / Decimal | `bee_orm` | `chrono` / `rust_decimal` (bee_rust: `orm-chrono` / `orm-rust_decimal`) |
-| **KV / Cache** | Redis | `bee_kv` / `bee_cache` | `redis` |
+| **KV / Cache** | Redis | `bee_kv` / `bee_cache` | `redis` / `redis-tls` / `redis-sentinel` / `redis-cluster` |
 | | Memcached | `bee_kv` / `bee_cache` | `memcached` / `memcache` |
 | **Pencarian / Analitik** | Elasticsearch | `bee_search` | `elasticsearch` |
 | | OpenSearch | `bee_search` | `opensearch` |
@@ -192,6 +192,7 @@ Controller MVC: trait `Controller` + `Context`, mendukung namespace rute, regist
 - Output respons: `ctx.json()` / `ctx.text()` / `ctx.html()`
 - Pengalihan / pembatalan: `ctx.redirect()` / `ctx.abort()`
 - Sesi dan parameter: `ctx.session` / `ctx.params`
+- Anggaran latensi (opsional): `Router::latency(LatencyConfig::new(cache))` memberi GET/HEAD anggaran total default 6 ms (4 ms handler + 2 ms cadangan cache-fallback); respons publik di-cache dan diputar ulang saat timeout dengan `X-Bee-Cache: stale`, atau permintaan mengembalikan 504. Operasi tulis tetap memakai timeout 30 s; `LatencyStats` mengekspos P50/P99.
 
 ### Deteksi Keamanan (fitur `security`)
 
@@ -203,7 +204,7 @@ let security = SecurityFilter::new();  // 27 detektor semuanya aktif
 
 ### ORM (bee_orm)
 
-Macro turunan `#[derive(Model)]` (dengan `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + query berantai dan eksekusi QuerySet (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, agregat `sum` / `avg` / `min` / `max`) + migrasi non-destruktif (`migrate::create_table` / `add_missing_columns` / `sync`) + pembacaan relasi (`belongs_to` / has_many `children*` / many-to-many `m2m`) + kolom JSON (`serde_json::Value`) + connection pool untuk ketiga backend (dengan transaksi dan timeout), mendukung SQLite, PostgreSQL, MySQL, TiDB. ORM juga menyediakan sharding basis data/tabel yang wajib memakai kunci (`shard::{ShardedPools, HashRouter, ShardHandle}`); kueri harus membawa kunci shard, dan kueri/transaksi lintas shard tidak didukung. MySQL 5.7–9.x dan MariaDB 10.11+ didukung; lapisan shard mengekspos pool-nya untuk operasi.
+Macro turunan `#[derive(Model)]` (dengan `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete / shard_key)]`) + query berantai dan eksekusi QuerySet (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, agregat `sum` / `avg` / `min` / `max`) + migrasi non-destruktif (`migrate::create_table` / `add_missing_columns` / `sync`) + pembacaan relasi (`belongs_to` / has_many `children*` / many-to-many `m2m`) + kolom JSON (`serde_json::Value`) + connection pool untuk ketiga backend (dengan transaksi dan timeout), mendukung SQLite, PostgreSQL, MySQL, TiDB; sharding basis data/tabel yang wajib memakai kunci (`ShardedPools` + `HashRouter` — `#[bee(shard_key)]` / `for_model` merutekan langsung dari sebuah instance; kunci shard harus disediakan oleh pemanggil — tidak pernah berupa field auto/timestamp — dan NULL tidak dapat dirutekan; setiap kueri harus membawa kunci shard, tidak ada kueri atau transaksi lintas shard). MySQL 5.7–9.x dan MariaDB 10.11+ didukung; `sync_all_parallel` memigrasikan semua shard secara bersamaan, dan `all_shards()` / `pools()` mengekspos pool yang dikonfigurasi untuk operasi. `PoolStatus` / `pool_status()` bersama dan pembungkus `TimedDb` untuk kueri lambat mencakup semua backend; kegagalan sharding punya `OrmError::ShardError` sendiri, dan `OrmError` bersifat `#[non_exhaustive]`.
 
 ### Manajemen Konfigurasi (bee_config)
 
@@ -211,7 +212,7 @@ Macro turunan `#[derive(Config)]`, mendukung pemuatan INI / YAML / ENV dan hot-r
 
 ### Mesin Penyimpanan
 
-Abstraksi trait terpadu untuk KV / Cache (Redis / Memcached), mesin pencarian (Elasticsearch / OpenSearch / ClickHouse), basis data graf (Neo4j / NebulaGraph / ArangoDB), basis data deret waktu (InfluxDB / IoTDB / QuestDB); driver dikompilasi sesuai feature gate. Backend Redis (`bee_kv` / `bee_cache`) memakai pool koneksi `deadpool-redis` sungguhan dengan batas 30 detik per perintah; `bee_kv::RedisLock` menyediakan distributed lock (`SET NX PX` + pelepasan Lua compare-and-delete). Pool Redis juga mengekspos `status()`, `RedisOptions` dengan timeout respons yang dapat dikonfigurasi, dan `try_lock_with_watchdog` untuk pembaruan TTL otomatis.
+Abstraksi trait terpadu untuk KV / Cache (Redis / Memcached), mesin pencarian (Elasticsearch / OpenSearch / ClickHouse), basis data graf (Neo4j / NebulaGraph / ArangoDB), dan basis data deret waktu (InfluxDB / IoTDB / QuestDB), dengan driver dikompilasi di balik feature gate. Backend Redis memakai pool koneksi sungguhan (`deadpool-redis`), dan `bee_kv::RedisLock` menyediakan distributed lock (akuisisi `SET NX PX` + pelepasan Lua, penantian `acquire` yang terbatas, dan pembaruan otomatis `try_lock_with_watchdog`). Pool Redis mengekspos `status()` / `RedisPoolStatus` dan `RedisOptions` dengan timeout respons yang dapat dikonfigurasi; `redis-tls` mengaktifkan `rediss://` dan kredensial ACL di URL; `redis-sentinel` / `redis-cluster` menambahkan backend KV/cache Sentinel dan Cluster. Sentinel tidak memeriksa ulang peran master pada koneksi pool dan tidak meneruskan ACL/TLS master (batas `deadpool-redis` 0.18); perintah Cluster tidak dibatasi oleh timeout respons.
 
 ### Session, Logging, Template
 
@@ -264,7 +265,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.5.0", features = ["full"] }
+bee_rust = { version = "1.6.0", features = ["full"] }
 ```
 
 ## Catatan Teknis
@@ -313,22 +314,22 @@ bee_rust = { version = "1.5.0", features = ["full"] }
 
 ### Cakupan Pengujian
 
-Seluruh 414 pengujian di repositori lolos:
+Seluruh 471 pengujian di repositori lolos:
 
 | Crate | Jumlah Pengujian |
 |-------|--------|
 | bee_config | 8 |
-| bee_cache | 18 |
+| bee_cache | 25 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 28 |
+| bee_kv | 44 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |
-| bee_orm | 200 |
-| bee_orm_macro | 24 |
+| bee_orm | 211 |
+| bee_orm_macro | 26 |
 | bee_session | 2 |
-| bee_router | 40 |
+| bee_router | 61 |
 | bee_cli | 30 |
 
 ## Dukungan

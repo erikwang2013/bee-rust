@@ -88,6 +88,37 @@ let app = Router::new()
 - `ctx.session` — الوصول إلى الجلسة
 - `ctx.params` — معاملات المسار
 
+### ميزانية الكمون والرجوع إلى التخزين المؤقت
+
+`Router::latency` ميزانية كمون اختيارية (opt-in) لطلبات GET/HEAD. الإجمالي الافتراضي هو **6 ms**: 4 ms للمعالج زائد احتياطي 2 ms للرجوع إلى الكاش، مما يترك هامشًا للجدولة تحت هدف P99 البالغ 10 ms؛ تجاوزه بـ `.deadline(10ms)`. عند الانتهاء يقرأ الكاش، ويعيد تشغيل استجابة عامة مع `X-Bee-Cache: stale` / `Age`، أو يعيد 504 `"request timed out"` + `X-Bee-Deadline: exceeded`. طرق الكتابة ليست ضمن هذه الميزانية وتحتفظ بسلوك 30 s/408 الحالي.
+
+```rust
+use std::sync::Arc;
+use axum::http::header;
+use axum::response::IntoResponse;
+use bee_cache::{Cache, MemoryCache};
+use bee_router::{LatencyConfig, Router};
+
+let cache: Arc<dyn Cache> = Arc::new(MemoryCache::new());
+let config = LatencyConfig::new(cache);   // optional .deadline(10ms) / .fallback_reserve(2ms)
+let stats = config.stats();
+let app = Router::new()
+    .latency(config)
+    .ns("/api", |ns| ns.get("/feed", feed));
+
+async fn feed() -> impl IntoResponse {
+    ([(header::CACHE_CONTROL, "public, max-age=30")], "payload")
+}
+```
+
+عقد الكاش:
+- تُخزَّن استجابات **GET 200** فقط؛ يجب أن يحتوي `Cache-Control` على `public` وألا يحتوي على `private`/`no-store`/`no-cache`، ويجب ألا يوجد `Set-Cookie` أو `Vary`، ويجب أن يكون `size_hint().exact()` للجسم ≤ 64 KiB. يعيد HEAD استخدام مفتاح GET لكنه لا يخزّن أبدًا.
+- الطلبات التي تحمل `Authorization` / `Range` / `Cache-Control: no-store` / `no-cache` تتجاوز الكاش وتعيد 504 عند انتهاء المهلة.
+- TTL هو الأصغر بين القيمة المضبوطة و`max-age` في الاستجابة؛ لا تُبطل عمليات الكتابة الكاش أبدًا، لذا قد تكون الاستجابات قديمة حتى TTL واحد.
+- يستمر GET الذي انتهت مهلته في **مهمة خلفية محدودة** (128 افتراضيًا؛ `background_limit(0)` يعطّلها) لتسخين الكاش للطلب التالي.
+- تحدّ المهلة الاستجابة، لا العمل على الخادم: لا يُلغى عمل SQLite/Postgres/MySQL/Redis. مسارات long-poll وSSE والتنزيل يجب أن تستخدم Router **بدون** `latency`.
+- يبلّغ `LatencyStats::snapshot()` عن الطلبات / المهل المنتهية / إصابات الـfallback إضافةً إلى الحدود العليا لدلاء P50/P99 و`max_us` الدقيق.
+
 ## كشف الأمان (feature: `security`)
 
 فلتر كشف الهجمات مبني على [security-rust](https://crates.io/crates/security-rust)، يغطي 27 نوعًا من الهجمات مثل XSS و SQL Injection و Command Injection و SSRF:
@@ -291,16 +322,41 @@ let back = Event::query().all(&pool).await?;   // "1.50" يعود بقيمة م�
 
 ### التقسيم (bee_orm)
 
-تقسيم قواعد/جداول يتطلّب مفتاحًا. `ShardedPools::for_key` هو الطريق الوحيد للحصول على مقبض قابل للتنفيذ؛ يجب أن تحمل الاستعلامات مفتاح التقسيم. يستخدم التوجيه فهرسًا مركبًا `hash % (db_shards * table_shards)`، لذا كل زوج قاعدة/جدول قابل للوصول؛ لا تُدعم الاستعلامات أو JOIN أو المعاملات عبر التقسيمات. تُتحقَّق أسماء الجداول الفيزيائية مقابل `[A-Za-z_][A-Za-z0-9_]*` قبل إدراجها في SQL. `ShardedPools::pools()` / `pool(index)` تكشف التجمّعات الأساسية للعمليات والمعاملات داخل التقسيم نفسه؛ ولا يزال التوجيه يتطلّب `for_key`.
+تقسيم قواعد/جداول يتطلّب مفتاحًا. يحدّد `#[bee(shard_key)]` حقل التوجيه وتولّد الـderive الدالة `Model::shard_key()`؛ يوجّه `ShardedPools::for_model` نسخة مباشرةً، بينما لا يزال `for_key` يأخذ القيمة. يجب أن تحمل الاستعلامات مفتاح التقسيم. يجب أن يوفّر المستدعي مفتاح التقسيم قبل التوجيه: ترفض الماكرو الحقول `auto` / `auto_now_add` / `auto_now`، و`None` / `NULL` يُعدّ عدم وجود مفتاح (تُعيد `for_model` الخطأ `ShardError`). يستخدم التوجيه فهرسًا مركبًا واحدًا `hash % (db_shards * table_shards)`، لذا كل زوج قاعدة/جدول قابل للوصول؛ لا تُدعم الاستعلامات أو JOIN أو المعاملات عبر التقسيمات. تُتحقَّق أسماء الجداول الفيزيائية مقابل `[A-Za-z_][A-Za-z0-9_]*` قبل إدراجها في SQL. تكشف `ShardedPools::all_shards()` / `pools()` / `pool(index)` التجمّعات الأساسية للعمليات والمعاملات داخل التقسيم نفسه؛ ولا يزال التوجيه يتطلّب `for_key` / `for_model`. يهاجر `sync_all` كل pool × table shard تسلسليًا؛ ويشغّل `sync_all_parallel` تلك الأهداف بالتزامن (لا يُتراجَع عن DDL المطبَّق مسبقًا). إساءة استخدام التقسيم تعيد `OrmError::ShardError`، و`OrmError` هو `#[non_exhaustive]`.
 
 ```rust
 use std::sync::Arc;
 use bee_orm::shard::{HashRouter, ShardedPools};
 
+#[derive(Model)]
+#[bee(table = "users")]
+struct User {
+    #[bee(pk, auto)]
+    id: i64,
+    #[bee(shard_key)]
+    tenant_id: i64,
+    name: String,
+}
+
 let shards = ShardedPools::new(vec![pool0, pool1], Arc::new(HashRouter::new(2, 4)?))?;
-let db = shards.for_key(user_id)?;                  // the only way to get an executable handle
-let users = User::query().filter_eq("user_id", user_id)?.all(&db).await?;
+let user = User { id: 0, tenant_id: 42, name: "alice".into() };
+let db = shards.for_model(&user)?;                  // routed by #[bee(shard_key)]
+let users = User::query().filter_eq("tenant_id", 42)?.all(&db).await?;
 shards.sync_all::<User>(Default::default()).await?; // create every physical table
+```
+
+### حالة التجمّع والاستعلامات البطيئة
+
+تعيد الخلفيات الثلاث `PoolStatus { max_size, size, available }`؛ لا يكشف mysql أي إحصاءات، لذا الحقلان الأخيران `None`. يغلّف `TimedDb` أي `Db` ويستدعي callback عندما يستغرق `query` / `execute` أو read-back من `insert_returning` / `insert_returning_auto` الحدَّ على الأقل؛ تُمرَّر قيمة الـread-back دون تغيير ويُقاس وقتها فقط.
+
+```rust
+use std::time::Duration;
+use bee_orm::{Db, TimedDb};
+
+let db = TimedDb::new(pool, Duration::from_millis(200), |sql, elapsed| {
+    eprintln!("slow ({elapsed:?}): {sql}");
+});
+let rows = db.query("SELECT ...", &[]).await?;
 ```
 
 ## إدارة التكوين (bee_config)
@@ -326,11 +382,30 @@ kv.set("key", "value").await?;
 kv.expire("key", 60).await?;
 let val = kv.get("key").await?;
 
+// قفل موزَّع بانتظار محدود؛ نسخة watchdog تجدّد TTL
+let lock = kv.lock();
+if let Some(guard) = lock.acquire("job", Duration::from_secs(10), Duration::from_secs(2)).await? {
+    // ... work ...
+    guard.release().await?;
+}
+
+// TLS / ACL: بيانات الاعتماد والمخطط في URL (feature `redis-tls`)
+let kv = RedisStore::new("rediss://user:pass@redis.example:6380").await?;
+
+// Sentinel / Cluster (features `redis-sentinel` / `redis-cluster`)
+use bee_kv::{RedisSentinelStore, RedisClusterStore};
+let kv = RedisSentinelStore::new("mymaster", &["redis://127.0.0.1:26379"], 16).await?;
+let kv = RedisClusterStore::new(&["redis://127.0.0.1:7000"], 16).await?;
+
 // خلفية memcached (feature `memcached`)
 let kv = MemcacheStore::new("127.0.0.1:11211")?;
 ```
 
-> يحتفظ `RedisStore` بتجمّع `deadpool-redis`: تُستبدل الاتصال المقتول عند checkout التالي (recycle PING)؛ كل أمر محدود بـ 30 ثانية، وتنتظر المجموعة المستنفدة حتى 30 ثانية قبل الفشل. يوفّر `bee_kv::RedisLock` الحصول عبر `SET NX PX` والتحرير بـ Lua compare-and-delete. memcached: ينشئ `incr` العدّاد أولاً (0 إن لم يوجد) ثم يطبّق الفرق؛ العدّادات غير موقّعة لذا يتوقف التنقيص عند 0 (في Redis ينزل إلى السالب)؛ `expire(≤0)` يعادل الحذف. تكشف تجمّعات Redis أيضًا عن `status()` و`RedisOptions` بمهلة استجابة قابلة للضبط و`try_lock_with_watchdog` للتجديد التلقائي لمدة TTL.
+> يحتفظ `RedisStore` بتجمّع `deadpool-redis`: تُستبدل الاتصال المقتول عند checkout التالي (recycle PING)؛ كل أمر محدود بـ 30 ثانية، وتنتظر المجموعة المستنفدة حتى 30 ثانية قبل الفشل. يوفّر `bee_kv::RedisLock` الحصول عبر `SET NX PX` والتحرير بـ Lua compare-and-delete؛ يعيد `acquire(key, ttl, wait)` المحاولة كل 50ms على الأكثر حتى تنتهي مدة الانتظار المحدودة، ويجدّد `try_lock_with_watchdog` مدة TTL كل TTL/3 في الخلفية. يضبط `RedisOptions` حجم التجمّع ومهلة الاستجابة، ويقرأ `status()` / `RedisPoolStatus` لقطة التجمّع. يفعّل `redis-tls` المخطط `rediss://` مع بيانات ACL في URL (`redis://user:pass@host`).
+>
+> Sentinel / Cluster: يوفّر `redis-sentinel` كائنَي `RedisSentinelStore` / `RedisSentinelCache`؛ ويوفّر `redis-cluster` كائنَي `RedisClusterStore` / `RedisClusterCache`. تنطبق بيانات اعتماد/TLS الخاصة بـ URL على Sentinels فقط؛ لا تحمل اتصالات master أيًّا منهما، وتُعاد دورة اتصالات التجمّع بـ PING دون فحص الدور، لذا بعد failover قد يظل master قديم ما زال قابلًا للوصول يخدم (قيد في `deadpool-redis` 0.18). أوامر `mget` / `mset` في Cluster هي أوامر تسلسلية أحادية المفتاح (لتجنّب `CROSSSLOT`)، وأوامر Cluster غير محدودة بـ `response_timeout`.
+>
+> memcached: ينشئ `incr` العدّاد أولاً (0 إن لم يوجد) ثم يطبّق الفرق؛ العدّادات غير موقّعة لذا يتوقف التنقيص عند 0 (في Redis ينزل إلى السالب)؛ `expire(≤0)` يعادل الحذف.
 
 **خلفيات التخزين المؤقت (bee_cache):**
 ```rust

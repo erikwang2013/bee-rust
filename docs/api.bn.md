@@ -88,6 +88,37 @@ let app = Router::new()
 - `ctx.session` — সেশন অ্যাক্সেস
 - `ctx.params` — পাথ প্যারামিটার
 
+### লেটেন্সি বাজেট ও ক্যাশ ফলব্যাক
+
+`Router::latency` হলো opt-in GET/HEAD লেটেন্সি বাজেট। ডিফল্ট মোট **6 ms**: handler-এর জন্য 4 ms এবং cache-fallback রিজার্ভের জন্য 2 ms, যা 10 ms P99 লক্ষ্যের নিচে scheduling হেডরুম রাখে; `.deadline(10ms)` দিয়ে ওভাররাইড করুন। সময় শেষ হলে এটি ক্যাশ পড়ে, `X-Bee-Cache: stale` / `Age` সহ একটি public রেসপন্স রিপ্লে করে, অথবা 504 `"request timed out"` + `X-Bee-Deadline: exceeded` ফেরত দেয়। write মেথড এই বাজেটের অধীনে নয় এবং বিদ্যমান 30 s/408 আচরণ বজায় রাখে।
+
+```rust
+use std::sync::Arc;
+use axum::http::header;
+use axum::response::IntoResponse;
+use bee_cache::{Cache, MemoryCache};
+use bee_router::{LatencyConfig, Router};
+
+let cache: Arc<dyn Cache> = Arc::new(MemoryCache::new());
+let config = LatencyConfig::new(cache);   // optional .deadline(10ms) / .fallback_reserve(2ms)
+let stats = config.stats();
+let app = Router::new()
+    .latency(config)
+    .ns("/api", |ns| ns.get("/feed", feed));
+
+async fn feed() -> impl IntoResponse {
+    ([(header::CACHE_CONTROL, "public, max-age=30")], "payload")
+}
+```
+
+ক্যাশ কন্ট্রাক্ট:
+- শুধু **GET 200** রেসপন্স সংরক্ষিত হয়; `Cache-Control`-এ `public` থাকতে হবে এবং `private`/`no-store`/`no-cache` থাকতে পারবে না, `Set-Cookie` বা `Vary` থাকতে পারবে না, এবং body-র `size_hint().exact()` অবশ্যই ≤ 64 KiB হতে হবে। HEAD GET কী পুনরায় ব্যবহার করে কিন্তু কখনো সংরক্ষণ করে না।
+- `Authorization` / `Range` / `Cache-Control: no-store` / `no-cache` সহ অনুরোধ ক্যাশ বাইপাস করে এবং টাইমআউটে 504 ফেরত দেয়।
+- TTL হলো কনফিগার করা মান ও রেসপন্সের `max-age`-এর ছোটটি; write কখনো ক্যাশ অকার্যকর করে না, তাই রেসপন্স এক TTL পর্যন্ত পুরনো হতে পারে।
+- টাইমআউট হওয়া GET পরের অনুরোধের জন্য ক্যাশ গরম করতে একটি **সীমিত ব্যাকগ্রাউন্ড টাস্কে** (ডিফল্ট 128; `background_limit(0)` নিষ্ক্রিয় করে) চলতে থাকে।
+- deadline রেসপন্সকে সীমিত করে, সার্ভার-সাইড কাজকে নয়: SQLite/Postgres/MySQL/Redis কাজ বাতিল হয় না। long-poll, SSE ও ডাউনলোড রুটে **`latency` ছাড়া** Router ব্যবহার করা উচিত।
+- `LatencyStats::snapshot()` অনুরোধ / টাইমআউট / fallback হিট এবং P50/P99 বাকেটের ঊর্ধ্বসীমা ও সঠিক `max_us` রিপোর্ট করে।
+
 ## নিরাপত্তা সনাক্তকরণ (`security` feature)
 
 [security-rust](https://crates.io/crates/security-rust)-ভিত্তিক আক্রমণ শনাক্তকরণ ফিল্টার, XSS, SQL ইনজেকশন, কমান্ড ইনজেকশন, SSRF সহ ২৭ ধরনের আক্রমণ কভার করে:
@@ -291,16 +322,41 @@ let back = Event::query().all(&pool).await?;   // "1.50" সমান মান�
 
 ### শার্ডিং (bee_orm)
 
-key-required ডেটাবেস/টেবিল শার্ডিং। `ShardedPools::for_key` হলো executable হ্যান্ডল পাওয়ার একমাত্র উপায়; কোয়েরিতে শার্ড কী থাকতে হবে। রাউটিং composite ইনডেক্স `hash % (db_shards * table_shards)` ব্যবহার করে, তাই প্রতিটি ডেটাবেস/টেবিল জোড়া পৌঁছানো যায়; ক্রস-শার্ড কোয়েরি, JOIN বা ট্রানজেকশন সমর্থিত নয়। SQL-এ বসানোর আগে physical টেবিল নাম `[A-Za-z_][A-Za-z0-9_]*` দিয়ে যাচাই করা হয়। `ShardedPools::pools()` / `pool(index)` অপারেশন ও একই-শার্ড লেনদেনের জন্য অন্তর্নিহিত পুল উন্মুক্ত করে; রাউটিং এখনও `for_key` ছাড়া সম্ভব নয়।
+key-required ডেটাবেস/টেবিল শার্ডিং। `#[bee(shard_key)]` রাউটিং ফিল্ড চিহ্নিত করে এবং derive `Model::shard_key()` তৈরি করে; `ShardedPools::for_model` সরাসরি একটি ইনস্ট্যান্স রাউট করে, আর `for_key` এখনও মান নেয়। কোয়েরিতে শার্ড কী থাকতে হবে। রাউটিংয়ের আগে শার্ড কী কলারকেই সরবরাহ করতে হবে: ম্যাক্রো `auto` / `auto_now_add` / `auto_now` ফিল্ড প্রত্যাখ্যান করে, এবং `None` / `NULL` কে কী নেই বলে ধরা হয় (`for_model` `ShardError` ফেরত দেয়)। রাউটিং একটি composite ইনডেক্স `hash % (db_shards * table_shards)` ব্যবহার করে, তাই প্রতিটি ডেটাবেস/টেবিল জোড়া পৌঁছানো যায়; ক্রস-শার্ড কোয়েরি, JOIN বা ট্রানজেকশন সমর্থিত নয়। SQL-এ বসানোর আগে physical টেবিল নাম `[A-Za-z_][A-Za-z0-9_]*` দিয়ে যাচাই করা হয়। `ShardedPools::all_shards()` / `pools()` / `pool(index)` অপারেশন ও একই-শার্ড লেনদেনের জন্য অন্তর্নিহিত পুল উন্মুক্ত করে; রাউটিং এখনও `for_key` / `for_model` ছাড়া সম্ভব নয়। `sync_all` প্রতিটি pool × table shard ক্রমানুসারে মাইগ্রেট করে; `sync_all_parallel` সেই লক্ষ্যগুলো সমবর্তীভাবে চালায় (আগেই প্রয়োগ করা DDL ফিরিয়ে নেওয়া হয় না)। শার্ডিং অপব্যবহার `OrmError::ShardError` ফেরত দেয়, এবং `OrmError` হলো `#[non_exhaustive]`।
 
 ```rust
 use std::sync::Arc;
 use bee_orm::shard::{HashRouter, ShardedPools};
 
+#[derive(Model)]
+#[bee(table = "users")]
+struct User {
+    #[bee(pk, auto)]
+    id: i64,
+    #[bee(shard_key)]
+    tenant_id: i64,
+    name: String,
+}
+
 let shards = ShardedPools::new(vec![pool0, pool1], Arc::new(HashRouter::new(2, 4)?))?;
-let db = shards.for_key(user_id)?;                  // the only way to get an executable handle
-let users = User::query().filter_eq("user_id", user_id)?.all(&db).await?;
+let user = User { id: 0, tenant_id: 42, name: "alice".into() };
+let db = shards.for_model(&user)?;                  // routed by #[bee(shard_key)]
+let users = User::query().filter_eq("tenant_id", 42)?.all(&db).await?;
 shards.sync_all::<User>(Default::default()).await?; // create every physical table
+```
+
+### পুল স্ট্যাটাস ও ধীর কোয়েরি
+
+তিনটি ব্যাকএন্ডই `PoolStatus { max_size, size, available }` ফেরত দেয়; mysql কোনো পরিসংখ্যান দেয় না, তাই শেষ দুটি `None`। `TimedDb` যেকোনো `Db` মোড়ক করে এবং যখন `query` / `execute` বা `insert_returning` / `insert_returning_auto` read-back অন্তত থ্রেশহোল্ড সময় নেয় তখন callback ডাকে; read-back মান অবিকৃতভাবে পাস হয় এবং শুধু সময় মাপা হয়।
+
+```rust
+use std::time::Duration;
+use bee_orm::{Db, TimedDb};
+
+let db = TimedDb::new(pool, Duration::from_millis(200), |sql, elapsed| {
+    eprintln!("slow ({elapsed:?}): {sql}");
+});
+let rows = db.query("SELECT ...", &[]).await?;
 ```
 
 ## কনফিগ ম্যানেজমেন্ট (bee_config)
@@ -326,11 +382,30 @@ kv.set("key", "value").await?;
 kv.expire("key", 60).await?;
 let val = kv.get("key").await?;
 
+// সীমিত-অপেক্ষার বিতরণকৃত লক; watchdog ভ্যারিয়েন্ট TTL নবীন করে
+let lock = kv.lock();
+if let Some(guard) = lock.acquire("job", Duration::from_secs(10), Duration::from_secs(2)).await? {
+    // ... work ...
+    guard.release().await?;
+}
+
+// TLS / ACL: ক্রেডেনশিয়াল ও স্কিম URL-এ (feature `redis-tls`)
+let kv = RedisStore::new("rediss://user:pass@redis.example:6380").await?;
+
+// Sentinel / Cluster (features `redis-sentinel` / `redis-cluster`)
+use bee_kv::{RedisSentinelStore, RedisClusterStore};
+let kv = RedisSentinelStore::new("mymaster", &["redis://127.0.0.1:26379"], 16).await?;
+let kv = RedisClusterStore::new(&["redis://127.0.0.1:7000"], 16).await?;
+
 // memcached ব্যাকএন্ড (feature `memcached`)
 let kv = MemcacheStore::new("127.0.0.1:11211")?;
 ```
 
-> `RedisStore` একটি `deadpool-redis` পুল ধরে: নিহত কানেকশন পরের checkout-এ প্রতিস্থাপিত হয় (recycle PING); প্রতিটি কমান্ড 30 সেকেন্ডে সীমিত, এবং exhausted পুল ব্যর্থ হওয়ার আগে সর্বোচ্চ 30 সেকেন্ড অপেক্ষা করে। `bee_kv::RedisLock` `SET NX PX` অধিগ্রহণ ও Lua compare-and-delete রিলিজ দেয়। memcached: `incr` আগে কাউন্টার তৈরি করে (না থাকলে 0) তারপর পার্থক্য প্রয়োগ করে; কাউন্টার unsigned, তাই কমানো 0-তে থামে (Redis ঋণাত্মক হয়); `expire(≤0)` মুছে ফেলার সমতুল্য। Redis পুলগুলি `status()`, কনফিগারযোগ্য রেসপন্স টাইমআউটসহ `RedisOptions`, এবং TTL স্বয়ংক্রিয় নবীকরণের জন্য `try_lock_with_watchdog`-ও দেয়।
+> `RedisStore` একটি `deadpool-redis` পুল ধরে: নিহত কানেকশন পরের checkout-এ প্রতিস্থাপিত হয় (recycle PING); প্রতিটি কমান্ড 30 সেকেন্ডে সীমিত, এবং exhausted পুল ব্যর্থ হওয়ার আগে সর্বোচ্চ 30 সেকেন্ড অপেক্ষা করে। `bee_kv::RedisLock` `SET NX PX` অধিগ্রহণ ও Lua compare-and-delete রিলিজ দেয়; `acquire(key, ttl, wait)` সীমিত অপেক্ষা শেষ হওয়া পর্যন্ত সর্বোচ্চ প্রতি 50ms-এ পুনরায় চেষ্টা করে, এবং `try_lock_with_watchdog` ব্যাকগ্রাউন্ডে প্রতি TTL/3-এ TTL নবীন করে। `RedisOptions` পুল আকার ও রেসপন্স টাইমআউট সেট করে, এবং `status()` / `RedisPoolStatus` পুল স্ন্যাপশট পড়ে। `redis-tls` URL-এ ACL ক্রেডেনশিয়ালসহ `rediss://` সক্ষম করে (`redis://user:pass@host`)।
+>
+> Sentinel / Cluster: `redis-sentinel` `RedisSentinelStore` / `RedisSentinelCache` দেয়; `redis-cluster` `RedisClusterStore` / `RedisClusterCache` দেয়। Sentinel URL ক্রেডেনশিয়াল/TLS শুধু Sentinel-গুলোর জন্য প্রযোজ্য; master কানেকশনে কোনোটিই থাকে না, এবং পুল করা কানেকশন role-check ছাড়া PING-recycle হয়, তাই failover-এর পরে এখনও পৌঁছানো যায় এমন পুরনো master সেবা দিতে থাকতে পারে (`deadpool-redis` 0.18 সীমাবদ্ধতা)। Cluster-এ `mget` / `mset` অনুক্রমিক একক-কী কমান্ড (`CROSSSLOT` এড়াতে), এবং cluster কমান্ড `response_timeout` দ্বারা সীমিত নয়।
+>
+> memcached: `incr` আগে কাউন্টার তৈরি করে (না থাকলে 0) তারপর পার্থক্য প্রয়োগ করে; কাউন্টার unsigned, তাই কমানো 0-তে থামে (Redis ঋণাত্মক হয়); `expire(≤0)` মুছে ফেলার সমতুল্য।
 
 **ক্যাশ ব্যাকএন্ড (bee_cache):**
 ```rust

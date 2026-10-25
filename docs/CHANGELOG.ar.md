@@ -2,6 +2,27 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+> الإصدارات: ما دام المشروع في 1.x، قد تتضمّن الإصدارات الثانوية تغييرات كاسرة للـ API؛ ثبّت إصدارًا محدّدًا إذا كنت تطابق `OrmError` بشكل شامل. راجع 1.3.0 و1.6.0.
+
+## [1.6.0] — 2026-10-25
+
+### أُضيف
+- `bee_orm`: سهولة استخدام التقسيم — يحدّد `#[bee(shard_key)]` حقل التوجيه (واحد على الأكثر؛ ويُرفض على الحقول `ignore` والحقول `auto` / `auto_now_add` / `auto_now` التي تُعيّنها قاعدة البيانات، لأن التوجيه يحدث قبل الإدراج)، ويكشفه `Model::shard_key()` (`None` / `NULL` غير قابل للتوجيه)، ويوجّه `ShardedPools::for_model` نسخةً دون تكرار المفتاح. يمرّ `ShardedPools::all_shards()` على التجمّعات المُهيّأة، ويهاجر `sync_all_parallel` كل تجمّع × شارد جدول بالتوازي (لا يُرجع DDL المطبّق مسبقًا).
+- `bee_orm`: يفصل `OrmError::ShardError` سوء استخدام التقسيم عن إخفاقات الاستعلام؛ وأصبح `OrmError` الآن `#[non_exhaustive]` — تحتاج المطابقات الخارجية إلى فرع wildcard.
+- `bee_orm`: `PoolStatus` عبر الخلفيات مع `pool_status()` في تجمّعات sqlite وpostgres وmysql (قيمتا `size` / `available` هما `None` في mysql الذي لا يكشف إحصاءات)، إضافة إلى `TimedDb` لنداءات الاستعلامات البطيئة. تغطّي معايير Criterion تجزئة الموجّه وعرض SQL لـ QuerySet.
+- `bee_kv` / `bee_cache`: يعيد `RedisLock::acquire(key, ttl, wait)` محاولة القفل كل 50ms على الأكثر حتى ينتهي الانتظار المحدود؛ ويوفّر `RedisPoolStatus` / `pool_status()` لقطة تجمّع مملوكة للـ crate؛ وfeature `redis-tls` يفعّل اتصالات `rediss://` وبيانات اعتماد ACL تنتقل في URL.
+- `bee_kv` / `bee_cache`: مخازن/كاشات Sentinel (`RedisSentinelStore`، `RedisSentinelCache`) ومخازن/كاشات Cluster (`RedisClusterStore`، `RedisClusterCache`) خلف feature ‏`redis-sentinel` / `redis-cluster`؛ وتُنفّذ `mget` / `mset` في العنقود كأوامر أحادية المفتاح لتجنّب `CROSSSLOT`.
+- `examples/sharding` و`examples/redis-lock`؛ تُجمّع CI المثالين والمعايير، وتثبّت MySQL 9.7.4، وتحتفظ بوظيفة MariaDB.
+- `bee_router`: ميزانية تأخير اختيارية لطلبات GET/HEAD مع الرجوع إلى كاش قديم — يستخدم `Router::latency(LatencyConfig::new(cache))` افتراضيًا 6 ms إجمالًا (4 ms للمعالج + 2 ms احتياطيًا)، ويخزّن استجابات GET 200 العامة حتى 64 KiB، ويعيد تشغيلها عند انتهاء المهلة (`X-Bee-Cache: stale`، `Age`) أو يعيد 504. تستمر طلبات GET المنتهية المهلة في مهمة خلفية محدودة لتسخين الكاش، ويكشف `LatencyStats` عدّادات وP50/P99 تقريبية. تحتفظ طرق الكتابة بسلوك 30 s/408.
+
+### تغيّر
+- أصبح `OrmError` من نوع `#[non_exhaustive]`، وأصبحت إخفاقات التقسيم تبلّغ `ShardError` بدلًا من `QueryError`؛ تحتاج المطابقات في الكود التابع إلى فرع wildcard.
+
+### قيود
+- Sentinel: تُعاد تدوير اتصالات الماستر المجمّعة عبر `PING` دون فحص الدور، لذا بعد failover قد يخدم ماستر مُخفَّض يظل قابلًا للوصول اتصالات قديمة. وعبر `Config::from_urls` في `deadpool-redis` 0.18 لا يحصل اتصال الماستر أيضًا على بيانات اعتماد ACL أو TLS (بيانات الاعتماد/TLS في روابط Sentinel تنطبق على Sentinels فقط)؛ ويجب الاتصال مباشرةً بماستر محمي بـ ACL أو يعتمد TLS فقط.
+- Cluster: لا تُقيَّد الأوامر بـ `RedisOptions::response_timeout` — فـ `deadpool-redis` 0.18 لا يوفّر setter؛ ويحتفظ checkout وcreate وrecycle بحدودها 30s / 5s / 5s.
+- ميزانية التأخير: GET/HEAD فقط. يحدّ الموعد النهائي الاستجابة لا العمل على الخادم — لا يمكن إلغاء استعلامات SQLite الحاجزة وتستمر أوامر Postgres/MySQL/Redis. الاستجابات المخزّنة عامة فقط وقد تكون قديمة حتى TTL؛ لا تُبطل عمليات الكتابة الكاش أبدًا؛ تُخزّن فقط الأجسام ذات الحجم الدقيق ≤64 KiB؛ و`MemoryCache` غير محدود. يجب أن تستخدم مسارات GET ذات long-poll/streaming موجّهًا Router بدون `latency`.
+
 ## [1.5.0] — 2026-10-25
 
 ### أُضيف

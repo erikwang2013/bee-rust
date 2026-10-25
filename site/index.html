@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Bee Rust · 生产级 Rust Web 框架</title>
-<meta name="description" content="Bee Rust 是生产级 Rust Web 框架：Beego 哲学，用 trait、macro 与类型系统表达。内置 MVC、ORM（MySQL 5.7 / 8.0 / 8.4 / 9.x、MariaDB 10.11+、分库分表）、过滤器链、CLI 与存储引擎（Redis 真连接池与分布式锁）。">
+<meta name="description" content="Bee Rust 是生产级 Rust Web 框架：Beego 哲学，用 trait、macro 与类型系统表达。内置 MVC、ORM（MySQL 5.7 / 8.0 / 8.4 / 9.x、MariaDB 10.11+、分库分表）、过滤器链、CLI 与存储引擎（Redis 真连接池、TLS、Sentinel / Cluster 与分布式锁）。">
 <meta name="author" content="erik">
 <meta name="applicable-device" content="pc,mobile">
 <meta name="theme-color" content="#12100D">
@@ -16,7 +16,7 @@
 <meta property="og:locale" content="zh_CN">
 <meta property="og:locale:alternate" content="en_US">
 <meta property="og:title" content="Bee Rust · 生产级 Rust Web 框架">
-<meta property="og:description" content="Beego 的设计哲学，用 Rust 的 trait、macro 与类型系统重新表达；ORM 支持 MySQL 5.7 / 8.0 / 8.4 / 9.x、MariaDB 10.11+ 与分库分表，Redis 提供真连接池和分布式锁。">
+<meta property="og:description" content="Beego 的设计哲学，用 Rust 的 trait、macro 与类型系统重新表达；ORM 支持 MySQL 5.7 / 8.0 / 8.4 / 9.x、MariaDB 10.11+ 与分库分表，Redis 提供真连接池、TLS 与 Sentinel / Cluster 高可用。">
 <meta property="og:image" content="https://bee-rust.erik.xyz/assets/img/social-preview.jpg">
 <meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:width" content="1280">
@@ -24,7 +24,7 @@
 <meta property="og:image:alt" content="Bee Rust 社交预览卡：蜜白蜂巢背景上的 Bee Rust 字标与 Rusty">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Bee Rust · 生产级 Rust Web 框架">
-<meta name="twitter:description" content="Beego 的设计哲学，用 Rust 的 trait、macro 与类型系统重新表达；ORM 支持 MySQL 5.7 / 8.0 / 8.4 / 9.x、MariaDB 10.11+ 与分库分表，Redis 提供真连接池和分布式锁。">
+<meta name="twitter:description" content="Beego 的设计哲学，用 Rust 的 trait、macro 与类型系统重新表达；ORM 支持 MySQL 5.7 / 8.0 / 8.4 / 9.x、MariaDB 10.11+ 与分库分表，Redis 提供真连接池、TLS 与 Sentinel / Cluster 高可用。">
 <meta name="twitter:image" content="https://bee-rust.erik.xyz/assets/img/social-preview.jpg">
 <meta name="twitter:image:alt" content="Bee Rust 社交预览卡：蜜白蜂巢背景上的 Bee Rust 字标与 Rusty">
 <link rel="icon" href="assets/img/rusty-face.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
@@ -68,8 +68,8 @@
       "runtimePlatform": "Rust 1.85+",
       "applicationCategory": "WebApplication",
       "operatingSystem": "Cross-platform",
-      "softwareVersion": "1.5.0",
-      "version": "1.5.0",
+      "softwareVersion": "1.6.0",
+      "version": "1.6.0",
       "datePublished": "2026-07-29",
       "dateModified": "2026-10-25",
       "keywords": "Rust, web framework, Beego, MVC, ORM, axum, tokio",
@@ -114,7 +114,7 @@
     {
       "@type": "Question",
       "name": "支持哪些数据库？",
-      "acceptedAnswer": { "@type": "Answer", "text": "SQLite、PostgreSQL、MySQL 5.7 / 8.0 / 8.4 / 9.x、MariaDB 10.11+、TiDB（bee_orm，支持必须带分片键的分库分表）；Redis（真实连接池与 RedisLock）、Memcached；Elasticsearch、OpenSearch、ClickHouse；Neo4j、NebulaGraph、ArangoDB；InfluxDB、IoTDB、QuestDB。每个后端都由独立 feature 门控，详见架构。" }
+      "acceptedAnswer": { "@type": "Answer", "text": "SQLite、PostgreSQL、MySQL 5.7 / 8.0 / 8.4 / 9.x、MariaDB 10.11+、TiDB（bee_orm，支持必须带分片键的分库分表）；Redis（真实连接池、Sentinel / Cluster 与 RedisLock）、Memcached；Elasticsearch、OpenSearch、ClickHouse；Neo4j、NebulaGraph、ArangoDB；InfluxDB、IoTDB、QuestDB。每个后端都由独立 feature 门控，详见架构。" }
     },
     {
       "@type": "Question",
@@ -124,7 +124,7 @@
     {
       "@type": "Question",
       "name": "可以用于生产吗？",
-      "acceptedAnswer": { "@type": "Answer", "text": "可以。工作区有 414 个测试、三后端连接池（事务与超时控制）、非破坏性迁移，以及 32 个检测器的安全过滤器。业务代码 0 unsafe；FFI 封装在独立的 *-sys crate。" }
+      "acceptedAnswer": { "@type": "Answer", "text": "可以。工作区有 471 个测试、三后端连接池（事务与超时控制）、非破坏性迁移，以及 32 个检测器的安全过滤器。业务代码 0 unsafe；FFI 封装在独立的 *-sys crate。" }
     },
     {
       "@type": "Question",
@@ -139,7 +139,7 @@
 
 <header class="site-header" id="site-header">
   <div class="wrap header-inner">
-    <a class="brand" href="./" aria-label="Bee Rust 首页"><span class="brand-mark"><img src="assets/img/rusty-face.svg" alt="" width="38" height="38"></span><span class="brand-name">Bee Rust</span><span class="brand-ver">1.5.0</span></a>
+    <a class="brand" href="./" aria-label="Bee Rust 首页"><span class="brand-mark"><img src="assets/img/rusty-face.svg" alt="" width="38" height="38"></span><span class="brand-name">Bee Rust</span><span class="brand-ver">1.6.0</span></a>
     <nav class="site-nav" id="site-nav" aria-label="主导航">
       <a href="#top" data-nav data-en="Home">首页</a><a href="#intro" data-nav data-en="Project">项目</a><a href="#features" data-nav data-en="Features">功能</a><a href="#architecture" data-nav data-en="Architecture">架构</a><a href="#rusty" data-nav data-en="Rusty">Rusty</a>
       <a href="#install" data-nav data-en="Install">安装</a><a href="#usage" data-nav data-en="Usage">使用</a><a href="#faq" data-nav data-en="FAQ">常见问题</a><a href="#download" data-nav data-en="Download">下载</a><a href="changelog.html" data-nav data-en="Changelog">版本日志</a>
@@ -159,7 +159,7 @@
     <div class="hero-glow" aria-hidden="true"></div>
     <div class="wrap hero-grid">
       <div class="hero-copy">
-        <p class="eyebrow eyebrow--dark"><span class="pulse"></span> RUST WEB FRAMEWORK · v1.5.0</p>
+        <p class="eyebrow eyebrow--dark"><span class="pulse"></span> RUST WEB FRAMEWORK · v1.6.0</p>
         <h1>Bee Rust<span class="h1-dot">.</span></h1>
         <p class="tagline" data-en="A production-grade Rust web framework">生产级 Rust Web 框架</p>
         <p class="lede" data-en="Beego's design philosophy, re-expressed through Rust traits, macros, and the type system.">Beego 的设计哲学，用 Rust 的 trait、macro 与类型系统重新表达。</p>
@@ -167,7 +167,7 @@
           <a class="btn btn-primary" href="#install"><span data-en="Quick start">快速开始</span><span class="btn-arrow">→</span></a><a class="btn btn-ghost" href="#download" data-en="Download">下载</a>
           <a class="btn btn-text" href="https://github.com/erikwang2013/bee-rust" target="_blank" rel="noopener">GitHub <span aria-hidden="true">↗</span></a>
         </div>
-        <ul class="hero-stats"><li><b>16</b><span data-en="crates">crates</span></li><li><b>414</b><span data-en="tests">测试</span></li><li><b>32</b><span data-en="security detectors">安全检测器</span></li><li><b>15</b><span data-en="data engines">数据引擎</span></li></ul>
+        <ul class="hero-stats"><li><b>16</b><span data-en="crates">crates</span></li><li><b>471</b><span data-en="tests">测试</span></li><li><b>32</b><span data-en="security detectors">安全检测器</span></li><li><b>15</b><span data-en="data engines">数据引擎</span></li></ul>
       </div>
       <div class="hero-pet">
         <svg class="hero-halo hero-halo--1" viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,3 91,26.5 91,73.5 50,97 9,73.5 9,26.5"/></svg><svg class="hero-halo hero-halo--2" viewBox="0 0 100 100" aria-hidden="true"><polygon points="50,10 84,30 84,70 50,90 16,70 16,30"/></svg>
@@ -209,18 +209,18 @@
         <p class="section-lede" data-en="Web, ORM, security, config, logs, cache, sessions, templates, and five families of storage engines. Every crate is usable on its own.">Web、ORM、安全、配置、日志、缓存、Session、模板，以及五类存储引擎。每个 crate 都可以单独使用。</p>
       </header>
       <div class="feature-grid">
-        <article class="feature-card" data-reveal><div class="hex-badge">WEB</div><h3 data-en="Web core">Web 核心</h3><p data-en="MVC controllers, Context, namespaced routing, RESTful methods, and a request filter chain. ctx.json() / text() / html() / redirect() / abort().">MVC 控制器、Context、命名空间路由、RESTful 方法注册与请求过滤器链。ctx.json() / text() / html() / redirect() / abort()。</p><div class="tags"><span>bee_router</span></div></article>
-        <article class="feature-card" data-reveal><div class="hex-badge">ORM</div><h3 data-en="ORM">ORM</h3><p data-en="#[derive(Model)] + QuerySet, CRUD, three connection pools with transactions and timeouts, MySQL 5.7 / 8.0 / 8.4 / 9.x, MariaDB 10.11+, key-required database/table sharding (ShardedPools / HashRouter; no cross-shard queries or transactions), non-destructive migrations, belongs_to / has_many / m2m, JSON columns, and chrono / rust_decimal mapping.">#[derive(Model)] + QuerySet、CRUD、三后端连接池（事务与超时控制）、MySQL 5.7 / 8.0 / 8.4 / 9.x、MariaDB 10.11+、必须带分片键的库/表两级分片（ShardedPools / HashRouter；不支持跨分片查询与事务）、非破坏性迁移、belongs_to / has_many / m2m、JSON 列与 chrono / rust_decimal 类型映射。</p><div class="tags"><span>bee_orm</span></div></article>
+        <article class="feature-card" data-reveal><div class="hex-badge">WEB</div><h3 data-en="Web core">Web 核心</h3><p data-en="MVC controllers, Context, namespaced routing, RESTful methods, and a request filter chain. ctx.json() / text() / html() / redirect() / abort(). Opt-in 6ms GET/HEAD latency budget with stale-cache fallback; other methods keep 30s.">MVC 控制器、Context、命名空间路由、RESTful 方法注册与请求过滤器链。ctx.json() / text() / html() / redirect() / abort()。可选 6ms GET/HEAD 延迟预算与过期缓存兜底；其余方法保持 30s。</p><div class="tags"><span>bee_router</span></div></article>
+        <article class="feature-card" data-reveal><div class="hex-badge">ORM</div><h3 data-en="ORM">ORM</h3><p data-en="#[derive(Model)] + QuerySet, CRUD, three connection pools with transactions, timeouts, and a unified pool_status() / PoolStatus, MySQL 5.7 / 8.0 / 8.4 / 9.x, MariaDB 10.11+, key-required database/table sharding (ShardedPools / HashRouter; #[bee(shard_key)] + for_model route from an instance, sync_all_parallel migrates concurrently; no cross-shard queries or transactions), non-destructive migrations, belongs_to / has_many / m2m, JSON columns, chrono / rust_decimal mapping, and the TimedDb slow-query wrapper.">#[derive(Model)] + QuerySet、CRUD、三后端连接池（事务、超时与统一的 pool_status() / PoolStatus）、MySQL 5.7 / 8.0 / 8.4 / 9.x、MariaDB 10.11+、必须带分片键的库/表两级分片（ShardedPools / HashRouter，#[bee(shard_key)] + for_model 直接按实例路由，sync_all_parallel 并发迁移；不支持跨分片查询与事务）、非破坏性迁移、belongs_to / has_many / m2m、JSON 列、chrono / rust_decimal 映射与 TimedDb 慢查询包装。</p><div class="tags"><span>bee_orm</span></div></article>
         <article class="feature-card" data-reveal><div class="hex-badge">SEC</div><h3 data-en="Security filter">安全检测</h3><p data-en="32 built-in detectors from security-rust 4: XSS, SQL injection, command injection, SSRF, path traversal, Log4Shell, reDoS, and more. One line to enable.">security-rust 4 的 32 个内置检测器：XSS、SQL 注入、命令注入、SSRF、路径穿越、Log4Shell、reDoS 等。一行代码开启。</p><div class="tags"><span>security</span></div></article>
         <article class="feature-card" data-reveal><div class="hex-badge">CFG</div><h3 data-en="Config, logs, templates">配置、日志、模板</h3><p data-en="INI / YAML / ENV with hot reload, levelled logging over tracing, and tera templates.">INI / YAML / ENV 加载与热更新、基于 tracing 的多级日志、tera 模板渲染。</p><div class="tags"><span>bee_config</span><span>bee_logs</span><span>bee_template</span></div></article>
-        <article class="feature-card" data-reveal><div class="hex-badge">DB</div><h3 data-en="Storage engines">多存储引擎</h3><p data-en="One trait per family: Redis with a real deadpool-redis pool and RedisLock, status() health checks, a configurable RedisOptions response timeout, and try_lock_with_watchdog auto-renewal, Memcached, Elasticsearch, OpenSearch, ClickHouse, Neo4j, NebulaGraph, ArangoDB, InfluxDB, IoTDB, QuestDB.">每类一套 trait：Redis（deadpool-redis 真连接池 + RedisLock 分布式锁，status() 健康检查、RedisOptions 可配置响应超时、try_lock_with_watchdog 自动续期）、Memcached、Elasticsearch、OpenSearch、ClickHouse、Neo4j、NebulaGraph、ArangoDB、InfluxDB、IoTDB、QuestDB。</p><div class="tags"><span>bee_kv</span><span>bee_search</span><span>bee_graph</span><span>bee_tsdb</span></div></article>
+        <article class="feature-card" data-reveal><div class="hex-badge">DB</div><h3 data-en="Storage engines">多存储引擎</h3><p data-en="One trait per family: Redis with a real deadpool-redis pool and RedisLock (bounded acquire waiting, try_lock_with_watchdog auto-renewal), RedisPoolStatus health checks, a configurable response timeout, redis-tls for direct rediss:// connections and URL ACL credentials, and redis-sentinel / redis-cluster KV/cache backends (Cluster mget / mset run as single-key commands); Memcached, Elasticsearch, OpenSearch, ClickHouse, Neo4j, NebulaGraph, ArangoDB, InfluxDB, IoTDB, QuestDB.">每类一套 trait：Redis（deadpool-redis 真连接池 + RedisLock 分布式锁，acquire 有界等待、try_lock_with_watchdog 自动续期；RedisPoolStatus 健康检查、可配置响应超时；redis-tls 支持直连 rediss:// 与 URL 内 ACL 凭据；redis-sentinel / redis-cluster 提供 Sentinel 与 Cluster KV/缓存后端，Cluster 的 mget / mset 走单键命令）、Memcached、Elasticsearch、OpenSearch、ClickHouse、Neo4j、NebulaGraph、ArangoDB、InfluxDB、IoTDB、QuestDB。</p><div class="tags"><span>bee_kv</span><span>bee_search</span><span>bee_graph</span><span>bee_tsdb</span></div></article>
         <article class="feature-card" data-reveal><div class="hex-badge">CLI</div><h3 data-en="CLI">CLI</h3><p data-en="Scaffold a project, generate controllers and models, run with hot reload, pack a release, and drive migrations.">创建脚手架、生成控制器与模型、热重载运行、打包发布，以及执行迁移。</p><div class="tags"><span>bee_cli</span></div></article>
       </div>
       <div class="evolution" data-reveal>
         <div class="evolution-head">
           <div>
             <p class="eyebrow"><span class="eyebrow-line"></span><span data-en="Feature evolution">功能迭代</span></p>
-            <h3 data-en="From 1.0 to 1.5, one arc">从 1.0 到 1.5，一条主线</h3>
+            <h3 data-en="From 1.0 to 1.6, one arc">从 1.0 到 1.6，一条主线</h3>
           </div>
           <a class="text-link" href="changelog.html"><span data-en="Full changelog">查看完整版本日志</span> <span aria-hidden="true">→</span></a>
         </div>
@@ -335,7 +335,7 @@ cargo add bee_rust</code></pre>
           <div class="code-block">
             <div class="code-head"><span class="code-dots"><i></i><i></i><i></i></span><span>Cargo.toml</span><button class="copy-btn" type="button" data-copy data-en="Copy">复制</button></div>
             <pre tabindex="0"><code>[dependencies]
-bee_rust = "1.5.0"
+bee_rust = "1.6.0"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"</code></pre>
           </div>
@@ -463,12 +463,12 @@ cd my-app &amp;&amp; cargo run</code></pre>
               <tr><td><code>search</code> · <code>graph</code> · <code>tsdb</code></td><td data-en="Search, graph, and time-series engines">搜索、图、时序引擎</td><td data-en="Opt-in, not in full">按需开启，不在 full 内</td></tr>
               <tr><td><code>orm-sqlite</code> · <code>orm-postgres</code> · <code>orm-postgres-tls</code> · <code>orm-mysql</code></td><td data-en="Forward a bee_orm backend through the meta crate">通过元 crate 转发 bee_orm 后端</td><td data-en="Also opt-in">同样按需开启</td></tr>
               <tr><td><code>orm-chrono</code> · <code>orm-rust_decimal</code></td><td data-en="Date / DateTime / Decimal field mapping">日期 / DateTime / Decimal 字段映射</td><td data-en="Opt-in">按需开启</td></tr>
-              <tr><td><code>redis</code> · <code>memcached</code> · <code>memcache</code> · <code>elasticsearch</code> · <code>opensearch</code> · <code>clickhouse</code> · <code>neo4j</code> · <code>nebulagraph</code> · <code>arangodb</code> · <code>influxdb</code> · <code>iotdb</code> · <code>questdb</code></td><td data-en="One feature per storage backend, on the sub-crate or through bee_rust">每个存储后端一个特性，可直接开在子 crate 或经 bee_rust 转发</td><td data-en="Never bundled into full">不打包进 full</td></tr>
+              <tr><td><code>redis</code> · <code>redis-tls</code> · <code>redis-sentinel</code> · <code>redis-cluster</code> · <code>memcached</code> · <code>memcache</code> · <code>elasticsearch</code> · <code>opensearch</code> · <code>clickhouse</code> · <code>neo4j</code> · <code>nebulagraph</code> · <code>arangodb</code> · <code>influxdb</code> · <code>iotdb</code> · <code>questdb</code></td><td data-en="One feature per storage backend, on the sub-crate or through bee_rust">每个存储后端一个特性，可直接开在子 crate 或经 bee_rust 转发</td><td data-en="Never bundled into full">不打包进 full</td></tr>
             </tbody>
           </table>
           <div class="code-block code-block--rust">
             <div class="code-head"><span class="code-dots"><i></i><i></i><i></i></span><span data-en="Minimal core">最小核心</span><button class="copy-btn" type="button" data-copy data-en="Copy">复制</button></div>
-            <pre tabindex="0"><code>bee_rust = { version = "1.5.0", default-features = false,
+            <pre tabindex="0"><code>bee_rust = { version = "1.6.0", default-features = false,
              features = ["router", "logs", "config"] }</code></pre>
           </div>
         </div>
@@ -508,7 +508,7 @@ cd my-app &amp;&amp; cargo run</code></pre>
         </article>
         <article class="faq-card">
           <h3 data-en="Which databases are supported?">支持哪些数据库？</h3>
-          <p data-en="SQLite, PostgreSQL, MySQL 5.7 / 8.0 / 8.4 / 9.x, MariaDB 10.11+, and TiDB through bee_orm (with key-required database/table sharding); Redis (real connection pool and RedisLock) and Memcached; Elasticsearch, OpenSearch, and ClickHouse; Neo4j, NebulaGraph, and ArangoDB; InfluxDB, IoTDB, and QuestDB. Each backend is behind its own feature flag — see the <a href='#architecture'>architecture section</a>.">SQLite、PostgreSQL、MySQL 5.7 / 8.0 / 8.4 / 9.x、MariaDB 10.11+、TiDB（bee_orm，支持必须带分片键的分库分表）；Redis（真实连接池与 RedisLock）、Memcached；Elasticsearch、OpenSearch、ClickHouse；Neo4j、NebulaGraph、ArangoDB；InfluxDB、IoTDB、QuestDB。每个后端都由独立 feature 门控，详见<a href="#architecture">架构</a>。</p>
+          <p data-en="SQLite, PostgreSQL, MySQL 5.7 / 8.0 / 8.4 / 9.x, MariaDB 10.11+, and TiDB through bee_orm (with key-required database/table sharding); Redis (real connection pool, Sentinel / Cluster, and RedisLock) and Memcached; Elasticsearch, OpenSearch, and ClickHouse; Neo4j, NebulaGraph, and ArangoDB; InfluxDB, IoTDB, and QuestDB. Each backend is behind its own feature flag — see the <a href='#architecture'>architecture section</a>.">SQLite、PostgreSQL、MySQL 5.7 / 8.0 / 8.4 / 9.x、MariaDB 10.11+、TiDB（bee_orm，支持必须带分片键的分库分表）；Redis（真实连接池、Sentinel / Cluster 与 RedisLock）、Memcached；Elasticsearch、OpenSearch、ClickHouse；Neo4j、NebulaGraph、ArangoDB；InfluxDB、IoTDB、QuestDB。每个后端都由独立 feature 门控，详见<a href="#architecture">架构</a>。</p>
         </article>
         <article class="faq-card">
           <h3 data-en="How do I install it?">如何安装？</h3>
@@ -516,7 +516,7 @@ cd my-app &amp;&amp; cargo run</code></pre>
         </article>
         <article class="faq-card">
           <h3 data-en="Is it production-ready?">可以用于生产吗？</h3>
-          <p data-en="Yes. The workspace ships 414 tests, three connection pools with transactions and timeouts, non-destructive migrations, and a 32-detector security filter. Business code is 0 unsafe; FFI stays in dedicated *-sys crates.">可以。工作区有 414 个测试、三后端连接池（事务与超时控制）、非破坏性迁移，以及 32 个检测器的安全过滤器。业务代码 0 unsafe；FFI 封装在独立的 *-sys crate。</p>
+          <p data-en="Yes. The workspace ships 471 tests, three connection pools with transactions and timeouts, non-destructive migrations, and a 32-detector security filter. Business code is 0 unsafe; FFI stays in dedicated *-sys crates.">可以。工作区有 471 个测试、三后端连接池（事务与超时控制）、非破坏性迁移，以及 32 个检测器的安全过滤器。业务代码 0 unsafe；FFI 封装在独立的 *-sys crate。</p>
         </article>
         <article class="faq-card">
           <h3 data-en="Where are the docs?">文档在哪里？</h3>
@@ -535,7 +535,7 @@ cd my-app &amp;&amp; cargo run</code></pre>
             <h2 data-en="Download and start">下载，然后开始</h2>
             <p class="section-lede" data-en="Published on crates.io, tagged on GitHub, documented on docs.rs. Pick the path that fits.">已发布到 crates.io，GitHub 有版本标签，docs.rs 有完整 API 文档。选一条顺手的路。</p>
           </div>
-          <div class="version-badge"><span data-en="Latest">最新</span><b>1.5.0</b><small>2026-10-25</small></div>
+          <div class="version-badge"><span data-en="Latest">最新</span><b>1.6.0</b><small>2026-10-25</small></div>
         </div>
         <div class="download-grid">
           <a class="download-card" href="https://crates.io/crates/bee_rust" target="_blank" rel="noopener" data-reveal>
@@ -544,9 +544,9 @@ cd my-app &amp;&amp; cargo run</code></pre>
             <p data-en="The meta crate. cargo add bee_rust.">元 crate，一条 cargo add 即可加入。</p>
             <span class="download-link" data-en="Open crates.io">前往 crates.io</span>
           </a>
-          <a class="download-card" href="https://github.com/erikwang2013/bee-rust/releases/tag/v1.5.0" target="_blank" rel="noopener" data-reveal>
+          <a class="download-card" href="https://github.com/erikwang2013/bee-rust/releases/tag/v1.6.0" target="_blank" rel="noopener" data-reveal>
             <span class="download-kicker">GitHub Release</span>
-            <h3>v1.5.0</h3>
+            <h3>v1.6.0</h3>
             <p data-en="Source archive and release notes.">源码归档与版本说明。</p>
             <span class="download-link" data-en="Download source">下载源码</span>
           </a>

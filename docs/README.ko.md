@@ -162,7 +162,7 @@ bee_rust   → 위의 모든 crate (re-export)
 | | MySQL 5.7 / 8.0 / 8.4 / 9.x · MariaDB 10.11+ | `bee_orm` | `mysql`(bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **필드 타입** | 날짜 / Decimal | `bee_orm` | `chrono` / `rust_decimal` (bee_rust: `orm-chrono` / `orm-rust_decimal`) |
-| **KV / 캐시** | Redis | `bee_kv` / `bee_cache` | `redis` |
+| **KV / 캐시** | Redis | `bee_kv` / `bee_cache` | `redis` / `redis-tls` / `redis-sentinel` / `redis-cluster` |
 | | Memcached | `bee_kv` / `bee_cache` | `memcached` / `memcache` |
 | **검색 / 분석** | Elasticsearch | `bee_search` | `elasticsearch` |
 | | OpenSearch | `bee_search` | `opensearch` |
@@ -192,6 +192,7 @@ MVC 컨트롤러: `Controller` trait + `Context`, 라우팅 네임스페이스, 
 - 응답 출력: `ctx.json()` / `ctx.text()` / `ctx.html()`
 - 리다이렉트 / 중단: `ctx.redirect()` / `ctx.abort()`
 - 세션과 파라미터: `ctx.session` / `ctx.params`
+- 지연 시간 예산(옵트인): `Router::latency(LatencyConfig::new(cache))`는 GET/HEAD에 기본 6 ms 총 예산(핸들러 4 ms + 캐시 폴백 예비 2 ms)을 부여합니다. 공개 응답은 캐시되어 타임아웃 시 `X-Bee-Cache: stale`과 함께 재전송되거나, 요청이 504를 반환합니다. 쓰기 작업은 30 s 타임아웃을 유지하며, `LatencyStats`는 P50/P99를 노출합니다.
 
 ### 보안 감지 (`security` feature)
 
@@ -203,7 +204,7 @@ let security = SecurityFilter::new();  // 27개 탐지기 모두 켜짐
 
 ### ORM (bee_orm)
 
-`#[derive(Model)]` 파생 매크로(`#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]` 지원) + QuerySet 체이닝 쿼리와 실행(`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, 집계 `sum` / `avg` / `min` / `max`) + 비파괴 마이그레이션(`migrate::create_table` / `add_missing_columns` / `sync`) + 관계 읽기(`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON 컬럼(`serde_json::Value`) + 3개 백엔드 커넥션 풀(트랜잭션·타임아웃 포함), SQLite, PostgreSQL, MySQL, TiDB 지원. ORM은 필수 샤드 키를 사용하는 데이터베이스/테이블 샤딩(`shard::{ShardedPools, HashRouter, ShardHandle}`)도 제공합니다. 쿼리에는 샤드 키가 있어야 하며, 크로스 샤드 쿼리/트랜잭션은 지원하지 않습니다. MySQL 5.7–9.x와 MariaDB 10.11+를 지원하며, 샤드 계층은 운영용으로 자체 풀을 노출합니다.
+`#[derive(Model)]` 파생 매크로(`#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete / shard_key)]` 지원) + QuerySet 체이닝 쿼리와 실행(`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, 집계 `sum` / `avg` / `min` / `max`) + 비파괴 마이그레이션(`migrate::create_table` / `add_missing_columns` / `sync`) + 관계 읽기(`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON 컬럼(`serde_json::Value`) + 3개 백엔드 커넥션 풀(트랜잭션·타임아웃 포함), SQLite, PostgreSQL, MySQL, TiDB 지원. 필수 샤드 키를 사용하는 데이터베이스/테이블 샤딩(`ShardedPools` + `HashRouter` — `#[bee(shard_key)]` / `for_model`이 인스턴스에서 직접 라우팅하며, 샤드 키는 호출자가 제공해야 하고 auto/타임스탬프 필드는 사용할 수 없으며 NULL은 라우팅할 수 없습니다. 모든 쿼리에 샤드 키가 있어야 하고, 크로스 샤드 쿼리/트랜잭션은 지원하지 않습니다). MySQL 5.7–9.x와 MariaDB 10.11+를 지원하며, `sync_all_parallel`은 모든 샤드를 동시에 마이그레이션하고 `all_shards()` / `pools()`는 구성된 풀을 운영용으로 노출합니다. 공통 `PoolStatus` / `pool_status()`와 느린 쿼리용 `TimedDb` 래퍼가 모든 백엔드를 포괄하며, 샤딩 실패는 별도의 `OrmError::ShardError`로 분류되고 `OrmError`는 `#[non_exhaustive]`입니다.
 
 ### 설정 관리 (bee_config)
 
@@ -211,7 +212,7 @@ let security = SecurityFilter::new();  // 27개 탐지기 모두 켜짐
 
 ### 스토리지 엔진
 
-KV / Cache (Redis / Memcached), 검색 엔진 (Elasticsearch / OpenSearch / ClickHouse), 그래프 데이터베이스 (Neo4j / NebulaGraph / ArangoDB), 시계열 데이터베이스 (InfluxDB / IoTDB / QuestDB)를 통일된 trait으로 추상화하며, 드라이버는 feature gate에 따라 컴파일됩니다. Redis 백엔드(`bee_kv` / `bee_cache`)는 실제 `deadpool-redis` 커넥션 풀과 30초 명령 제한을 사용합니다. `bee_kv::RedisLock`은 분산 락(`SET NX PX` + Lua compare-and-delete 해제)을 제공합니다. Redis 풀은 또한 `status()`, 응답 타임아웃을 구성할 수 있는 `RedisOptions`, TTL 자동 갱신을 위한 `try_lock_with_watchdog`를 제공합니다.
+KV / Cache (Redis / Memcached), 검색 엔진 (Elasticsearch / OpenSearch / ClickHouse), 그래프 데이터베이스 (Neo4j / NebulaGraph / ArangoDB), 시계열 데이터베이스 (InfluxDB / IoTDB / QuestDB)를 통일된 trait으로 추상화하며, 드라이버는 feature gate 뒤에서 컴파일됩니다. Redis 백엔드는 실제 커넥션 풀(`deadpool-redis`)을 사용하고, `bee_kv::RedisLock`은 분산 락(`SET NX PX` 획득 + Lua 해제, 제한된 `acquire` 대기, `try_lock_with_watchdog` 자동 갱신)을 제공합니다. Redis 풀은 `status()` / `RedisPoolStatus`와 응답 타임아웃을 구성할 수 있는 `RedisOptions`를 노출합니다. `redis-tls`는 `rediss://`와 URL 내 ACL 자격 증명을 활성화하고, `redis-sentinel` / `redis-cluster`는 Sentinel 및 Cluster KV/캐시 백엔드를 추가합니다. Sentinel은 풀링된 연결에서 master 역할을 다시 확인하지 않고 master ACL/TLS를 전달하지 않으며(`deadpool-redis` 0.18 제한), Cluster 명령은 응답 타임아웃으로 제한되지 않습니다.
 
 ### Session, 로그, 템플릿
 
@@ -264,7 +265,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.5.0", features = ["full"] }
+bee_rust = { version = "1.6.0", features = ["full"] }
 ```
 
 ## 기술 설명
@@ -313,22 +314,22 @@ bee_rust = { version = "1.5.0", features = ["full"] }
 
 ### 테스트 커버리지
 
-전체 저장소의 414개 테스트 통과:
+전체 저장소의 471개 테스트 통과:
 
 | Crate | 테스트 수 |
 |-------|--------|
 | bee_config | 8 |
-| bee_cache | 18 |
+| bee_cache | 25 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 28 |
+| bee_kv | 44 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |
-| bee_orm | 200 |
-| bee_orm_macro | 24 |
+| bee_orm | 211 |
+| bee_orm_macro | 26 |
 | bee_session | 2 |
-| bee_router | 40 |
+| bee_router | 61 |
 | bee_cli | 30 |
 
 ## 지원 환영

@@ -17,7 +17,7 @@ cargo add bee_rust
 
 ```toml
 [dependencies]
-bee_rust = "1.5.0"
+bee_rust = "1.6.0"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -76,7 +76,7 @@ curl http://localhost:8080/api/v1/health    # OK
 Минимальное ядро (без ORM и драйверов БД)：
 
 ```toml
-bee_rust = { version = "1.5.0", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.6.0", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## Подкрейты
@@ -86,14 +86,14 @@ bee_rust = { version = "1.5.0", default-features = false, features = ["router", 
 | Crate | Назначение | Аналог в Beego |
 |-------|--------------|-------------------|
 | `bee_rust` | мета-крейт, единая точка входа | — |
-| `bee_router` | маршрутизация + контроллеры + `Context` + фильтры | `server/web`, `context` |
-| `bee_orm` | ORM + QuerySet + CRUD + пул соединений + неразрушающие миграции + связи belongs_to/has_many + шардирование с обязательным ключом | `client/orm` |
+| `bee_router` | маршрутизация + контроллеры + `Context` + фильтры + опциональный бюджет задержки GET/HEAD | `server/web`, `context` |
+| `bee_orm` | ORM + QuerySet + CRUD + пул соединений + состояние пула / измерение медленных запросов + неразрушающие миграции + связи belongs_to/has_many + шардирование с обязательным ключом с `#[bee(shard_key)]` / параллельная синхронизация | `client/orm` |
 | `bee_config` | конфигурация + горячая перезагрузка | `client/config` |
 | `bee_logs` | логирование | `logs` |
 | `bee_cache` | абстракция кэша | `client/cache` |
 | `bee_session` | управление сессиями (Memory/Redis реализовано; Cookie/Database в планах) | `server/web/session` |
 | `bee_template` | рендеринг шаблонов | — (расширено) |
-| `bee_kv` | абстракция KV/кэша + реальный пул Redis и блокировка + status / настраиваемый таймаут / watchdog | `client/cache` (расширено) |
+| `bee_kv` | абстракция KV/кэша + реальный пул Redis и блокировка + status / настраиваемый таймаут / watchdog / acquire с ограниченным ожиданием / TLS·ACL / Sentinel·Cluster | `client/cache` (расширено) |
 | `bee_search` | поисковые / аналитические движки | — (новое) |
 | `bee_graph` | графовые базы данных | — (новое) |
 | `bee_tsdb` | базы данных временных рядов | — (новое) |
@@ -102,7 +102,7 @@ bee_rust = { version = "1.5.0", default-features = false, features = ["router", 
 Их можно подключать и по отдельности — например, только клиент Elasticsearch：
 
 ```toml
-bee_search = { version = "1.5.0", features = ["elasticsearch"] }
+bee_search = { version = "1.6.0", features = ["elasticsearch"] }
 ```
 
 ## Поддерживаемые базы данных
@@ -110,7 +110,7 @@ bee_search = { version = "1.5.0", features = ["elasticsearch"] }
 | Тип | Базы данных | Crate | Feature |
 |------|-----------|-------|---------|
 | Реляционные | SQLite / PostgreSQL / MySQL 5.7–9.x / MariaDB 10.11+ / TiDB | `bee_orm` | `sqlite` / `postgres` / `postgres-tls` / `mysql` |
-| KV / кэш | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcached` / `memcache` |
+| KV / кэш | Redis (TLS / ACL / Sentinel / Cluster) / Memcached | `bee_kv` · `bee_cache` | `redis` / `redis-tls` / `redis-sentinel` / `redis-cluster` / `memcached` / `memcache` |
 | Поиск / аналитика | Elasticsearch / OpenSearch / ClickHouse | `bee_search` | `elasticsearch` / `opensearch` / `clickhouse` |
 | Графовые | Neo4j / NebulaGraph / ArangoDB | `bee_graph` | `neo4j` / `nebulagraph` / `arangodb` |
 | Временные ряды | InfluxDB / Apache IoTDB / QuestDB | `bee_tsdb` | `influxdb` / `iotdb` / `questdb` |

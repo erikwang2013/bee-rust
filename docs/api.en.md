@@ -88,6 +88,37 @@ let app = Router::new()
 - `ctx.session` — session access
 - `ctx.params` — path parameters
 
+### Latency budget and cache fallback
+
+`Router::latency` is an opt-in GET/HEAD latency budget. The default total is **6 ms**: 4 ms for the handler plus a 2 ms cache-fallback reserve, leaving scheduling headroom under the 10 ms P99 target; override with `.deadline(10ms)`. On expiry it reads the cache, replays a public response with `X-Bee-Cache: stale` / `Age`, or returns 504 `"request timed out"` + `X-Bee-Deadline: exceeded`. Write methods are not under this budget and keep the existing 30 s/408 behavior.
+
+```rust
+use std::sync::Arc;
+use axum::http::header;
+use axum::response::IntoResponse;
+use bee_cache::{Cache, MemoryCache};
+use bee_router::{LatencyConfig, Router};
+
+let cache: Arc<dyn Cache> = Arc::new(MemoryCache::new());
+let config = LatencyConfig::new(cache);   // optional .deadline(10ms) / .fallback_reserve(2ms)
+let stats = config.stats();
+let app = Router::new()
+    .latency(config)
+    .ns("/api", |ns| ns.get("/feed", feed));
+
+async fn feed() -> impl IntoResponse {
+    ([(header::CACHE_CONTROL, "public, max-age=30")], "payload")
+}
+```
+
+Cache contract:
+- Only **GET 200** responses are stored; `Cache-Control` must contain `public` and no `private`/`no-store`/`no-cache`, there must be no `Set-Cookie` or `Vary`, and the body's `size_hint().exact()` must be ≤ 64 KiB. HEAD reuses the GET key but never stores.
+- Requests with `Authorization` / `Range` / `Cache-Control: no-store` / `no-cache` bypass the cache and return 504 on timeout.
+- TTL is the smaller of the configured value and the response `max-age`; writes never invalidate the cache, so responses can be stale for up to one TTL.
+- A timed-out GET continues in a **bounded background task** (128 by default; `background_limit(0)` disables it) to warm the cache for the next request.
+- The deadline bounds the response, not server-side work: SQLite/Postgres/MySQL/Redis work is not cancelled. Long-poll, SSE, and download routes should use a Router **without** `latency`.
+- `LatencyStats::snapshot()` reports requests / timeouts / fallback hits plus P50/P99 bucket upper bounds and an exact `max_us`.
+
 ## Security Detection (`security` feature)
 
 Attack detection powered by [security-rust](https://crates.io/crates/security-rust), covering XSS, SQL injection, command injection, SSRF, and 23 other attack types via 27 detectors:
@@ -291,16 +322,41 @@ let back = Event::query().all(&pool).await?;   // "1.50" round-trips to an equal
 
 ### Sharding (bee_orm)
 
-Key-required database/table sharding. `ShardedPools::for_key` is the only way to obtain an executable handle; queries must carry the shard key. Routing uses one composite index `hash % (db_shards * table_shards)`, so every database/table pair is reachable; cross-shard queries, joins, and transactions are not supported. Physical table names are validated against `[A-Za-z_][A-Za-z0-9_]*` before they are spliced into SQL. `ShardedPools::pools()` / `pool(index)` expose the underlying pools for operations and same-shard transactions; routing still requires `for_key`.
+Key-required database/table sharding. `#[bee(shard_key)]` marks the routing field and the derive generates `Model::shard_key()`; `ShardedPools::for_model` routes an instance directly, while `for_key` still takes the value. The shard key must be caller-supplied before routing: `auto` / `auto_now_add` / `auto_now` fields are rejected by the macro, and `None` / `NULL` counts as no key (`for_model` returns `ShardError`). Queries must carry the shard key. Routing uses one composite index `hash % (db_shards * table_shards)`, so every database/table pair is reachable; cross-shard queries, joins, and transactions are not supported. Physical table names are validated against `[A-Za-z_][A-Za-z0-9_]*` before they are spliced into SQL. `ShardedPools::all_shards()` / `pools()` / `pool(index)` expose the underlying pools for operations and same-shard transactions; routing still requires `for_key` / `for_model`. `sync_all` migrates every pool × table shard serially; `sync_all_parallel` runs those targets concurrently (DDL already applied is not rolled back). Sharding misuse returns `OrmError::ShardError`, and `OrmError` is `#[non_exhaustive]`.
 
 ```rust
 use std::sync::Arc;
 use bee_orm::shard::{HashRouter, ShardedPools};
 
+#[derive(Model)]
+#[bee(table = "users")]
+struct User {
+    #[bee(pk, auto)]
+    id: i64,
+    #[bee(shard_key)]
+    tenant_id: i64,
+    name: String,
+}
+
 let shards = ShardedPools::new(vec![pool0, pool1], Arc::new(HashRouter::new(2, 4)?))?;
-let db = shards.for_key(user_id)?;                  // the only way to get an executable handle
-let users = User::query().filter_eq("user_id", user_id)?.all(&db).await?;
+let user = User { id: 0, tenant_id: 42, name: "alice".into() };
+let db = shards.for_model(&user)?;                  // routed by #[bee(shard_key)]
+let users = User::query().filter_eq("tenant_id", 42)?.all(&db).await?;
 shards.sync_all::<User>(Default::default()).await?; // create every physical table
+```
+
+### Pool status and slow queries
+
+All three backends return `PoolStatus { max_size, size, available }`; mysql exposes no statistics, so the last two are `None`. `TimedDb` wraps any `Db` and calls back when `query` / `execute` or an `insert_returning` / `insert_returning_auto` read-back takes at least the threshold; the read-back value is forwarded untouched and only measured.
+
+```rust
+use std::time::Duration;
+use bee_orm::{Db, TimedDb};
+
+let db = TimedDb::new(pool, Duration::from_millis(200), |sql, elapsed| {
+    eprintln!("slow ({elapsed:?}): {sql}");
+});
+let rows = db.query("SELECT ...", &[]).await?;
 ```
 
 ## Config (bee_config)
@@ -326,11 +382,30 @@ kv.set("key", "value").await?;
 kv.expire("key", 60).await?;
 let val = kv.get("key").await?;
 
+// bounded-wait distributed lock; the watchdog variant renews the TTL
+let lock = kv.lock();
+if let Some(guard) = lock.acquire("job", Duration::from_secs(10), Duration::from_secs(2)).await? {
+    // ... work ...
+    guard.release().await?;
+}
+
+// TLS / ACL: credentials and scheme live in the URL (feature `redis-tls`)
+let kv = RedisStore::new("rediss://user:pass@redis.example:6380").await?;
+
+// Sentinel / Cluster (features `redis-sentinel` / `redis-cluster`)
+use bee_kv::{RedisSentinelStore, RedisClusterStore};
+let kv = RedisSentinelStore::new("mymaster", &["redis://127.0.0.1:26379"], 16).await?;
+let kv = RedisClusterStore::new(&["redis://127.0.0.1:7000"], 16).await?;
+
 // memcached backend (feature `memcached`)
 let kv = MemcacheStore::new("127.0.0.1:11211")?;
 ```
 
-> `RedisStore` holds a `deadpool-redis` pool: a killed connection is replaced on the next checkout (recycle PING); every command is bounded at 30 seconds, and an exhausted pool waits up to 30 seconds before failing. `bee_kv::RedisLock` provides `SET NX PX` acquisition and Lua compare-and-delete release. memcached: `incr` creates the counter first (0 when absent) and then applies the delta; counters are unsigned, so decrementing floors at 0 (Redis goes negative); `expire(≤0)` deletes the key. Redis pools also expose `status()`, `RedisOptions` with a configurable response timeout, and `try_lock_with_watchdog` for TTL auto-renewal.
+> `RedisStore` holds a `deadpool-redis` pool: a killed connection is replaced on the next checkout (recycle PING); every command is bounded at 30 seconds, and an exhausted pool waits up to 30 seconds before failing. `bee_kv::RedisLock` provides `SET NX PX` acquisition and Lua compare-and-delete release; `acquire(key, ttl, wait)` retries at most every 50ms until the bounded wait expires, and `try_lock_with_watchdog` renews the TTL every TTL/3 in the background. `RedisOptions` sets the pool size and response timeout, and `status()` / `RedisPoolStatus` read the pool snapshot. `redis-tls` enables `rediss://` with ACL credentials in the URL (`redis://user:pass@host`).
+>
+> Sentinel / Cluster: `redis-sentinel` provides `RedisSentinelStore` / `RedisSentinelCache`; `redis-cluster` provides `RedisClusterStore` / `RedisClusterCache`. Sentinel URL credentials/TLS apply to the Sentinels only; master connections carry neither, and pooled connections are PING-recycled without a role check, so after a failover a still-reachable old master may keep serving (a `deadpool-redis` 0.18 limitation). Cluster `mget` / `mset` are sequential single-key commands (avoiding `CROSSSLOT`), and cluster commands are not bounded by `response_timeout`.
+>
+> memcached: `incr` creates the counter first (0 when absent) and then applies the delta; counters are unsigned, so decrementing floors at 0 (Redis goes negative); `expire(≤0)` deletes the key.
 
 **Cache backends (bee_cache):**
 ```rust

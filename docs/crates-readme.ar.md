@@ -17,7 +17,7 @@ cargo add bee_rust
 
 ```toml
 [dependencies]
-bee_rust = "1.5.0"
+bee_rust = "1.6.0"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -76,7 +76,7 @@ curl http://localhost:8080/api/v1/health    # OK
 النواة الدنيا (بدون ORM أو مشغّلات قواعد البيانات)：
 
 ```toml
-bee_rust = { version = "1.5.0", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.6.0", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## الحزم الفرعية
@@ -86,14 +86,14 @@ bee_rust = { version = "1.5.0", default-features = false, features = ["router", 
 | Crate | الوظيفة | المقابل في Beego |
 |-------|--------------|-------------------|
 | `bee_rust` | حزمة وصفية، نقطة الدخول الوحيدة | — |
-| `bee_router` | التوجيه + المتحكّمات + `Context` + المرشّحات | `server/web`, `context` |
-| `bee_orm` | ORM + QuerySet + CRUD + تجمّع الاتصالات + ترحيلات غير مُدمِّرة + علاقات belongs_to/has_many + تقسيم إلزامي المفتاح | `client/orm` |
+| `bee_router` | التوجيه + المتحكّمات + `Context` + المرشّحات + ميزانية كمون opt-in لـ GET/HEAD | `server/web`, `context` |
+| `bee_orm` | ORM + QuerySet + CRUD + تجمّع الاتصالات + حالة التجمّع / توقيت الاستعلامات البطيئة + ترحيلات غير مُدمِّرة + علاقات belongs_to/has_many + تقسيم إلزامي المفتاح مع `#[bee(shard_key)]` / مزامنة متوازية | `client/orm` |
 | `bee_config` | الإعدادات + إعادة التحميل الفورية | `client/config` |
 | `bee_logs` | التسجيل | `logs` |
 | `bee_cache` | تجريد التخزين المؤقت | `client/cache` |
 | `bee_session` | إدارة الجلسات (Memory/Redis مطبَّق؛ Cookie/Database مخطط لها) | `server/web/session` |
 | `bee_template` | عرض القوالب | — (موسّع) |
-| `bee_kv` | تجريد KV/التخزين المؤقت + تجمّع Redis حقيقي وقفل + status / مهلة قابلة للضبط / watchdog | `client/cache` (موسّع) |
+| `bee_kv` | تجريد KV/التخزين المؤقت + تجمّع Redis حقيقي وقفل + status / مهلة قابلة للضبط / watchdog / حصول محدود الانتظار / TLS·ACL / Sentinel·Cluster | `client/cache` (موسّع) |
 | `bee_search` | محرّكات البحث / التحليل | — (جديد) |
 | `bee_graph` | قواعد بيانات الرسوم البيانية | — (جديد) |
 | `bee_tsdb` | قواعد بيانات السلاسل الزمنية | — (جديد) |
@@ -102,7 +102,7 @@ bee_rust = { version = "1.5.0", default-features = false, features = ["router", 
 يمكن الاعتماد عليها منفردة أيضًا — مثلًا عميل Elasticsearch فقط：
 
 ```toml
-bee_search = { version = "1.5.0", features = ["elasticsearch"] }
+bee_search = { version = "1.6.0", features = ["elasticsearch"] }
 ```
 
 ## قواعد البيانات المدعومة
@@ -110,7 +110,7 @@ bee_search = { version = "1.5.0", features = ["elasticsearch"] }
 | النوع | قواعد البيانات | Crate | Feature |
 |------|-----------|-------|---------|
 | علائقية | SQLite / PostgreSQL / MySQL 5.7–9.x / MariaDB 10.11+ / TiDB | `bee_orm` | `sqlite` / `postgres` / `postgres-tls` / `mysql` |
-| KV / تخزين مؤقت | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcached` / `memcache` |
+| KV / تخزين مؤقت | Redis (TLS / ACL / Sentinel / Cluster) / Memcached | `bee_kv` · `bee_cache` | `redis` / `redis-tls` / `redis-sentinel` / `redis-cluster` / `memcached` / `memcache` |
 | بحث / تحليل | Elasticsearch / OpenSearch / ClickHouse | `bee_search` | `elasticsearch` / `opensearch` / `clickhouse` |
 | رسوم بيانية | Neo4j / NebulaGraph / ArangoDB | `bee_graph` | `neo4j` / `nebulagraph` / `arangodb` |
 | سلاسل زمنية | InfluxDB / Apache IoTDB / QuestDB | `bee_tsdb` | `influxdb` / `iotdb` / `questdb` |

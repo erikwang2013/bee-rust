@@ -2,6 +2,27 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+> Версионирование: пока проект 1.x, минорные релизы могут включать ломающие API изменения; закрепляйте точную версию, если делаете исчерпывающий match по `OrmError`. См. 1.3.0 и 1.6.0.
+
+## [1.6.0] — 2026-10-25
+
+### Добавлено
+- `bee_orm`: эргономика шардинга — `#[bee(shard_key)]` помечает поле маршрутизации (не более одного; отклоняется на `ignore`-полях и на назначаемых базой данных полях `auto` / `auto_now_add` / `auto_now`, поскольку маршрутизация происходит до insert), `Model::shard_key()` раскрывает его (`None` / `NULL` не маршрутизируется), а `ShardedPools::for_model` маршрутизирует экземпляр, не повторяя ключ. `ShardedPools::all_shards()` перебирает настроенные пулы, а `sync_all_parallel` параллельно мигрирует каждый пул × табличный шард (уже применённый DDL не откатывается).
+- `bee_orm`: `OrmError::ShardError` отделяет неправильное использование шардинга от ошибок запросов; `OrmError` теперь `#[non_exhaustive]` — внешним match нужна ветка с wildcard.
+- `bee_orm`: межбэкендный `PoolStatus` с `pool_status()` для пулов sqlite, postgres и mysql (`size` / `available` равны `None` на mysql, который не предоставляет статистику), плюс `TimedDb` для колбэков медленных запросов. Бенчмарки Criterion покрывают хеширование роутера и рендеринг SQL в QuerySet.
+- `bee_kv` / `bee_cache`: `RedisLock::acquire(key, ttl, wait)` повторяет попытку захвата не чаще чем каждые 50ms до истечения ограниченного ожидания; `RedisPoolStatus` / `pool_status()` дают собственный снимок пула крейта; фича `redis-tls` включает соединения `rediss://`, а ACL-учётные данные передаются в URL.
+- `bee_kv` / `bee_cache`: Sentinel-хранилища/кеши (`RedisSentinelStore`, `RedisSentinelCache`) и Cluster-хранилища/кеши (`RedisClusterStore`, `RedisClusterCache`) за фичами `redis-sentinel` / `redis-cluster`; кластерные `mget` / `mset` выполняются как одноключевые команды, чтобы избежать `CROSSSLOT`.
+- `examples/sharding` и `examples/redis-lock`; CI компилирует оба примера и бенчмарки, закрепляет MySQL 9.7.4 и сохраняет job MariaDB.
+- `bee_router`: опциональный бюджет задержки GET/HEAD с откатом на устаревший кэш — `Router::latency(LatencyConfig::new(cache))` по умолчанию использует 6 ms суммарно (4 ms на обработчик + 2 ms резерва), кэширует публичные ответы GET 200 до 64 KiB и воспроизводит их при таймауте (`X-Bee-Cache: stale`, `Age`) либо возвращает 504. GET-запросы с истёкшим временем продолжаются в ограниченной фоновой задаче для прогрева кэша, а `LatencyStats` предоставляет счётчики и приблизительные P50/P99. Методы записи сохраняют поведение 30 s/408.
+
+### Изменено
+- `OrmError` теперь `#[non_exhaustive]`, а ошибки шардинга сообщают `ShardError` вместо `QueryError`; match в нижестоящем коде требует ветки с wildcard.
+
+### Ограничения
+- Sentinel: соединения с мастером в пуле перерабатываются через `PING`, без проверки роли, поэтому после failover пониженный мастер, остающийся доступным, может обслуживать устаревшие соединения. Через `Config::from_urls` из `deadpool-redis` 0.18 соединение с мастером также не получает ACL-учётных данных и TLS (учётные данные/TLS из Sentinel-URL применяются только к Sentinel); мастер с ACL или только TLS нужно подключать напрямую.
+- Cluster: команды не ограничены `RedisOptions::response_timeout` — `deadpool-redis` 0.18 не предоставляет сеттера; checkout, create и recycle сохраняют свои пределы 30s / 5s / 5s.
+- Бюджет задержки: только GET/HEAD. Дедлайн ограничивает ответ, а не серверную работу — блокирующие запросы SQLite нельзя отменить, а команды Postgres/MySQL/Redis продолжаются. Кэшированные ответы только публичные и могут устаревать до TTL; записи никогда не инвалидируют кэш; кэшируются только тела точного размера ≤64 KiB; `MemoryCache` не ограничен. Для long-poll/streaming GET-маршрутов следует использовать Router без `latency`.
+
 ## [1.5.0] — 2026-10-25
 
 ### Добавлено

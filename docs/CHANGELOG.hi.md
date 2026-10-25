@@ -2,6 +2,27 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+> संस्करणन: जब तक प्रोजेक्ट 1.x है, माइनर रिलीज़ में API-तोड़ने वाले बदलाव हो सकते हैं; यदि आप `OrmError` पर exhaustive match करते हैं तो सटीक संस्करण पिन करें। 1.3.0 और 1.6.0 देखें।
+
+## [1.6.0] — 2026-10-25
+
+### जोड़ा गया
+- `bee_orm`: शार्डिंग में सहजता — `#[bee(shard_key)]` राउटिंग फ़ील्ड को चिह्नित करता है (अधिकतम एक; `ignore` किए गए और डेटाबेस-द्वारा निर्धारित `auto` / `auto_now_add` / `auto_now` फ़ील्ड पर अस्वीकृत, क्योंकि राउटिंग insert से पहले होती है), `Model::shard_key()` उसे उजागर करता है (`None` / `NULL` राउट करने योग्य नहीं है), और `ShardedPools::for_model` कुंजी दोहराए बिना किसी इंस्टेंस को राउट करता है। `ShardedPools::all_shards()` कॉन्फ़िगर किए गए पूल्स पर पुनरावृत्ति करता है, और `sync_all_parallel` प्रत्येक पूल × टेबल शार्ड को समवर्ती रूप से माइग्रेट करता है (पहले से लागू DDL रोलबैक नहीं होता)।
+- `bee_orm`: `OrmError::ShardError` शार्डिंग के दुरुपयोग को क्वेरी विफलताओं से अलग करता है; `OrmError` अब `#[non_exhaustive]` है — बाहरी match के लिए wildcard arm आवश्यक है।
+- `bee_orm`: क्रॉस-बैकएंड `PoolStatus` के साथ sqlite, postgres और mysql पूल्स पर `pool_status()` (mysql पर `size` / `available` `None` हैं, क्योंकि वह कोई आँकड़े उजागर नहीं करता), और धीमी क्वेरी कॉलबैक के लिए `TimedDb`। Criterion बेंचमार्क राउटर हैशिंग और QuerySet SQL रेंडरिंग को कवर करते हैं।
+- `bee_kv` / `bee_cache`: `RedisLock::acquire(key, ttl, wait)` सीमित प्रतीक्षा समाप्त होने तक अधिकतम हर 50ms पर लॉक पुनः प्रयास करता है; `RedisPoolStatus` / `pool_status()` crate-स्वामित्व वाला पूल स्नैपशॉट देते हैं; `redis-tls` feature `rediss://` कनेक्शन सक्षम करता है और ACL क्रेडेंशियल URL में जाते हैं।
+- `bee_kv` / `bee_cache`: `redis-sentinel` / `redis-cluster` features के पीछे Sentinel स्टोर/कैश (`RedisSentinelStore`, `RedisSentinelCache`) और Cluster स्टोर/कैश (`RedisClusterStore`, `RedisClusterCache`); `CROSSSLOT` से बचने के लिए क्लस्टर `mget` / `mset` एकल-कुंजी कमांड के रूप में चलते हैं।
+- `examples/sharding` और `examples/redis-lock`; CI दोनों उदाहरणों और बेंचमार्क को कंपाइल करता है, MySQL 9.7.4 पिन करता है, और MariaDB job बनाए रखता है।
+- `bee_router`: GET/HEAD के लिए opt-in विलंबता बजट, पुराने कैश फ़ॉलबैक के साथ — `Router::latency(LatencyConfig::new(cache))` डिफ़ॉल्ट रूप से कुल 6 ms उपयोग करता है (4 ms हैंडलर + 2 ms आरक्षित), 64 KiB तक की सार्वजनिक GET 200 प्रतिक्रियाएँ कैश करता है, और टाइमआउट पर उन्हें फिर से परोसता है (`X-Bee-Cache: stale`, `Age`) या 504 लौटाता है। टाइमआउट हुए GET कैश गर्म करने के लिए एक सीमित पृष्ठभूमि कार्य में जारी रहते हैं, और `LatencyStats` काउंटर तथा अनुमानित P50/P99 उजागर करता है। राइट मेथड 30 s/408 व्यवहार बनाए रखते हैं।
+
+### बदला गया
+- `OrmError` अब `#[non_exhaustive]` है और शार्डिंग विफलताएँ अब `QueryError` के बजाय `ShardError` रिपोर्ट करती हैं; डाउनस्ट्रीम match के लिए wildcard arm आवश्यक है।
+
+### सीमाएँ
+- Sentinel: पूल किए गए मास्टर कनेक्शन `PING` से रीसायकल होते हैं, भूमिका-जाँच नहीं होती, इसलिए failover के बाद पदावनत मास्टर जो पहुँच-योग्य रहता है, पुराने कनेक्शन परोस सकता है। `deadpool-redis` 0.18 के `Config::from_urls` के ज़रिए मास्टर कनेक्शन को ACL क्रेडेंशियल या TLS भी नहीं मिलते (Sentinel URL के क्रेडेंशियल/TLS केवल Sentinels पर लागू होते हैं); ACL-संरक्षित या केवल-TLS मास्टर को सीधे कनेक्ट करना होगा।
+- Cluster: कमांड `RedisOptions::response_timeout` से सीमित नहीं होते — `deadpool-redis` 0.18 कोई setter उजागर नहीं करता; checkout, create और recycle अपनी 30s / 5s / 5s सीमाएँ बनाए रखते हैं।
+- विलंबता बजट: केवल GET/HEAD। समय-सीमा प्रतिक्रिया को सीमित करती है, सर्वर-साइड कार्य को नहीं — SQLite की ब्लॉकिंग क्वेरी रद्द नहीं की जा सकतीं और Postgres/MySQL/Redis कमांड चलते रहते हैं। कैश की गई प्रतिक्रियाएँ केवल सार्वजनिक हैं और TTL तक पुरानी हो सकती हैं; राइट कैश को कभी अमान्य नहीं करते; केवल सटीक आकार के ≤64 KiB बॉडी कैश होते हैं; `MemoryCache` असीमित है। long-poll/streaming GET रूट्स को `latency` के बिना Router उपयोग करना चाहिए।
+
 ## [1.5.0] — 2026-10-25
 
 ### जोड़ा गया

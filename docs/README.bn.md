@@ -162,7 +162,7 @@ bee_rust   → উপরের সব crate (re-export)
 | | MySQL 5.7 / 8.0 / 8.4 / 9.x · MariaDB 10.11+ | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **ফিল্ডের ধরন** | তারিখ / Decimal | `bee_orm` | `chrono` / `rust_decimal` (bee_rust: `orm-chrono` / `orm-rust_decimal`) |
-| **KV / ক্যাশ** | Redis | `bee_kv` / `bee_cache` | `redis` |
+| **KV / ক্যাশ** | Redis | `bee_kv` / `bee_cache` | `redis` / `redis-tls` / `redis-sentinel` / `redis-cluster` |
 | | Memcached | `bee_kv` / `bee_cache` | `memcached` / `memcache` |
 | **সার্চ / অ্যানালিটিক্স** | Elasticsearch | `bee_search` | `elasticsearch` |
 | | OpenSearch | `bee_search` | `opensearch` |
@@ -192,6 +192,7 @@ MVC কন্ট্রোলার: `Controller` trait + `Context`, রাউট
 - রেসপন্স আউটপুট: `ctx.json()` / `ctx.text()` / `ctx.html()`
 - রিডাইরেক্ট / বাধা: `ctx.redirect()` / `ctx.abort()`
 - সেশন ও প্যারামিটার: `ctx.session` / `ctx.params`
+- লেটেন্সি বাজেট (ঐচ্ছিক): `Router::latency(LatencyConfig::new(cache))` GET/HEAD-কে ডিফল্ট 6 ms মোট বাজেট দেয় (4 ms হ্যান্ডলার + 2 ms ক্যাশ-ফলব্যাক রিজার্ভ); পাবলিক রেসপন্স ক্যাশ করা হয় এবং টাইমআউটে `X-Bee-Cache: stale` সহ পুনরায় চালানো হয়, অন্যথায় অনুরোধটি 504 ফেরত দেয়। লেখার কাজ 30 s টাইমআউট বজায় রাখে; `LatencyStats` P50/P99 প্রকাশ করে।
 
 ### নিরাপত্তা সনাক্তকরণ (`security` feature)
 
@@ -203,7 +204,7 @@ let security = SecurityFilter::new();  // ২৭টি ডিটেক্টর 
 
 ### ORM (bee_orm)
 
-`#[derive(Model)]` ডেরাইভ ম্যাক্রো (`#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]` সহ) + QuerySet চেইনড কোয়েরি ও এক্সিকিউশন (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, অ্যাগ্রিগেট `sum` / `avg` / `min` / `max`) + অবিনাশী মাইগ্রেশন (`migrate::create_table` / `add_missing_columns` / `sync`) + রিলেশন পড়া (`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON কলাম (`serde_json::Value`) + তিন বেকএন্ডের কানেকশন পুল (ট্রানজ্যাকশন ও টাইমআউটসহ), SQLite, PostgreSQL, MySQL, TiDB সমর্থন করে। ORM এখন key-required ডেটাবেস/টেবিল শার্ডিং (`shard::{ShardedPools, HashRouter, ShardHandle}`) দেয়; কোয়েরিতে শার্ড কী থাকতে হবে, এবং ক্রস-শার্ড কোয়েরি/ট্রানজেকশন সমর্থিত নয়। MySQL 5.7–9.x এবং MariaDB 10.11+ সমর্থিত; শার্ড স্তরটি অপারেশনের জন্য তার পুলগুলি উন্মুক্ত করে।
+`#[derive(Model)]` ডেরাইভ ম্যাক্রো (`#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete / shard_key)]` সহ) + QuerySet চেইনড কোয়েরি ও এক্সিকিউশন (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`, অ্যাগ্রিগেট `sum` / `avg` / `min` / `max`) + অবিনাশী মাইগ্রেশন (`migrate::create_table` / `add_missing_columns` / `sync`) + রিলেশন পড়া (`belongs_to` / has_many `children*` / many-to-many `m2m`) + JSON কলাম (`serde_json::Value`) + তিন বেকএন্ডের কানেকশন পুল (ট্রানজ্যাকশন ও টাইমআউটসহ), SQLite, PostgreSQL, MySQL, TiDB সমর্থন করে; key-required ডেটাবেস/টেবিল শার্ডিং (`ShardedPools` + `HashRouter` — `#[bee(shard_key)]` / `for_model` সরাসরি একটি ইনস্ট্যান্স থেকে রাউট করে; শার্ড কী অবশ্যই কলার সরবরাহ করবে — কখনও auto/টাইমস্ট্যাম্প ফিল্ড নয় — এবং NULL রাউটযোগ্য নয়; প্রতিটি কোয়েরিতে শার্ড কী থাকতে হবে, ক্রস-শার্ড কোয়েরি বা ট্রানজেকশন সমর্থিত নয়)। MySQL 5.7–9.x এবং MariaDB 10.11+ সমর্থিত; `sync_all_parallel` সব শার্ড সমান্তরালে মাইগ্রেট করে, এবং `all_shards()` / `pools()` অপারেশনের জন্য কনফিগার করা পুল উন্মুক্ত করে। একটি সাধারণ `PoolStatus` / `pool_status()` এবং ধীর কোয়েরির `TimedDb` র্যাপার সব বেকএন্ডে প্রযোজ্য; শার্ডিং ব্যর্থতার জন্য আলাদা `OrmError::ShardError` আছে, এবং `OrmError` হলো `#[non_exhaustive]`।
 
 ### কনফিগ ম্যানেজমেন্ট (bee_config)
 
@@ -211,7 +212,7 @@ let security = SecurityFilter::new();  // ২৭টি ডিটেক্টর 
 
 ### স্টোরেজ ইঞ্জিন
 
-KV / Cache (Redis / Memcached), সার্চ ইঞ্জিন (Elasticsearch / OpenSearch / ClickHouse), গ্রাফ ডেটাবেস (Neo4j / NebulaGraph / ArangoDB), টাইম-সিরিজ ডেটাবেস (InfluxDB / IoTDB / QuestDB) — সব একীভূত trait অ্যাবস্ট্রাকশন, ড্রাইভার feature gate অনুযায়ী কম্পাইল হয়। Redis ব্যাকএন্ড (`bee_kv` / `bee_cache`) প্রকৃত `deadpool-redis` কানেকশন পুল ও 30 সেকেন্ডের কমান্ড সীমা ব্যবহার করে; `bee_kv::RedisLock` ডিস্ট্রিবিউটেড লক (`SET NX PX` + Lua compare-and-delete রিলিজ) দেয়। Redis পুলগুলি `status()`, কনফিগারযোগ্য রেসপন্স টাইমআউটসহ `RedisOptions`, এবং TTL স্বয়ংক্রিয় নবীকরণের জন্য `try_lock_with_watchdog`-ও দেয়।
+KV / Cache (Redis / Memcached), সার্চ ইঞ্জিন (Elasticsearch / OpenSearch / ClickHouse), গ্রাফ ডেটাবেস (Neo4j / NebulaGraph / ArangoDB), টাইম-সিরিজ ডেটাবেস (InfluxDB / IoTDB / QuestDB) — সব একীভূত trait অ্যাবস্ট্রাকশন, ড্রাইভার feature gate অনুযায়ী কম্পাইল হয়। Redis ব্যাকএন্ড প্রকৃত কানেকশন পুল (`deadpool-redis`) ব্যবহার করে, এবং `bee_kv::RedisLock` ডিস্ট্রিবিউটেড লক দেয় (`SET NX PX` অ্যাকোয়ার + Lua রিলিজ, সীমিত `acquire` অপেক্ষা, এবং `try_lock_with_watchdog` স্বয়ংক্রিয় নবীকরণ)। Redis পুল `status()` / `RedisPoolStatus` এবং কনফিগারযোগ্য রেসপন্স টাইমআউটসহ `RedisOptions` উন্মুক্ত করে; `redis-tls` `rediss://` এবং URL-এ ACL ক্রেডেনশিয়াল সক্রিয় করে; `redis-sentinel` / `redis-cluster` Sentinel ও Cluster KV/ক্যাশে ব্যাকএন্ড যোগ করে। Sentinel পুল করা কানেকশনে master ভূমিকা পুনরায় যাচাই করে না এবং master ACL/TLS পাস করে না (`deadpool-redis` 0.18 সীমাবদ্ধতা); Cluster কমান্ড রেসপন্স টাইমআউট দ্বারা সীমিত নয়।
 
 ### Session, লগ, টেমপ্লেট
 
@@ -264,7 +265,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.5.0", features = ["full"] }
+bee_rust = { version = "1.6.0", features = ["full"] }
 ```
 
 ## প্রযুক্তিগত নোট
@@ -313,22 +314,22 @@ bee_rust = { version = "1.5.0", features = ["full"] }
 
 ### টেস্ট কভারেজ
 
-পুরো রিপোজিটরির ৪১৪টি টেস্ট পাস:
+পুরো রিপোজিটরির ৪৭১টি টেস্ট পাস:
 
 | Crate | টেস্ট সংখ্যা |
 |-------|--------|
 | bee_config | ৮ |
-| bee_cache | ১৮ |
+| bee_cache | ২৫ |
 | bee_template | ২ |
 | bee_logs | ৩ |
-| bee_kv | ২৮ |
+| bee_kv | ৪৪ |
 | bee_search | ২১ |
 | bee_graph | ১৯ |
 | bee_tsdb | ১৯ |
-| bee_orm | ২০০ |
-| bee_orm_macro | ২৪ |
+| bee_orm | ২১১ |
+| bee_orm_macro | ২৬ |
 | bee_session | ২ |
-| bee_router | ৪০ |
+| bee_router | ৬১ |
 | bee_cli | ৩০ |
 
 ## সমর্থন স্বাগত

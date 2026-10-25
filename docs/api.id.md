@@ -88,6 +88,37 @@ let app = Router::new()
 - `ctx.session` — akses sesi
 - `ctx.params` — parameter jalur
 
+### Anggaran latensi dan fallback cache
+
+`Router::latency` adalah anggaran latensi GET/HEAD yang opt-in. Total default adalah **6 ms**: 4 ms untuk handler plus cadangan fallback cache 2 ms, menyisakan ruang penjadwalan di bawah target P99 10 ms; timpa dengan `.deadline(10ms)`. Saat kedaluwarsa, ia membaca cache, memutar ulang respons publik dengan `X-Bee-Cache: stale` / `Age`, atau mengembalikan 504 `"request timed out"` + `X-Bee-Deadline: exceeded`. Metode tulis tidak berada di bawah anggaran ini dan mempertahankan perilaku 30 detik/408 yang ada.
+
+```rust
+use std::sync::Arc;
+use axum::http::header;
+use axum::response::IntoResponse;
+use bee_cache::{Cache, MemoryCache};
+use bee_router::{LatencyConfig, Router};
+
+let cache: Arc<dyn Cache> = Arc::new(MemoryCache::new());
+let config = LatencyConfig::new(cache);   // optional .deadline(10ms) / .fallback_reserve(2ms)
+let stats = config.stats();
+let app = Router::new()
+    .latency(config)
+    .ns("/api", |ns| ns.get("/feed", feed));
+
+async fn feed() -> impl IntoResponse {
+    ([(header::CACHE_CONTROL, "public, max-age=30")], "payload")
+}
+```
+
+Kontrak cache:
+- Hanya respons **GET 200** yang disimpan; `Cache-Control` harus berisi `public` dan tidak boleh `private` / `no-store` / `no-cache`, tidak boleh ada `Set-Cookie` atau `Vary`, dan `size_hint().exact()` body harus ≤ 64 KiB. HEAD memakai ulang kunci GET tetapi tidak pernah menyimpan.
+- Permintaan dengan `Authorization` / `Range` / `Cache-Control: no-store` / `no-cache` melewati cache dan mengembalikan 504 saat timeout.
+- TTL adalah yang lebih kecil antara nilai yang dikonfigurasi dan `max-age` respons; penulisan tidak pernah membatalkan cache, jadi respons dapat basi hingga satu TTL.
+- GET yang timeout berlanjut di **tugas latar belakang terbatas** (default 128; `background_limit(0)` menonaktifkannya) untuk memanaskan cache bagi permintaan berikutnya.
+- Deadline membatasi respons, bukan pekerjaan sisi server: pekerjaan SQLite/Postgres/MySQL/Redis tidak dibatalkan. Rute long-poll, SSE, dan unduhan harus memakai Router **tanpa** `latency`.
+- `LatencyStats::snapshot()` melaporkan permintaan / timeout / fallback hit plus batas atas bucket P50/P99 dan `max_us` yang eksak.
+
 ## Deteksi Keamanan (fitur `security`)
 
 Filter deteksi serangan berbasis [security-rust](https://crates.io/crates/security-rust), mencakup 27 jenis serangan seperti XSS, injeksi SQL, injeksi perintah, SSRF:
@@ -291,16 +322,41 @@ let back = Event::query().all(&pool).await?;   // "1.50" kembali dengan nilai ya
 
 ### Sharding (bee_orm)
 
-Sharding basis data/tabel wajib kunci. `ShardedPools::for_key` adalah satu-satunya cara mendapatkan handle yang dapat dieksekusi; kueri harus membawa kunci shard. Routing memakai satu indeks komposit `hash % (db_shards * table_shards)`, sehingga setiap pasangan basis data/tabel dapat dijangkau; kueri, JOIN, dan transaksi lintas shard tidak didukung. Nama tabel fisik divalidasi terhadap `[A-Za-z_][A-Za-z0-9_]*` sebelum dimasukkan ke SQL. `ShardedPools::pools()` / `pool(index)` mengekspos pool yang mendasari untuk operasi dan transaksi dalam shard yang sama; perutean tetap memerlukan `for_key`.
+Sharding basis data/tabel wajib kunci. `#[bee(shard_key)]` menandai field perutean dan derive menghasilkan `Model::shard_key()`; `ShardedPools::for_model` merutekan instance secara langsung, sedangkan `for_key` tetap menerima nilai. Kueri harus membawa kunci shard. Kunci shard harus disediakan oleh pemanggil sebelum perutean: field `auto` / `auto_now_add` / `auto_now` ditolak oleh macro, dan `None` / `NULL` dianggap tanpa kunci (`for_model` mengembalikan `ShardError`). Routing memakai satu indeks komposit `hash % (db_shards * table_shards)`, sehingga setiap pasangan basis data/tabel dapat dijangkau; kueri, JOIN, dan transaksi lintas shard tidak didukung. Nama tabel fisik divalidasi terhadap `[A-Za-z_][A-Za-z0-9_]*` sebelum dimasukkan ke SQL. `ShardedPools::all_shards()` / `pools()` / `pool(index)` mengekspos pool yang mendasari untuk operasi dan transaksi dalam shard yang sama; perutean tetap memerlukan `for_key` / `for_model`. `sync_all` memigrasikan setiap pool × shard tabel secara serial; `sync_all_parallel` menjalankan target tersebut secara bersamaan (DDL yang sudah diterapkan tidak di-rollback). Penyalahgunaan sharding mengembalikan `OrmError::ShardError`, dan `OrmError` adalah `#[non_exhaustive]`.
 
 ```rust
 use std::sync::Arc;
 use bee_orm::shard::{HashRouter, ShardedPools};
 
+#[derive(Model)]
+#[bee(table = "users")]
+struct User {
+    #[bee(pk, auto)]
+    id: i64,
+    #[bee(shard_key)]
+    tenant_id: i64,
+    name: String,
+}
+
 let shards = ShardedPools::new(vec![pool0, pool1], Arc::new(HashRouter::new(2, 4)?))?;
-let db = shards.for_key(user_id)?;                  // the only way to get an executable handle
-let users = User::query().filter_eq("user_id", user_id)?.all(&db).await?;
+let user = User { id: 0, tenant_id: 42, name: "alice".into() };
+let db = shards.for_model(&user)?;                  // routed by #[bee(shard_key)]
+let users = User::query().filter_eq("tenant_id", 42)?.all(&db).await?;
 shards.sync_all::<User>(Default::default()).await?; // create every physical table
+```
+
+### Status pool dan kueri lambat
+
+Ketiga backend mengembalikan `PoolStatus { max_size, size, available }`; mysql tidak mengekspos statistik, sehingga dua yang terakhir adalah `None`. `TimedDb` membungkus `Db` apa pun dan memanggil balik ketika `query` / `execute` atau pembacaan balik `insert_returning` / `insert_returning_auto` memakan waktu setidaknya ambang batas; nilai pembacaan balik diteruskan apa adanya dan hanya diukur.
+
+```rust
+use std::time::Duration;
+use bee_orm::{Db, TimedDb};
+
+let db = TimedDb::new(pool, Duration::from_millis(200), |sql, elapsed| {
+    eprintln!("slow ({elapsed:?}): {sql}");
+});
+let rows = db.query("SELECT ...", &[]).await?;
 ```
 
 ## Manajemen Konfigurasi (bee_config)
@@ -326,11 +382,30 @@ kv.set("key", "value").await?;
 kv.expire("key", 60).await?;
 let val = kv.get("key").await?;
 
+// kunci terdistribusi dengan penantian terbatas; varian watchdog memperbarui TTL
+let lock = kv.lock();
+if let Some(guard) = lock.acquire("job", Duration::from_secs(10), Duration::from_secs(2)).await? {
+    // ... work ...
+    guard.release().await?;
+}
+
+// TLS / ACL: kredensial dan skema ada di URL (feature `redis-tls`)
+let kv = RedisStore::new("rediss://user:pass@redis.example:6380").await?;
+
+// Sentinel / Cluster (fitur `redis-sentinel` / `redis-cluster`)
+use bee_kv::{RedisSentinelStore, RedisClusterStore};
+let kv = RedisSentinelStore::new("mymaster", &["redis://127.0.0.1:26379"], 16).await?;
+let kv = RedisClusterStore::new(&["redis://127.0.0.1:7000"], 16).await?;
+
 // backend memcached (feature `memcached`)
 let kv = MemcacheStore::new("127.0.0.1:11211")?;
 ```
 
-> `RedisStore` memegang pool `deadpool-redis`: koneksi yang mati diganti pada checkout berikutnya (recycle PING); setiap perintah dibatasi 30 detik, dan pool yang habis menunggu hingga 30 detik sebelum gagal. `bee_kv::RedisLock` menyediakan akuisisi `SET NX PX` dan pelepasan Lua compare-and-delete. memcached: `incr` membuat counter dulu (0 jika belum ada) lalu menerapkan delta; counter tak bertanda, jadi pengurangan berhenti di 0 (Redis turun ke negatif); `expire(≤0)` sama dengan menghapus. Pool Redis juga mengekspos `status()`, `RedisOptions` dengan timeout respons yang dapat dikonfigurasi, dan `try_lock_with_watchdog` untuk pembaruan TTL otomatis.
+> `RedisStore` memegang pool `deadpool-redis`: koneksi yang mati diganti pada checkout berikutnya (recycle PING); setiap perintah dibatasi 30 detik, dan pool yang habis menunggu hingga 30 detik sebelum gagal. `bee_kv::RedisLock` menyediakan akuisisi `SET NX PX` dan pelepasan Lua compare-and-delete; `acquire(key, ttl, wait)` mencoba ulang paling sering setiap 50ms hingga penantian terbatas berakhir, dan `try_lock_with_watchdog` memperbarui TTL setiap TTL/3 di latar belakang. `RedisOptions` mengatur ukuran pool dan timeout respons, dan `status()` / `RedisPoolStatus` membaca snapshot pool. `redis-tls` mengaktifkan `rediss://` dengan kredensial ACL di URL (`redis://user:pass@host`).
+>
+> Sentinel / Cluster: `redis-sentinel` menyediakan `RedisSentinelStore` / `RedisSentinelCache`; `redis-cluster` menyediakan `RedisClusterStore` / `RedisClusterCache`. Kredensial/TLS URL Sentinel hanya berlaku untuk Sentinel; koneksi master tidak membawa keduanya, dan koneksi yang dipool didaur ulang dengan PING tanpa pemeriksaan peran, sehingga setelah failover master lama yang masih dapat dijangkau mungkin terus melayani (keterbatasan `deadpool-redis` 0.18). `mget` / `mset` Cluster adalah perintah single-key berurutan (menghindari `CROSSSLOT`), dan perintah cluster tidak dibatasi oleh `response_timeout`.
+>
+> memcached: `incr` membuat counter dulu (0 jika belum ada) lalu menerapkan delta; counter tak bertanda, jadi pengurangan berhenti di 0 (Redis turun ke negatif); `expire(≤0)` sama dengan menghapus.
 
 **Backend cache (bee_cache):**
 ```rust

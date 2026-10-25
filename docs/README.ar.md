@@ -162,7 +162,7 @@ bee_rust   → جميع الـ crates أعلاه (re-export)
 | | MySQL 5.7 / 8.0 / 8.4 / 9.x · MariaDB 10.11+ | `bee_orm` | `mysql` (bee_rust: `orm-mysql`) |
 | | TiDB | `bee_orm` | `mysql` |
 | **أنواع الحقول** | التاريخ / Decimal | `bee_orm` | `chrono` / `rust_decimal` (bee_rust: `orm-chrono` / `orm-rust_decimal`) |
-| **KV / تخزين مؤقت** | Redis | `bee_kv` / `bee_cache` | `redis` |
+| **KV / تخزين مؤقت** | Redis | `bee_kv` / `bee_cache` | `redis` / `redis-tls` / `redis-sentinel` / `redis-cluster` |
 | | Memcached | `bee_kv` / `bee_cache` | `memcached` / `memcache` |
 | **بحث / تحليل** | Elasticsearch | `bee_search` | `elasticsearch` |
 | | OpenSearch | `bee_search` | `opensearch` |
@@ -192,6 +192,7 @@ bee_rust   → جميع الـ crates أعلاه (re-export)
 - مخرجات الاستجابة: `ctx.json()` / `ctx.text()` / `ctx.html()`
 - إعادة التوجيه / المقاطعة: `ctx.redirect()` / `ctx.abort()`
 - الجلسة والمعاملات: `ctx.session` / `ctx.params`
+- ميزانية الكمون (اختيارية): يمنح `Router::latency(LatencyConfig::new(cache))` طلبات GET/HEAD ميزانية إجمالية افتراضية قدرها 6 ms (4 ms للمعالج + 2 ms احتياطي للرجوع إلى التخزين المؤقت)؛ تُخزَّن الاستجابات العامة مؤقتًا وتُعاد عند انتهاء المهلة مع `X-Bee-Cache: stale`، وإلا يُرجع الطلب 504. تحتفظ عمليات الكتابة بمهلة 30 s؛ ويكشف `LatencyStats` عن P50/P99.
 
 ### كشف الأمان (feature: `security`)
 
@@ -203,7 +204,7 @@ let security = SecurityFilter::new();  // تفعيل أدوات الكشف ال�
 
 ### ORM (bee_orm)
 
-ماكرو الاشتقاق `#[derive(Model)]` (بدعم `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`) + استعلامات QuerySet المتسلسلة وتنفيذها (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`، وتجميعات `sum` / `avg` / `min` / `max`) + ترحيلات غير مُدمِّرة (`migrate::create_table` / `add_missing_columns` / `sync`) + قراءة العلاقات (`belongs_to` / has_many `children*` / many-to-many `m2m`) + أعمدة JSON (`serde_json::Value`) + تجمّع اتصالات للخلفيات الثلاث (مع المعاملات والمهلات)، يدعم SQLite و PostgreSQL و MySQL و TiDB. كما يوفّر ORM تقسيمًا للقواعد/الجداول يتطلّب مفتاح تقسيم (`shard::{ShardedPools, HashRouter, ShardHandle}`)؛ يجب أن تحمل الاستعلامات مفتاح التقسيم، ولا تُدعم الاستعلامات أو المعاملات عبر التقسيمات. يُدعم MySQL 5.7–9.x وMariaDB 10.11+؛ وتكشف طبقة التقسيم عن تجمّعاتها للعمليات.
+ماكرو الاشتقاق `#[derive(Model)]` (بدعم `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete / shard_key)]`) + استعلامات QuerySet المتسلسلة وتنفيذها (`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`، وتجميعات `sum` / `avg` / `min` / `max`) + ترحيلات غير مُدمِّرة (`migrate::create_table` / `add_missing_columns` / `sync`) + قراءة العلاقات (`belongs_to` / has_many `children*` / many-to-many `m2m`) + أعمدة JSON (`serde_json::Value`) + تجمّع اتصالات للخلفيات الثلاث (مع المعاملات والمهلات)، يدعم SQLite و PostgreSQL و MySQL و TiDB؛ تقسيم للقواعد/الجداول يتطلّب مفتاح تقسيم (`ShardedPools` + `HashRouter` — `#[bee(shard_key)]` / `for_model` يوجّهان مباشرة من نسخة؛ ويجب أن يوفّر المستدعي مفتاح التقسيم — وليس حقل auto/طابع زمني أبدًا — ولا يمكن توجيه NULL؛ ويجب أن تحمل كل استعلام مفتاح تقسيم، ولا تُدعم الاستعلامات أو المعاملات عبر التقسيمات). يُدعم MySQL 5.7–9.x وMariaDB 10.11+؛ ويُرحّل `sync_all_parallel` جميع التقسيمات بالتوازي، بينما يكشف `all_shards()` / `pools()` التجمّعات المهيّأة للعمليات. يغطّي `PoolStatus` / `pool_status()` المشترك و`TimedDb` لالتفاف الاستعلامات البطيئة جميع الخلفيات؛ ولأخطاء التقسيم خطأ خاص `OrmError::ShardError`، و`OrmError` معلَّم بـ `#[non_exhaustive]`.
 
 ### إدارة التكوين (bee_config)
 
@@ -211,7 +212,7 @@ let security = SecurityFilter::new();  // تفعيل أدوات الكشف ال�
 
 ### محركات التخزين
 
-تجريد موحد عبر traits لـ KV / Cache (Redis / Memcached)، ومحركات البحث (Elasticsearch / OpenSearch / ClickHouse)، وقواعد البيانات الرسومية (Neo4j / NebulaGraph / ArangoDB)، وقواعد بيانات السلاسل الزمنية (InfluxDB / IoTDB / QuestDB)، تُترجم برامج التشغيل حسب feature gates. تستخدم خلفيات Redis (`bee_kv` / `bee_cache`) تجمّعات اتصالات `deadpool-redis` حقيقية مع حدّ 30 ثانية للأمر؛ ويوفّر `bee_kv::RedisLock` قفلًا موزّعًا (`SET NX PX` + تحرير Lua بمقارنة القيمة). تكشف تجمّعات Redis أيضًا عن `status()` و`RedisOptions` بمهلة استجابة قابلة للضبط و`try_lock_with_watchdog` للتجديد التلقائي لمدة TTL.
+تجريدات موحدة عبر traits لـ KV / Cache (Redis / Memcached)، ومحركات البحث (Elasticsearch / OpenSearch / ClickHouse)، وقواعد البيانات الرسومية (Neo4j / NebulaGraph / ArangoDB)، وقواعد بيانات السلاسل الزمنية (InfluxDB / IoTDB / QuestDB)، تُترجم برامج التشغيل حسب feature gates. تستخدم خلفيات Redis تجمّع اتصالات حقيقيًا (`deadpool-redis`)، ويوفّر `bee_kv::RedisLock` قفلًا موزّعًا (حجز `SET NX PX` + تحرير بـ Lua، وانتظار محدود في `acquire`، وتجديد تلقائي عبر `try_lock_with_watchdog`). تكشف تجمّعات Redis عن `status()` / `RedisPoolStatus` و`RedisOptions` بمهلة استجابة قابلة للضبط؛ ويفعّل `redis-tls` بروتوكول `rediss://` وبيانات ACL في الرابط؛ ويضيف `redis-sentinel` / `redis-cluster` خلفيات KV/تخزين مؤقت لكل من Sentinel وCluster. لا يعيد Sentinel التحقق من دور master على الاتصالات المجمّعة ولا يمرّر ACL/TLS الخاص بـ master (قيد `deadpool-redis` 0.18)؛ وأوامر Cluster غير مقيّدة بمهلة الاستجابة.
 
 ### الجلسات والسجلات والقوالب
 
@@ -264,7 +265,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.5.0", features = ["full"] }
+bee_rust = { version = "1.6.0", features = ["full"] }
 ```
 
 ## ملاحظات تقنية
@@ -313,22 +314,22 @@ bee_rust = { version = "1.5.0", features = ["full"] }
 
 ### تغطية الاختبارات
 
-414 اختبارًا ناجحًا في المستودع كله:
+471 اختبارًا ناجحًا في المستودع كله:
 
 | Crate | عدد الاختبارات |
 |-------|--------|
 | bee_config | 8 |
-| bee_cache | 18 |
+| bee_cache | 25 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 28 |
+| bee_kv | 44 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |
-| bee_orm | 200 |
-| bee_orm_macro | 24 |
+| bee_orm | 211 |
+| bee_orm_macro | 26 |
 | bee_session | 2 |
-| bee_router | 40 |
+| bee_router | 61 |
 | bee_cli | 30 |
 
 ## نداء دعم

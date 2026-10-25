@@ -186,7 +186,7 @@ bee_rust   → 全部上述 crate (re-export)
 | | MySQL 5.7 / 8.0 / 8.4 / 9.x · MariaDB 10.11+ | `bee_orm` | `mysql`（bee_rust：`orm-mysql`） |
 | | TiDB | `bee_orm` | `mysql` |
 | **字段类型** | 日期 / Decimal | `bee_orm` | `chrono` / `rust_decimal`（bee_rust：`orm-chrono` / `orm-rust_decimal`） |
-| **KV / 缓存** | Redis | `bee_kv` / `bee_cache` | `redis` |
+| **KV / 缓存** | Redis | `bee_kv` / `bee_cache` | `redis` / `redis-tls` / `redis-sentinel` / `redis-cluster` |
 | | Memcached | `bee_kv` / `bee_cache` | `memcached` / `memcache` |
 | **搜索 / 分析** | Elasticsearch | `bee_search` | `elasticsearch` |
 | | OpenSearch | `bee_search` | `opensearch` |
@@ -216,6 +216,7 @@ MVC 控制器：`Controller` trait + `Context`，支持路由命名空间、REST
 - 响应输出：`ctx.json()` / `ctx.text()` / `ctx.html()`
 - 重定向 / 中断：`ctx.redirect()` / `ctx.abort()`
 - 会话与参数：`ctx.session` / `ctx.params`
+- 延迟预算（opt-in）：`Router::latency(LatencyConfig::new(cache))` 为 GET/HEAD 设置默认 6ms 总预算（4ms handler + 2ms 缓存降级），公开响应可缓存并在超时后以 `X-Bee-Cache: stale` 降级；无缓存返回 504。写请求保持 30s；`LatencyStats` 提供 P50/P99。
 
 ### 安全检测（`security` feature）
 
@@ -227,7 +228,7 @@ let security = SecurityFilter::new();  // 27 个检测器全开
 
 ### ORM（bee_orm）
 
-`#[derive(Model)]` 派生宏（支持 `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete)]`）+ QuerySet 链式查询与执行（`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`，聚合 `sum` / `avg` / `min` / `max`）+ 非破坏性迁移（`migrate::create_table` / `add_missing_columns` / `sync`）+ 关系查询（`belongs_to` / has_many `children*` / 多对多 `m2m`）+ JSON 列（`serde_json::Value`）+ 三后端连接池（含事务与超时控制），支持 SQLite、PostgreSQL、MySQL、TiDB；分库分表（`ShardedPools` + `HashRouter`，查询必须带分片键；不支持跨分片查询/事务）。支持 MySQL 5.7–9.x 与 MariaDB 10.11+；分片层暴露底层连接池供运维使用。
+`#[derive(Model)]` 派生宏（支持 `#[bee(table / column / pk / auto / ignore / auto_now_add / soft_delete / shard_key)]`）+ QuerySet 链式查询与执行（`all` / `one` / `count` / `exists` / `update` / `delete` / `filter_in`，聚合 `sum` / `avg` / `min` / `max`）+ 非破坏性迁移（`migrate::create_table` / `add_missing_columns` / `sync`）+ 关系查询（`belongs_to` / has_many `children*` / 多对多 `m2m`）+ JSON 列（`serde_json::Value`）+ 三后端连接池（含事务与超时控制），支持 SQLite、PostgreSQL、MySQL、TiDB；分库分表（`ShardedPools` + `HashRouter`，`#[bee(shard_key)]` / `for_model` 直接按实例路由，分片键必须由调用方提供——不能是自动/时间戳字段，NULL 不可路由；查询必须带分片键，不支持跨分片查询/事务）。支持 MySQL 5.7–9.x 与 MariaDB 10.11+；`sync_all_parallel` 并发迁移所有分片，`all_shards()` / `pools()` 暴露连接池供运维使用。统一 `PoolStatus` / `pool_status()` 与慢查询包装器 `TimedDb`；分片错误单独归入 `OrmError::ShardError`，`OrmError` 为 `#[non_exhaustive]`。
 
 ### 配置管理（bee_config）
 
@@ -235,7 +236,7 @@ let security = SecurityFilter::new();  // 27 个检测器全开
 
 ### 存储引擎
 
-KV / Cache（Redis / Memcached）、搜索引擎（Elasticsearch / OpenSearch / ClickHouse）、图数据库（Neo4j / NebulaGraph / ArangoDB）、时序数据库（InfluxDB / IoTDB / QuestDB）统一 trait 抽象，驱动按 feature gate 编译；Redis 后端使用真实连接池（`deadpool-redis`），并提供分布式锁 `bee_kv::RedisLock`（`SET NX PX` 获取 + Lua 释放）。Redis 池还提供 `status()`、可配置响应超时的 `RedisOptions`，以及 TTL 自动续期的 `try_lock_with_watchdog`。
+KV / Cache（Redis / Memcached）、搜索引擎（Elasticsearch / OpenSearch / ClickHouse）、图数据库（Neo4j / NebulaGraph / ArangoDB）、时序数据库（InfluxDB / IoTDB / QuestDB）统一 trait 抽象，驱动按 feature gate 编译；Redis 后端使用真实连接池（`deadpool-redis`），并提供分布式锁 `bee_kv::RedisLock`（`SET NX PX` 获取 + Lua 释放、`acquire` 有界等待、`try_lock_with_watchdog` 自动续期）。Redis 池提供 `status()` / `RedisPoolStatus`、可配置响应超时的 `RedisOptions`，`redis-tls` 支持 `rediss://` 与 URL 内的 ACL 凭据；`redis-sentinel` / `redis-cluster` 分别提供 Sentinel 与 Cluster 的 KV/缓存后端。Sentinel 的 master 连接不做角色复检、也不携带 master ACL/TLS（`deadpool-redis` 0.18 限制）；Cluster 命令不受响应超时约束。
 
 ### Session、日志、模板
 
@@ -288,7 +289,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.5.0", features = ["full"] }
+bee_rust = { version = "1.6.0", features = ["full"] }
 ```
 
 ## 技术说明
@@ -323,8 +324,8 @@ bee_rust = { version = "1.5.0", features = ["full"] }
 |-------|------|-----------|
 | `bee_rust` | 元 crate，统一入口 | — |
 | `bee_router` | 路由 + 控制器 + Context + 过滤器 | `server/web`, `context` |
-| `bee_orm` | ORM + QuerySet | `client/orm` |
-| `bee_kv` | KV/Cache 统一抽象 | `client/cache`（扩展） |
+| `bee_orm` | ORM + QuerySet + 分片易用性 + 连接池观测 | `client/orm` |
+| `bee_kv` | KV/Cache 统一抽象 + Redis 池/锁/TLS/HA | `client/cache`（扩展） |
 | `bee_search` | 搜索/分析引擎 | —（新增） |
 | `bee_graph` | 图数据库 | —（新增） |
 | `bee_tsdb` | 时序数据库 | —（新增） |
@@ -337,22 +338,22 @@ bee_rust = { version = "1.5.0", features = ["full"] }
 
 ### 测试覆盖
 
-全仓 414 个测试通过：
+全仓 471 个测试通过：
 
 | Crate | 测试数 |
 |-------|--------|
 | bee_config | 8 |
-| bee_cache | 18 |
+| bee_cache | 25 |
 | bee_template | 2 |
 | bee_logs | 3 |
-| bee_kv | 28 |
+| bee_kv | 44 |
 | bee_search | 21 |
 | bee_graph | 19 |
 | bee_tsdb | 19 |
-| bee_orm | 200 |
-| bee_orm_macro | 24 |
+| bee_orm | 211 |
+| bee_orm_macro | 26 |
 | bee_session | 2 |
-| bee_router | 40 |
+| bee_router | 61 |
 | bee_cli | 30 |
 
 ## 欢迎支持

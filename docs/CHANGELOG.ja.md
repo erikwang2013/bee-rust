@@ -2,6 +2,27 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+> バージョニング: プロジェクトが 1.x の間、マイナーリリースに API 破壊的変更が含まれる場合があります。`OrmError` を網羅的に match する場合は正確なバージョンを固定してください。1.3.0 と 1.6.0 を参照。
+
+## [1.6.0] — 2026-10-25
+
+### 追加
+- `bee_orm`: シャーディングの使い勝手 — `#[bee(shard_key)]` がルーティングフィールドを指定し（最大 1 つ。`ignore` フィールドおよびデータベースが割り当てる `auto` / `auto_now_add` / `auto_now` フィールドでは拒否されます。ルーティングは insert より前に行われるためです）、`Model::shard_key()` がそれを公開し（`None` / `NULL` はルーティング不可）、`ShardedPools::for_model` はキーを繰り返さずにインスタンスをルーティングします。`ShardedPools::all_shards()` は設定済みのプールを反復し、`sync_all_parallel` はすべてのプール × テーブルシャードを並行してマイグレーションします（適用済みの DDL はロールバックされません）。
+- `bee_orm`: `OrmError::ShardError` がシャーディングの誤用とクエリ失敗を分離します。`OrmError` は `#[non_exhaustive]` になったため、外部の match にはワイルドカードのアームが必要です。
+- `bee_orm`: バックエンド横断の `PoolStatus` と、sqlite / postgres / mysql プールの `pool_status()`（mysql では統計を公開しないため `size` / `available` は `None`）、さらにスロークエリのコールバック用 `TimedDb`。Criterion ベンチマークがルーターハッシュと QuerySet の SQL レンダリングをカバーします。
+- `bee_kv` / `bee_cache`: `RedisLock::acquire(key, ttl, wait)` は上限付きの待機が切れるまで最大 50ms 間隔でロックを再試行します。`RedisPoolStatus` / `pool_status()` はクレート所有のプールスナップショットを提供します。`redis-tls` feature が `rediss://` 接続を有効にし、ACL 認証情報は URL で渡されます。
+- `bee_kv` / `bee_cache`: `redis-sentinel` / `redis-cluster` feature による Sentinel ストア/キャッシュ（`RedisSentinelStore`、`RedisSentinelCache`）と Cluster ストア/キャッシュ（`RedisClusterStore`、`RedisClusterCache`）。クラスタの `mget` / `mset` は `CROSSSLOT` を避けるため単一キーコマンドとして実行されます。
+- `examples/sharding` と `examples/redis-lock`。CI は両方の example とベンチマークをコンパイルし、MySQL 9.7.4 を固定し、MariaDB ジョブを維持します。
+- `bee_router`: stale キャッシュへのフォールバック付き、オプトインの GET/HEAD レイテンシバジェット — `Router::latency(LatencyConfig::new(cache))` は既定で合計 6 ms（ハンドラ 4 ms + 予備 2 ms）を使い、公開 GET 200 レスポンスを最大 64 KiB までキャッシュし、タイムアウト時にそれらを再送するか（`X-Bee-Cache: stale`、`Age`）504 を返します。タイムアウトした GET はキャッシュを温めるため、上限付きのバックグラウンドタスクで継続し、`LatencyStats` がカウンターと概算 P50/P99 を公開します。書き込みメソッドは 30 s/408 の挙動を維持します。
+
+### 変更
+- `OrmError` は `#[non_exhaustive]` になり、シャーディングの失敗は `QueryError` ではなく `ShardError` を報告します。下流の match にはワイルドカードのアームが必要です。
+
+### 制限
+- Sentinel: プールされたマスター接続は `PING` でリサイクルされるだけでロールチェックは行われないため、フェイルオーバー後、到達可能なままの降格マスターが古い接続を提供する可能性があります。`deadpool-redis` 0.18 の `Config::from_urls` 経由では、マスター接続に ACL 認証情報と TLS も渡りません（Sentinel URL の認証情報/TLS は Sentinel にのみ適用されます）。ACL で保護されたマスターや TLS 専用のマスターは直接接続する必要があります。
+- Cluster: コマンドは `RedisOptions::response_timeout` で制限されません — `deadpool-redis` 0.18 に setter がありません。checkout、create、recycle はそれぞれ 30s / 5s / 5s の制限を維持します。
+- レイテンシバジェット: GET/HEAD のみ。期限が制限するのはレスポンスであり、サーバー側の処理ではありません — SQLite のブロッキングクエリはキャンセルできず、Postgres/MySQL/Redis のコマンドは継続します。キャッシュされるレスポンスは公開のみで、TTL まで古い可能性があります。書き込みがキャッシュを無効化することはありません。キャッシュされるのは正確なサイズが ≤64 KiB のボディのみです。`MemoryCache` は無制限です。long-poll/streaming GET ルートは `latency` なしの Router を使うべきです。
+
 ## [1.5.0] — 2026-10-25
 
 ### 追加

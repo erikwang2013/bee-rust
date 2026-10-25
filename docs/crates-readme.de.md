@@ -17,7 +17,7 @@ Oder in die `Cargo.toml` eintragen：
 
 ```toml
 [dependencies]
-bee_rust = "1.5.0"
+bee_rust = "1.6.0"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -76,7 +76,7 @@ Ein vollständig lauffähiges Projekt liegt in [examples/hello](https://github.c
 Minimaler Kern (ohne ORM und Datenbanktreiber)：
 
 ```toml
-bee_rust = { version = "1.5.0", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.6.0", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## Sub-Crates
@@ -86,14 +86,14 @@ Das Framework besteht aus unabhängig nutzbaren Crates; `bee_rust` ist der eine 
 | Crate | Funktion | Beego-Entsprechung |
 |-------|--------------|-------------------|
 | `bee_rust` | Meta-Crate, einzelner Einstiegspunkt | — |
-| `bee_router` | Routing + Controller + `Context` + Filter | `server/web`, `context` |
-| `bee_orm` | ORM + QuerySet + CRUD + Pooling + nicht-destruktive Migrationen + belongs_to/has_many-Beziehungen + schlüsselpflichtiges Sharding | `client/orm` |
+| `bee_router` | Routing + Controller + `Context` + Filter + Opt-in-GET/HEAD-Latenzbudget | `server/web`, `context` |
+| `bee_orm` | ORM + QuerySet + CRUD + Pooling + Pool-Status / Slow-Query-Messung + nicht-destruktive Migrationen + belongs_to/has_many-Beziehungen + schlüsselpflichtiges Sharding mit `#[bee(shard_key)]` / paralleler Synchronisierung | `client/orm` |
 | `bee_config` | Konfiguration + Hot Reload | `client/config` |
 | `bee_logs` | Logging | `logs` |
 | `bee_cache` | Cache-Abstraktion | `client/cache` |
 | `bee_session` | Session-Verwaltung (Memory/Redis implementiert; Cookie/Database geplant) | `server/web/session` |
 | `bee_template` | Template-Rendering | — (erweitert) |
-| `bee_kv` | KV-/Cache-Abstraktion + echter Redis-Pool & Lock + status / konfigurierbarer Timeout / Watchdog | `client/cache` (erweitert) |
+| `bee_kv` | KV-/Cache-Abstraktion + echter Redis-Pool & Lock + status / konfigurierbarer Timeout / Watchdog / begrenzter Acquire / TLS·ACL / Sentinel·Cluster | `client/cache` (erweitert) |
 | `bee_search` | Such-/Analyse-Engines | — (neu) |
 | `bee_graph` | Graphdatenbanken | — (neu) |
 | `bee_tsdb` | Zeitreihendatenbanken | — (neu) |
@@ -102,7 +102,7 @@ Das Framework besteht aus unabhängig nutzbaren Crates; `bee_rust` ist der eine 
 Sie lassen sich auch einzeln einbinden — etwa nur ein Elasticsearch-Client：
 
 ```toml
-bee_search = { version = "1.5.0", features = ["elasticsearch"] }
+bee_search = { version = "1.6.0", features = ["elasticsearch"] }
 ```
 
 ## Unterstützte Datenbanken
@@ -110,7 +110,7 @@ bee_search = { version = "1.5.0", features = ["elasticsearch"] }
 | Art | Datenbanken | Crate | Feature |
 |------|-----------|-------|---------|
 | Relational | SQLite / PostgreSQL / MySQL 5.7–9.x / MariaDB 10.11+ / TiDB | `bee_orm` | `sqlite` / `postgres` / `postgres-tls` / `mysql` |
-| KV / Cache | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcached` / `memcache` |
+| KV / Cache | Redis (TLS / ACL / Sentinel / Cluster) / Memcached | `bee_kv` · `bee_cache` | `redis` / `redis-tls` / `redis-sentinel` / `redis-cluster` / `memcached` / `memcache` |
 | Suche / Analyse | Elasticsearch / OpenSearch / ClickHouse | `bee_search` | `elasticsearch` / `opensearch` / `clickhouse` |
 | Graph | Neo4j / NebulaGraph / ArangoDB | `bee_graph` | `neo4j` / `nebulagraph` / `arangodb` |
 | Zeitreihen | InfluxDB / Apache IoTDB / QuestDB | `bee_tsdb` | `influxdb` / `iotdb` / `questdb` |

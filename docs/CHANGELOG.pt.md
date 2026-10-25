@@ -2,6 +2,27 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+> Versionamento: enquanto o projeto estiver em 1.x, releases menores podem incluir mudanças que quebram a API; fixe uma versão exata se você fizer match exaustivo de `OrmError`. Veja 1.3.0 e 1.6.0.
+
+## [1.6.0] — 2026-10-25
+
+### Adicionado
+- `bee_orm`: ergonomia de sharding — `#[bee(shard_key)]` marca o campo de roteamento (no máximo um; rejeitado em campos `ignore` e em campos `auto` / `auto_now_add` / `auto_now` atribuídos pelo banco de dados, porque o roteamento ocorre antes do insert), `Model::shard_key()` o expõe (`None` / `NULL` não é roteável), e `ShardedPools::for_model` roteia uma instância sem repetir a chave. `ShardedPools::all_shards()` itera os pools configurados, e `sync_all_parallel` migra cada pool × shard de tabela concorrentemente (DDL já aplicado não é revertido).
+- `bee_orm`: `OrmError::ShardError` separa uso incorreto de sharding de falhas de consulta; `OrmError` agora é `#[non_exhaustive]` — matches externos precisam de um braço coringa.
+- `bee_orm`: `PoolStatus` entre backends com `pool_status()` nos pools sqlite, postgres e mysql (`size` / `available` são `None` no mysql, que não expõe estatísticas), além de `TimedDb` para callbacks de consultas lentas. Benchmarks Criterion cobrem o hashing do router e a renderização SQL do QuerySet.
+- `bee_kv` / `bee_cache`: `RedisLock::acquire(key, ttl, wait)` tenta novamente o lock no máximo a cada 50ms até a espera limitada expirar; `RedisPoolStatus` / `pool_status()` fornecem um snapshot de pool próprio do crate; a feature `redis-tls` habilita conexões `rediss://` e as credenciais ACL viajam na URL.
+- `bee_kv` / `bee_cache`: stores/caches Sentinel (`RedisSentinelStore`, `RedisSentinelCache`) e stores/caches Cluster (`RedisClusterStore`, `RedisClusterCache`) atrás das features `redis-sentinel` / `redis-cluster`; `mget` / `mset` de cluster rodam como comandos de chave única para evitar `CROSSSLOT`.
+- `examples/sharding` e `examples/redis-lock`; a CI compila ambos os exemplos e os benchmarks, fixa MySQL 9.7.4 e mantém o job MariaDB.
+- `bee_router`: orçamento de latência opt-in para GET/HEAD com fallback para cache obsoleto — `Router::latency(LatencyConfig::new(cache))` usa 6 ms totais por padrão (4 ms de handler + 2 ms de reserva), armazena respostas GET 200 públicas de até 64 KiB e as reproduz no timeout (`X-Bee-Cache: stale`, `Age`) ou retorna 504. GETs que estouram o tempo continuam em uma tarefa de fundo limitada para aquecer o cache, e `LatencyStats` expõe contadores e P50/P99 aproximados. Métodos de escrita mantêm o comportamento de 30 s/408.
+
+### Alterado
+- `OrmError` é `#[non_exhaustive]` e falhas de sharding agora reportam `ShardError` em vez de `QueryError`; matches a jusante precisam de um braço coringa.
+
+### Limitações
+- Sentinel: as conexões ao master do pool são recicladas por `PING`, sem verificação de papel, então após um failover um master rebaixado que continue acessível pode servir conexões obsoletas. Via `Config::from_urls` do `deadpool-redis` 0.18 a conexão ao master também não recebe credenciais ACL nem TLS (as credenciais/TLS das URLs Sentinel valem apenas para os Sentinels); um master protegido por ACL ou somente TLS deve conectar diretamente.
+- Cluster: os comandos não são limitados por `RedisOptions::response_timeout` — `deadpool-redis` 0.18 não expõe setter; checkout, create e recycle mantêm seus limites de 30s / 5s / 5s.
+- Orçamento de latência: apenas GET/HEAD. O prazo limita a resposta, não o trabalho no servidor — consultas bloqueantes do SQLite não podem ser canceladas e comandos Postgres/MySQL/Redis continuam. Respostas em cache são somente públicas e podem ficar obsoletas até o TTL; escritas nunca invalidam o cache; apenas corpos de tamanho exato ≤64 KiB são cacheados; `MemoryCache` não tem limite. Rotas GET de long-poll/streaming devem usar um Router sem `latency`.
+
 ## [1.5.0] — 2026-10-25
 
 ### Adicionado

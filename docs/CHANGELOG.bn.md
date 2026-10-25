@@ -2,6 +2,27 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+> সংস্করণায়ন: প্রকল্পটি 1.x থাকা অবস্থায়, মাইনর রিলিজে API-ভাঙা পরিবর্তন থাকতে পারে; আপনি যদি `OrmError` সম্পূর্ণভাবে match করেন তবে নির্দিষ্ট সংস্করণ পিন করুন। 1.3.0 এবং 1.6.0 দেখুন।
+
+## [1.6.0] — 2026-10-25
+
+### যা যোগ হয়েছে
+- `bee_orm`: শার্ডিংয়ের সহজ ব্যবহার — `#[bee(shard_key)]` রাউটিং ফিল্ড চিহ্নিত করে (সর্বোচ্চ একটি; `ignore` করা ফিল্ড এবং ডেটাবেস-নির্ধারিত `auto` / `auto_now_add` / `auto_now` ফিল্ডে প্রত্যাখ্যাত, কারণ রাউটিং insert-এর আগে ঘটে), `Model::shard_key()` এটি উন্মুক্ত করে (`None` / `NULL` রাউটযোগ্য নয়), এবং `ShardedPools::for_model` কী পুনরাবৃত্তি ছাড়াই একটি ইনস্ট্যান্স রাউট করে। `ShardedPools::all_shards()` কনফিগার করা পুলগুলি পুনরাবৃত্তি করে, এবং `sync_all_parallel` প্রতিটি পুল × টেবিল শার্ড সমবর্তীভাবে মাইগ্রেট করে (ইতিমধ্যে প্রয়োগ করা DDL রোলব্যাক হয় না)।
+- `bee_orm`: `OrmError::ShardError` শার্ডিংয়ের ভুল ব্যবহারকে কোয়েরি ব্যর্থতা থেকে আলাদা করে; `OrmError` এখন `#[non_exhaustive]` — বাহ্যিক match-এ wildcard arm প্রয়োজন।
+- `bee_orm`: ক্রস-ব্যাকএন্ড `PoolStatus` সহ sqlite, postgres ও mysql পুলে `pool_status()` (mysql-এ `size` / `available` হলো `None`, কারণ এটি কোনো পরিসংখ্যান দেয় না), এবং ধীর কোয়েরি কলব্যাকের জন্য `TimedDb`। Criterion বেঞ্চমার্ক রাউটার হ্যাশিং ও QuerySet-এর SQL রেন্ডারিং কভার করে।
+- `bee_kv` / `bee_cache`: `RedisLock::acquire(key, ttl, wait)` সীমিত অপেক্ষা শেষ হওয়া পর্যন্ত সর্বাধিক প্রতি 50ms-এ লক পুনরায় চেষ্টা করে; `RedisPoolStatus` / `pool_status()` crate-মালিকানাধীন পুল স্ন্যাপশট দেয়; `redis-tls` feature `rediss://` সংযোগ সক্রিয় করে এবং ACL ক্রেডেনশিয়াল URL-এ যায়।
+- `bee_kv` / `bee_cache`: `redis-sentinel` / `redis-cluster` feature-এর পিছনে Sentinel স্টোর/ক্যাশ (`RedisSentinelStore`, `RedisSentinelCache`) এবং Cluster স্টোর/ক্যাশ (`RedisClusterStore`, `RedisClusterCache`); `CROSSSLOT` এড়াতে ক্লাস্টার `mget` / `mset` একক-কী কমান্ড হিসেবে চলে।
+- `examples/sharding` ও `examples/redis-lock`; CI উভয় উদাহরণ ও বেঞ্চমার্ক কম্পাইল করে, MySQL 9.7.4 পিন করে এবং MariaDB job রাখে।
+- `bee_router`: GET/HEAD-এর জন্য opt-in লেটেন্সি বাজেট, সাথে পুরোনো ক্যাশ ফলব্যাক — `Router::latency(LatencyConfig::new(cache))` ডিফল্টে মোট 6 ms ব্যবহার করে (4 ms handler + 2 ms রিজার্ভ), 64 KiB পর্যন্ত পাবলিক GET 200 রেসপন্স ক্যাশ করে, এবং টাইমআউটে সেগুলি পুনরায় পরিবেশন করে (`X-Bee-Cache: stale`, `Age`) বা 504 ফেরত দেয়। টাইমআউট হওয়া GET ক্যাশ গরম করতে একটি সীমিত ব্যাকগ্রাউন্ড টাস্কে চলতে থাকে, এবং `LatencyStats` কাউন্টার ও আনুমানিক P50/P99 প্রকাশ করে। রাইট মেথডগুলি 30 s/408 আচরণ ধরে রাখে।
+
+### যা পরিবর্তন করা হয়েছে
+- `OrmError` এখন `#[non_exhaustive]` এবং শার্ডিং ব্যর্থতা এখন `QueryError`-এর বদলে `ShardError` রিপোর্ট করে; ডাউনস্ট্রিম match-এ wildcard arm প্রয়োজন।
+
+### সীমাবদ্ধতা
+- Sentinel: পুল করা মাস্টার সংযোগ `PING` দিয়ে রিসাইকেল হয়, ভূমিকা-যাচাই হয় না, তাই failover-এর পরে পুনরায় পদাবনত মাস্টার যা পৌঁছানোযোগ্য থাকে সে পুরোনো সংযোগ পরিবেশন করতে পারে। `deadpool-redis` 0.18-এর `Config::from_urls`-এর মাধ্যমে মাস্টার সংযোগে ACL ক্রেডেনশিয়াল বা TLS-ও যায় না (Sentinel URL-এর ক্রেডেনশিয়াল/TLS শুধু Sentinel-এর জন্য প্রযোজ্য); ACL-সুরক্ষিত বা শুধু-TLS মাস্টারকে সরাসরি সংযোগ করতে হবে।
+- Cluster: কমান্ডগুলি `RedisOptions::response_timeout` দ্বারা সীমাবদ্ধ নয় — `deadpool-redis` 0.18 কোনো setter দেয় না; checkout, create ও recycle তাদের 30s / 5s / 5s সীমা ধরে রাখে।
+- লেটেন্সি বাজেট: শুধু GET/HEAD। সময়সীমা রেসপন্সকে সীমাবদ্ধ করে, সার্ভার-সাইড কাজকে নয় — SQLite-এর ব্লকিং কোয়েরি বাতিল করা যায় না এবং Postgres/MySQL/Redis কমান্ড চলতে থাকে। ক্যাশ করা রেসপন্স শুধু পাবলিক এবং TTL পর্যন্ত পুরোনো হতে পারে; রাইট ক্যাশকে কখনও অকার্যকর করে না; শুধু সঠিক আকারের ≤64 KiB বডি ক্যাশ হয়; `MemoryCache` অসীম। long-poll/streaming GET রুটের জন্য `latency` ছাড়া Router ব্যবহার করা উচিত।
+
 ## [1.5.0] — 2026-10-25
 
 ### যা যোগ হয়েছে

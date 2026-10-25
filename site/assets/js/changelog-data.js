@@ -1,7 +1,34 @@
 /* Bee Rust site — curated release history (source: docs/CHANGELOG.zh.md + CHANGELOG.md) */
 window.BeeChangelog = [
   {
-    version: '1.5.0', date: '2026-10-25', tag: 'latest',
+    version: '1.6.0', date: '2026-10-25', tag: 'latest',
+    zh: {
+      title: '分片易用性、Redis HA 与可观测性',
+      summary: 'ORM 新增 #[bee(shard_key)] / for_model / 并发迁移，统一连接池状态与慢查询计时；Redis 增加有界等待锁、TLS/ACL、Sentinel 与 Cluster 后端；CI 覆盖示例与基准。',
+      items: [
+        '#[bee(shard_key)] 标记路由字段，Model::shard_key 读取；ShardedPools::for_model 按实例路由，all_shards 遍历池，sync_all_parallel 并发迁移全部池 × 表分片（已执行的 DDL 不回滚）；分片键必须由调用方提供（宏拒绝 auto / auto_now_add / auto_now），NULL 键不可路由。',
+        '分片错误改报 OrmError::ShardError；OrmError 标注 #[non_exhaustive]，外部 match 需要通配分支。',
+        'sqlite / postgres / mysql 统一 PoolStatus / pool_status()（mysql 的 size / available 为 None）；TimedDb 上报慢查询；criterion 基准覆盖路由哈希与 QuerySet SQL 渲染。',
+        'bee_kv / bee_cache：RedisLock::acquire 在上限内每 50ms 重试；RedisPoolStatus 池快照；redis-tls 支持 rediss:// 与 URL ACL；redis-sentinel / redis-cluster 新增 Sentinel 与 Cluster 后端，Cluster 的 mget / mset 拆为单键命令。',
+        'Sentinel master 连接不做角色复检、也不携带 master ACL/TLS（deadpool-redis 0.18 限制）；Cluster 命令不受响应超时约束。新增 examples/sharding 与 examples/redis-lock，CI 编译示例与基准并固定 MySQL 9.7.4。',
+        'bee_router：新增可选 Router::latency 延迟预算——GET/HEAD 默认 6ms 截止（其中 2ms 预留给缓存兜底，10ms P99 目标）；超时回放 public 缓存并带 X-Bee-Cache: stale，未命中返回 504，LatencyStats 暴露 P50 / P99；写请求保持 30s 超时。'
+      ]
+    },
+    en: {
+      title: 'Sharding ergonomics, Redis HA, and observability',
+      summary: 'The ORM gains #[bee(shard_key)], for_model, and concurrent migration, with unified pool status and slow-query timing; Redis adds bounded lock waits, TLS/ACL, Sentinel, and Cluster backends; CI covers examples and benchmarks.',
+      items: [
+        '#[bee(shard_key)] marks the routing field and Model::shard_key exposes it; ShardedPools::for_model routes from an instance, all_shards iterates the pools, and sync_all_parallel migrates every pool × table shard concurrently (applied DDL is not rolled back); the shard key must be caller-supplied (the macro rejects auto / auto_now_add / auto_now), and a NULL key is not routable.',
+        'Sharding failures report OrmError::ShardError; OrmError is #[non_exhaustive], so external matches need a wildcard arm.',
+        'sqlite / postgres / mysql share PoolStatus / pool_status() (size / available are None on mysql); TimedDb reports slow queries; criterion benchmarks cover router hashing and QuerySet SQL rendering.',
+        'bee_kv / bee_cache: RedisLock::acquire retries every 50ms within a bounded wait; RedisPoolStatus snapshots the pool; redis-tls enables rediss:// and URL ACL; redis-sentinel / redis-cluster add Sentinel and Cluster backends, with Cluster mget / mset as single-key commands.',
+        'Sentinel master connections are not role-checked and carry no master ACL/TLS (deadpool-redis 0.18 limit); Cluster commands are not bounded by the response timeout. New examples/sharding and examples/redis-lock; CI compiles examples and benchmarks and pins MySQL 9.7.4.',
+        'bee_router: opt-in Router::latency budget — GET/HEAD get a 6ms default deadline (2ms reserved for the cache fallback, 10ms P99 target); a timeout replays a public cached response with X-Bee-Cache: stale, a miss returns 504, and LatencyStats exposes P50 / P99; writes keep the 30s timeout.'
+      ]
+    }
+  },
+  {
+    version: '1.5.0', date: '2026-10-25', tag: 'mysql',
     zh: {
       title: 'MySQL 5.7、create 快路径与 Redis 看门狗',
       summary: 'ORM 支持 MySQL 5.7 与 MariaDB 10.11，create() 在 MySQL 上跳过 catalog 探测；ShardedPools 开放池访问器；Redis 补齐状态、超时配置与锁自动续期。',

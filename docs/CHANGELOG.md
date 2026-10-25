@@ -2,6 +2,27 @@
 
 [简体中文](CHANGELOG.zh.md) · [English](CHANGELOG.md) · [한국어](CHANGELOG.ko.md) · [Русский](CHANGELOG.ru.md) · [Deutsch](CHANGELOG.de.md) · [Français](CHANGELOG.fr.md) · [Español](CHANGELOG.es.md) · [Português](CHANGELOG.pt.md) · [हिन्दी](CHANGELOG.hi.md) · [العربية](CHANGELOG.ar.md) · [বাংলা](CHANGELOG.bn.md) · [Bahasa Indonesia](CHANGELOG.id.md) · [日本語](CHANGELOG.ja.md)
 
+> Versioning: while the project is 1.x, minor releases may include API-breaking changes; pin an exact version if you match `OrmError` exhaustively. See 1.3.0 and 1.6.0.
+
+## [1.6.0] — 2026-10-25
+
+### Added
+- `bee_orm`: sharding ergonomics — `#[bee(shard_key)]` marks the routing field (at most one; rejected on `ignore`d and database-assigned `auto` / `auto_now_add` / `auto_now` fields, because routing happens before insert), `Model::shard_key()` exposes it (`None` / `NULL` is not routable), and `ShardedPools::for_model` routes an instance without repeating the key. `ShardedPools::all_shards()` iterates the configured pools, and `sync_all_parallel` migrates every pool × table shard concurrently (DDL already applied is not rolled back).
+- `bee_orm`: `OrmError::ShardError` separates sharding misuse from query failures; `OrmError` is now `#[non_exhaustive]` — external matches need a wildcard arm.
+- `bee_orm`: cross-backend `PoolStatus` with `pool_status()` on the sqlite, postgres and mysql pools (`size` / `available` are `None` on mysql, which exposes no stats), plus `TimedDb` for slow-query callbacks. Criterion benchmarks cover router hashing and QuerySet SQL rendering.
+- `bee_kv` / `bee_cache`: `RedisLock::acquire(key, ttl, wait)` retries the lock at most every 50ms until the bounded wait expires; `RedisPoolStatus` / `pool_status()` give a crate-owned pool snapshot; the `redis-tls` feature enables `rediss://` connections and ACL credentials travel in the URL.
+- `bee_kv` / `bee_cache`: Sentinel stores/caches (`RedisSentinelStore`, `RedisSentinelCache`) and Cluster stores/caches (`RedisClusterStore`, `RedisClusterCache`) behind the `redis-sentinel` / `redis-cluster` features; cluster `mget` / `mset` run as single-key commands to avoid `CROSSSLOT`.
+- `examples/sharding` and `examples/redis-lock`; CI compiles both examples and the benchmarks, pins MySQL 9.7.4, and keeps the MariaDB job.
+- `bee_router`: opt-in GET/HEAD latency budget with stale-cache fallback — `Router::latency(LatencyConfig::new(cache))` uses a 6 ms total default (4 ms handler + 2 ms reserve), caches public GET 200 responses up to 64 KiB, and replays them on timeout (`X-Bee-Cache: stale`, `Age`) or returns 504. Timed-out GETs continue in a bounded background task to warm the cache, and `LatencyStats` exposes counters plus approximate P50/P99. Write methods keep the 30 s/408 behavior.
+
+### Changed
+- `OrmError` is `#[non_exhaustive]` and sharding failures now report `ShardError` instead of `QueryError`; downstream matches need a wildcard arm.
+
+### Limitations
+- Sentinel: pooled master connections are `PING`-recycled, not role-checked, so after a failover a demoted master that stays reachable can serve stale connections. Through `deadpool-redis` 0.18's `Config::from_urls` the master connection also gets no ACL credentials or TLS (the Sentinel URLs' credentials/TLS apply to the Sentinels only); an ACL-protected or TLS-only master must connect directly.
+- Cluster: commands are not bounded by `RedisOptions::response_timeout` — `deadpool-redis` 0.18 exposes no setter; checkout, create, and recycle retain their 30s / 5s / 5s bounds.
+- Latency budget: GET/HEAD only. The deadline bounds the response, not server-side work — SQLite blocking queries cannot be cancelled and Postgres/MySQL/Redis commands continue. Cached responses are public-only and may be stale up to the TTL; writes never invalidate the cache; only exact-size bodies ≤64 KiB are cached; `MemoryCache` is unbounded. Long-poll/streaming GET routes should use a Router without `latency`.
+
 ## [1.5.0] — 2026-10-25
 
 ### Added

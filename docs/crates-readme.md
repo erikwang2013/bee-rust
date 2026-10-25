@@ -17,7 +17,7 @@ Or add it to `Cargo.toml`:
 
 ```toml
 [dependencies]
-bee_rust = "1.5.0"
+bee_rust = "1.6.0"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -76,7 +76,7 @@ A complete runnable project lives in [examples/hello](https://github.com/erikwan
 Minimal core (no ORM, no database drivers):
 
 ```toml
-bee_rust = { version = "1.5.0", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.6.0", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## Sub-crates
@@ -86,14 +86,14 @@ The framework is a set of independently usable crates; `bee_rust` is the single 
 | Crate | What it does | Beego counterpart |
 |-------|--------------|-------------------|
 | `bee_rust` | meta crate, single entry point | — |
-| `bee_router` | routing + controllers + `Context` + filters | `server/web`, `context` |
-| `bee_orm` | ORM + QuerySet + CRUD + pooling + non-destructive migrations + belongs_to/has_many relations + key-required sharding | `client/orm` |
+| `bee_router` | routing + controllers + `Context` + filters + opt-in GET/HEAD latency budget | `server/web`, `context` |
+| `bee_orm` | ORM + QuerySet + CRUD + pooling + pool status / slow-query timing + non-destructive migrations + belongs_to/has_many relations + key-required sharding with `#[bee(shard_key)]` / parallel sync | `client/orm` |
 | `bee_config` | config + hot reload | `client/config` |
 | `bee_logs` | logging | `logs` |
 | `bee_cache` | cache abstraction | `client/cache` |
 | `bee_session` | session management (Memory/Redis implemented; Cookie/Database planned) | `server/web/session` |
 | `bee_template` | template rendering | — (enhanced) |
-| `bee_kv` | KV/cache abstraction + real Redis pool & lock + status / configurable timeout / watchdog | `client/cache` (extended) |
+| `bee_kv` | KV/cache abstraction + real Redis pool & lock + status / configurable timeout / watchdog / bounded acquire / TLS·ACL / Sentinel·Cluster | `client/cache` (extended) |
 | `bee_search` | search / analytics engines | — (new) |
 | `bee_graph` | graph databases | — (new) |
 | `bee_tsdb` | time-series databases | — (new) |
@@ -102,7 +102,7 @@ The framework is a set of independently usable crates; `bee_rust` is the single 
 They can also be depended on directly — for example, just an Elasticsearch client:
 
 ```toml
-bee_search = { version = "1.5.0", features = ["elasticsearch"] }
+bee_search = { version = "1.6.0", features = ["elasticsearch"] }
 ```
 
 ## Supported databases
@@ -110,7 +110,7 @@ bee_search = { version = "1.5.0", features = ["elasticsearch"] }
 | Kind | Databases | Crate | Feature |
 |------|-----------|-------|---------|
 | Relational | SQLite / PostgreSQL / MySQL 5.7–9.x / MariaDB 10.11+ / TiDB | `bee_orm` | `sqlite` / `postgres` / `postgres-tls` / `mysql` |
-| KV / cache | Redis / Memcached | `bee_kv` · `bee_cache` | `redis` / `memcached` / `memcache` |
+| KV / cache | Redis (TLS / ACL / Sentinel / Cluster) / Memcached | `bee_kv` · `bee_cache` | `redis` / `redis-tls` / `redis-sentinel` / `redis-cluster` / `memcached` / `memcache` |
 | Search / analytics | Elasticsearch / OpenSearch / ClickHouse | `bee_search` | `elasticsearch` / `opensearch` / `clickhouse` |
 | Graph | Neo4j / NebulaGraph / ArangoDB | `bee_graph` | `neo4j` / `nebulagraph` / `arangodb` |
 | Time series | InfluxDB / Apache IoTDB / QuestDB | `bee_tsdb` | `influxdb` / `iotdb` / `questdb` |
@@ -144,7 +144,7 @@ cargo add bee_rust
 
 ```toml
 [dependencies]
-bee_rust = "1.5.0"
+bee_rust = "1.6.0"
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 ```
@@ -203,7 +203,7 @@ curl http://localhost:8080/api/v1/health    # OK
 只想要最小核心（不拖 ORM、数据库驱动）：
 
 ```toml
-bee_rust = { version = "1.5.0", default-features = false, features = ["router", "logs", "config"] }
+bee_rust = { version = "1.6.0", default-features = false, features = ["router", "logs", "config"] }
 ```
 
 ## 子 Crate
@@ -213,7 +213,7 @@ bee_rust = { version = "1.5.0", default-features = false, features = ["router", 
 | Crate | 功能 | 对标 Beego |
 |-------|------|-----------|
 | `bee_rust` | 元 crate，统一入口 | — |
-| `bee_router` | 路由 + 控制器 + Context + 过滤器 | `server/web`, `context` |
+| `bee_router` | 路由 + 控制器 + Context + 过滤器 + opt-in GET/HEAD 延迟预算 | `server/web`, `context` |
 | `bee_orm` | ORM + QuerySet + CRUD + 连接池 + 非破坏性迁移 + belongs_to/has_many 关系 + 必须带分片键的分片 | `client/orm` |
 | `bee_config` | 配置管理 + 热更新 | `client/config` |
 | `bee_logs` | 日志 | `logs` |
@@ -229,7 +229,7 @@ bee_rust = { version = "1.5.0", default-features = false, features = ["router", 
 这些 crate 也可以单独依赖，例如只用一个 ES 客户端：
 
 ```toml
-bee_search = { version = "1.5.0", features = ["elasticsearch"] }
+bee_search = { version = "1.6.0", features = ["elasticsearch"] }
 ```
 
 ## 支持的数据库
