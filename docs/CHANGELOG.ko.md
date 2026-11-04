@@ -4,6 +4,21 @@
 
 > 버전 관리: 프로젝트가 1.x인 동안 마이너 릴리스에 API 호환성을 깨는 변경이 포함될 수 있습니다. `OrmError`를 완전히 match한다면 정확한 버전을 고정하세요. 1.3.0 및 1.6.0을 참고하세요.
 
+## [1.6.2] — 2026-11-04
+
+### 보안
+- `examples/shortlink`: 커밋된 lockfile이 이제 `rustls` 0.23.46, `rustls-webpki` 0.103.16, `webpki-roots` 1.0.11, `tokio` 1.54.1을 사용해 6개의 RUSTSEC 취약점과 1개의 unsound 경고를 해결합니다. `cargo audit` 결과 취약점 0건입니다.
+
+### 변경됨
+- `bee_config`: `serde_json`을 일반 의존성에서 개발 의존성으로 이동했습니다. 테스트에서만 사용하며 게시되는 의존성 그래프에는 더 이상 포함되지 않습니다.
+- 사이트: 폰트 스택이 무료/오픈 소스 폰트(Noto, JetBrains Mono, DejaVu 등)만 사용하도록 변경했습니다. 독점 폰트 PingFang, Hiragino, Microsoft YaHei, SFMono, Consolas, Georgia 폴백은 제거했습니다.
+
+### 제거됨
+- 사용하지 않는 `docs/coin/` 후원 이미지와 RuFlo `install.sql` 스키마를 제거했습니다. 코드, 문서, CI 어디에서도 참조하지 않습니다.
+
+### 사이트
+- 홈페이지와 변경 로그에 `Ctrl/Cmd+K` 클라이언트 사이드 이중 언어 검색을 추가했습니다.
+
 ## [1.6.1] — 2026-10-26
 
 ### 보안

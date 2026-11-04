@@ -1,7 +1,30 @@
 /* Bee Rust site — curated release history (source: docs/CHANGELOG.zh.md + CHANGELOG.md) */
 window.BeeChangelog = [
   {
-    version: '1.6.1', date: '2026-10-26', tag: 'latest',
+    version: '1.6.2', date: '2026-11-04', tag: 'latest',
+    zh: {
+      title: '审计清零与字体授权整理',
+      summary: '示例锁文件关闭 6 个 RUSTSEC 漏洞与 1 个 unsound 警告；bee_config 移除多余的 serde_json 运行时依赖；站点字体全部换成免费/开源字体，并新增 Ctrl/Cmd+K 双语搜索。',
+      items: [
+        'examples/shortlink：提交的锁文件升级 rustls 0.23.46、rustls-webpki 0.103.16、webpki-roots 1.0.11、tokio 1.54.1，关闭 6 个 RUSTSEC 漏洞与 1 个 unsound 警告；cargo audit 报告 0 漏洞。',
+        'bee_config：serde_json 从 dependencies 移到 dev-dependencies——仅测试使用，不再进入发布依赖图。',
+        '站点：字体栈只使用免费/开源字体（Noto、JetBrains Mono、DejaVu 等），移除 PingFang、Hiragino、Microsoft YaHei、SFMono、Consolas、Georgia 等商业字体回退。',
+        '移除未使用的 docs/coin/ 捐赠图片与 RuFlo install.sql schema；首页与版本日志新增 Ctrl/Cmd+K 客户端双语搜索。'
+      ]
+    },
+    en: {
+      title: 'Zero audit findings and font licensing cleanup',
+      summary: 'The example lockfile closes 6 RUSTSEC vulnerabilities and 1 unsound warning; bee_config drops an unused runtime serde_json dependency; site fonts are now free/open only, with a new Ctrl/Cmd+K bilingual search.',
+      items: [
+        'examples/shortlink: the committed lockfile upgrades rustls 0.23.46, rustls-webpki 0.103.16, webpki-roots 1.0.11, and tokio 1.54.1, closing 6 RUSTSEC vulnerabilities and 1 unsound warning; cargo audit reports 0 vulnerabilities.',
+        'bee_config: serde_json moves from dependencies to dev-dependencies — it is only used by tests and no longer enters the published dependency graph.',
+        'Site: font stacks now use only free/open fonts (Noto, JetBrains Mono, DejaVu, and similar); proprietary PingFang, Hiragino, Microsoft YaHei, SFMono, Consolas, and Georgia fallbacks were removed.',
+        'Unused docs/coin/ donation images and the RuFlo install.sql schema were removed; the homepage and changelog gain Ctrl/Cmd+K client-side bilingual search.'
+      ]
+    }
+  },
+  {
+    version: '1.6.1', date: '2026-10-26', tag: 'security',
     zh: {
       title: '依赖升级与安全审计清零',
       summary: '升级 rustls、tokio、mysql_async、redis 等依赖，关闭 7 个 RUSTSEC 漏洞与 6 个 audit warning；Sentinel master 继承首个 Sentinel URL 的 ACL / DB / 协议 / TLS；cargo audit 0/0。',

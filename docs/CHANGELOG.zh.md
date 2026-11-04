@@ -4,6 +4,21 @@
 
 > 版本策略：项目处于 1.x 期间，次版本可能包含破坏性 API 变更；如果对 `OrmError` 做穷举 match，请锁定精确版本。参见 1.3.0 与 1.6.0。
 
+## [1.6.2] — 2026-11-04
+
+### 安全
+- `examples/shortlink`：提交的锁文件现在解析到 `rustls` 0.23.46、`rustls-webpki` 0.103.16、`webpki-roots` 1.0.11 与 `tokio` 1.54.1，关闭 6 个 RUSTSEC 漏洞与 1 个 unsound 警告；`cargo audit` 报告 0 漏洞。
+
+### 变更
+- `bee_config`：`serde_json` 从 `[dependencies]` 移到 `[dev-dependencies]`——它仅被测试使用，不再进入发布依赖图。
+- 站点：字体栈只使用免费/开源字体（Noto、JetBrains Mono、DejaVu 等）；移除了商业字体 PingFang、Hiragino、Microsoft YaHei、SFMono、Consolas 与 Georgia 回退项。
+
+### 移除
+- 未使用的 `docs/coin/` 捐赠图片与 RuFlo `install.sql` schema；代码、文档与 CI 均无引用。
+
+### 站点
+- 首页与版本日志新增 `Ctrl/Cmd+K` 客户端双语搜索。
+
 ## [1.6.1] — 2026-10-26
 
 ### 安全

@@ -110,7 +110,7 @@
   border: 1px solid rgba(183, 65, 14, 0.18); border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
 }
-.quote-mark { color: var(--rust); font-family: Georgia, serif; font-size: 3.4rem; line-height: 0.6; opacity: 0.5; }
+.quote-mark { color: var(--rust); font-family: "Noto Serif SC", "Source Han Serif SC", serif; font-size: 3.4rem; line-height: 0.6; opacity: 0.5; }
 .quote-text { max-width: 62ch; margin-top: 4px; color: var(--ink-2); font-size: clamp(1.02rem, 1.5vw, 1.24rem); font-weight: 700; line-height: 1.65; }
 .quote-sign { margin-top: 14px; color: var(--rust); font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.06em; }
 .quote-card img { width: 140px; justify-self: center; filter: drop-shadow(0 16px 24px rgba(183, 65, 14, 0.12)); }

@@ -4,6 +4,21 @@
 
 > Versioning: while the project is 1.x, minor releases may include API-breaking changes; pin an exact version if you match `OrmError` exhaustively. See 1.3.0 and 1.6.0.
 
+## [1.6.2] — 2026-11-04
+
+### Security
+- `examples/shortlink`: the committed lockfile now resolves `rustls` 0.23.46, `rustls-webpki` 0.103.16, `webpki-roots` 1.0.11, and `tokio` 1.54.1, closing 6 RUSTSEC vulnerabilities and 1 unsound warning; `cargo audit` reports 0 vulnerabilities.
+
+### Changed
+- `bee_config`: `serde_json` moved from dependencies to dev-dependencies — it is only used by the test suite and no longer enters the published dependency graph.
+- Site: font stacks now use only free/open fonts (Noto, JetBrains Mono, DejaVu, and similar); the proprietary PingFang, Hiragino, Microsoft YaHei, SFMono, Consolas, and Georgia fallbacks were removed.
+
+### Removed
+- Unused `docs/coin/` donation images and the RuFlo `install.sql` schema; neither had references in code, docs, or CI.
+
+### Site
+- Client-side bilingual search with `Ctrl/Cmd+K` across the homepage and changelog.
+
 ## [1.6.1] — 2026-10-26
 
 ### Security

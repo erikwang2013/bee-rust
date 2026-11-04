@@ -4,6 +4,21 @@
 
 > Versionierung: Solange das Projekt 1.x ist, können Minor-Releases API-brechende Änderungen enthalten; pinnen Sie eine exakte Version, wenn Sie `OrmError` erschöpfend matchen. Siehe 1.3.0 und 1.6.0.
 
+## [1.6.2] — 2026-11-04
+
+### Sicherheit
+- `examples/shortlink`: Die eingecheckte Lockdatei löst jetzt `rustls` 0.23.46, `rustls-webpki` 0.103.16, `webpki-roots` 1.0.11 und `tokio` 1.54.1 auf und schließt 6 RUSTSEC-Schwachstellen sowie 1 Unsound-Warnung; `cargo audit` meldet 0 Schwachstellen.
+
+### Geändert
+- `bee_config`: `serde_json` wurde von den Abhängigkeiten zu den Dev-Abhängigkeiten verschoben — es wird nur von den Tests genutzt und ist nicht mehr Teil des veröffentlichten Abhängigkeitsgraphen.
+- Website: Die Font-Stacks verwenden nur noch freie/Open-Source-Schriften (Noto, JetBrains Mono, DejaVu und ähnliche); die proprietären Fallbacks PingFang, Hiragino, Microsoft YaHei, SFMono, Consolas und Georgia wurden entfernt.
+
+### Entfernt
+- Ungenutzte `docs/coin/`-Spendenbilder und das RuFlo-`install.sql`-Schema; weder Code noch Dokumentation oder CI referenzieren sie.
+
+### Website
+- Clientseitige zweisprachige Suche mit `Ctrl/Cmd+K` auf Startseite und Changelog.
+
 ## [1.6.1] — 2026-10-26
 
 ### Sicherheit

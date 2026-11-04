@@ -265,7 +265,7 @@ cargo run
 
 ```toml
 [dependencies]
-bee_rust = { version = "1.6.1", features = ["full"] }
+bee_rust = { version = "1.6.2", features = ["full"] }
 ```
 
 ## 기술 설명

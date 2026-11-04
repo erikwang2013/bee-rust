@@ -4,6 +4,21 @@
 
 > バージョニング: プロジェクトが 1.x の間、マイナーリリースに API 破壊的変更が含まれる場合があります。`OrmError` を網羅的に match する場合は正確なバージョンを固定してください。1.3.0 と 1.6.0 を参照。
 
+## [1.6.2] — 2026-11-04
+
+### セキュリティ
+- `examples/shortlink`: コミット済みの lockfile が `rustls` 0.23.46、`rustls-webpki` 0.103.16、`webpki-roots` 1.0.11、`tokio` 1.54.1 を解決し、6 件の RUSTSEC 脆弱性と 1 件の unsound 警告を解消しました。`cargo audit` の脆弱性は 0 件です。
+
+### 変更
+- `bee_config`: `serde_json` を通常の依存関係から開発用依存関係へ移動しました。テストでのみ使用され、公開される依存グラフには含まれません。
+- サイト: フォントスタックを無料/オープンソースフォント(Noto、JetBrains Mono、DejaVu など)のみに変更しました。プロプライエタリな PingFang、Hiragino、Microsoft YaHei、SFMono、Consolas、Georgia のフォールバックを削除しました。
+
+### 削除
+- 未使用の `docs/coin/` 支援画像と RuFlo `install.sql` スキーマを削除しました。コード、ドキュメント、CI のいずれからも参照されていません。
+
+### サイト
+- トップページと変更履歴に `Ctrl/Cmd+K` のクライアントサイド二言語検索を追加しました。
+
 ## [1.6.1] — 2026-10-26
 
 ### セキュリティ

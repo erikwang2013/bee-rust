@@ -4,6 +4,21 @@
 
 > Versionnement : tant que le projet est en 1.x, les versions mineures peuvent inclure des changements cassants d'API ; épinglez une version exacte si vous faites un match exhaustif sur `OrmError`. Voir 1.3.0 et 1.6.0.
 
+## [1.6.2] — 2026-11-04
+
+### Sécurité
+- `examples/shortlink` : le fichier de verrouillage versionné résout désormais `rustls` 0.23.46, `rustls-webpki` 0.103.16, `webpki-roots` 1.0.11 et `tokio` 1.54.1, fermant 6 vulnérabilités RUSTSEC et 1 avertissement « unsound » ; `cargo audit` ne signale plus aucune vulnérabilité.
+
+### Modifications
+- `bee_config` : `serde_json` passe des dépendances aux dépendances de développement — il n'est utilisé que par les tests et n'entre plus dans le graphe de dépendances publié.
+- Site : les piles de polices n'utilisent plus que des polices libres/open source (Noto, JetBrains Mono, DejaVu, etc.) ; les replis propriétaires PingFang, Hiragino, Microsoft YaHei, SFMono, Consolas et Georgia ont été supprimés.
+
+### Suppressions
+- Images de don `docs/coin/` inutilisées et schéma RuFlo `install.sql` ; aucune référence dans le code, la documentation ou la CI.
+
+### Site
+- Recherche bilingue côté client avec `Ctrl/Cmd+K` sur la page d'accueil et le changelog.
+
 ## [1.6.1] — 2026-10-26
 
 ### Sécurité

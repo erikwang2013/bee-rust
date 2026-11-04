@@ -4,6 +4,21 @@
 
 > Pemberian versi: selama proyek masih 1.x, rilis minor dapat memuat perubahan yang memutus API; pin versi persis jika Anda melakukan match `OrmError` secara menyeluruh. Lihat 1.3.0 dan 1.6.0.
 
+## [1.6.2] — 2026-11-04
+
+### Keamanan
+- `examples/shortlink`: lockfile yang di-commit kini memakai `rustls` 0.23.46, `rustls-webpki` 0.103.16, `webpki-roots` 1.0.11, dan `tokio` 1.54.1, menutup 6 kerentanan RUSTSEC dan 1 peringatan unsound; `cargo audit` melaporkan 0 kerentanan.
+
+### Diubah
+- `bee_config`: `serde_json` dipindah dari dependencies ke dev-dependencies — hanya dipakai pengujian dan tidak lagi masuk ke graph dependensi yang dipublikasikan.
+- Situs: font stack kini hanya memakai font gratis/open source (Noto, JetBrains Mono, DejaVu, dan sejenisnya); fallback proprietary PingFang, Hiragino, Microsoft YaHei, SFMono, Consolas, dan Georgia dihapus.
+
+### Dihapus
+- Gambar donasi `docs/coin/` yang tidak terpakai dan skema RuFlo `install.sql`; keduanya tidak direferensikan di kode, dokumentasi, maupun CI.
+
+### Situs
+- Pencarian dua bahasa sisi klien dengan `Ctrl/Cmd+K` di beranda dan changelog.
+
 ## [1.6.1] — 2026-10-26
 
 ### Keamanan

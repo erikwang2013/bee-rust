@@ -4,6 +4,21 @@
 
 > Versionamento: enquanto o projeto estiver em 1.x, releases menores podem incluir mudanças que quebram a API; fixe uma versão exata se você fizer match exaustivo de `OrmError`. Veja 1.3.0 e 1.6.0.
 
+## [1.6.2] — 2026-11-04
+
+### Segurança
+- `examples/shortlink`: o lockfile versionado agora resolve `rustls` 0.23.46, `rustls-webpki` 0.103.16, `webpki-roots` 1.0.11 e `tokio` 1.54.1, fechando 6 vulnerabilidades RUSTSEC e 1 aviso de código não seguro; `cargo audit` reporta 0 vulnerabilidades.
+
+### Alterado
+- `bee_config`: `serde_json` passou de dependências para dependências de desenvolvimento — é usado apenas pelos testes e não entra mais no grafo de dependências publicado.
+- Site: as pilhas de fontes agora usam apenas fontes livres/open source (Noto, JetBrains Mono, DejaVu e similares); os fallbacks proprietários PingFang, Hiragino, Microsoft YaHei, SFMono, Consolas e Georgia foram removidos.
+
+### Removido
+- Imagens de doação `docs/coin/` não utilizadas e o schema RuFlo `install.sql`; nenhum deles é referenciado em código, documentação ou CI.
+
+### Site
+- Busca bilíngue no lado do cliente com `Ctrl/Cmd+K` na página inicial e no changelog.
+
 ## [1.6.1] — 2026-10-26
 
 ### Segurança
